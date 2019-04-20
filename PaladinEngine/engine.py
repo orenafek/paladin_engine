@@ -43,10 +43,10 @@ def main():
     stub = create_ast_stub(for_loop_stub, loop.target.id)
 
     # Create a stuber.
-    stuber = LoopStubber(parsed_ast, loop, stub)
+    stuber = LoopStubber(parsed_ast, loop)
 
-    # Stub it.
-    module = stuber.add_loop_stub()
+    # Stub the loop invariant.
+    module = stuber.stub_loop_invariant(stub)
 
     # Convert back to source.
     source_code = astor.to_source(module)
