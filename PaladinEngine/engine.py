@@ -7,10 +7,9 @@
 
 import astor
 
-from conf.engine_conf import *
-from finders import PaladinInlineDefinitionFinder
-from stubbers import LoopStubber
-from stubs import create_ast_stub, for_loop_stub
+from finders import *
+from stubbers import *
+from stubs import *
 
 
 def create_ast(src_file) -> ast.AST:
@@ -30,11 +29,11 @@ def main():
             'rb') as f:
         tetris_source_file = f.read()
 
-    parsed_ast = create_ast(tetris_source_file)
+    module = create_ast(tetris_source_file)
 
     pidf = PaladinInlineDefinitionFinder()
-    pidf.visit(parsed_ast)
-    loops = pidf.inline_loops()
+    pidf.visit(module)
+    loops = pidf.find()
 
     # Take the first loop.
     loop = [l for l in loops.keys()][0]
@@ -42,20 +41,35 @@ def main():
     # Create a stub.
     stub = create_ast_stub(for_loop_stub, loop.target.id)
 
-    # Create a stuber.
-    stuber = LoopStubber(parsed_ast, loop)
+    # Create a stubber.
+    stubber = LoopStubber(module)
 
     # Stub the loop invariant.
-    module = stuber.stub_loop_invariant(stub)
+    module = stubber.stub_loop_invariant(loop.body[0], loop, 'body', stub)
+
+    # Print a separator.
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+    # Find all assignments.
+    assignments_finder = AssignmentFinder()
+    assignments_finder.visit(module)
+    assignments = assignments_finder.find()
+
+    # for ass in assignments:
+    #     # Create a stub.
+    #     ass_stub = create_ast_stub(assignment_stub, *[target.id for target in ass.targets], value=unparse(ass.value))
+    #
+    #     # Create a stubber.
+    #     ass_stubber = AssignmentStubber(module)
+    #
+    #     # Stub.
+    #     module = ass_stubber.stub_after_assignment(ass, ass_stub)
 
     # Convert back to source.
     source_code = astor.to_source(module)
 
     # Print the source code.
     print(source_code)
-
-    # Print a separator.
-    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
     # Run it.
     exec(source_code)

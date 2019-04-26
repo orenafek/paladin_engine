@@ -1,7 +1,54 @@
+from abc import ABC, abstractmethod
+
 from conf.engine_conf import *
 
 
-class DecoratorFinder(ast.NodeVisitor):
+class GenericFinder(ABC, ast.NodeVisitor):
+    """
+        TODO: doc.
+    """
+
+    def __init__(self) -> None:
+        """
+            Constructor.
+        """
+        # Call the super's constructor.
+        super().__init__()
+
+        # Initialize the "has visited flag".
+        self.visited = False
+
+    def visit(self, node) -> None:
+        """
+            General visit.
+        :param node: (ast.AST) An AST node.
+        :return: None.
+        """
+        # Mark flag.
+        self.visited = True
+
+        # Visit by super's visitor.
+        super().visit(node)
+
+    def find(self):
+        """
+            Finds the elements.
+        :return:
+        """
+        if not self.visited:
+            raise NotVisitedException()
+
+        return self._find()
+
+    @abstractmethod
+    def _find(self):
+        """
+            An inner find method. MUST be overridden by successors.
+        :return:
+        """
+
+
+class DecoratorFinder(GenericFinder):
     """
     TODO: Doc.
     """
@@ -36,8 +83,12 @@ class DecoratorFinder(ast.NodeVisitor):
                                                        args=[a.s for a in d.args]))
         return '\n'.join(decorators)
 
+    def _find(self):
+        # TODO: Complete.
+        pass
 
-class PaladinInlineDefinitionFinder(ast.NodeVisitor):
+
+class PaladinInlineDefinitionFinder(GenericFinder):
     """
     TODO: doc.
     """
@@ -52,15 +103,12 @@ class PaladinInlineDefinitionFinder(ast.NodeVisitor):
         # Initialize a dict of loops and their inline definitions.
         self.loop_map = {}
 
-        # Initialize the "has visited flag".
-        self.visited = False
-
-    def visit(self, node):
-        # Mark the node as visited.
-        self.visited = True
-
-        # Visit.
-        super(PaladinInlineDefinitionFinder, self).visit(node)
+    def _find(self):
+        """
+            Returns the loops that the PaLaDiN definitions validate.
+        :return:
+        """
+        return {pair[0]: pair[1] for pair in self.loop_map.items() if pair[1] is not None}
 
     def visit_For(self, node) -> None:
         """
@@ -105,13 +153,6 @@ class PaladinInlineDefinitionFinder(ast.NodeVisitor):
 
         # Fill in the map.
         self.loop_map[matching_loop] = node
-
-    def print_all(self):
-        """
-            TODO: doc.
-        :return:
-        """
-        print([PaladinInlineDefinitionFinder.__expr_node_to_str(node) for node in self.loop_map.values()])
 
     @staticmethod
     def __is_first_or_only_stmt_of_body(node, loop):
@@ -161,16 +202,45 @@ class PaladinInlineDefinitionFinder(ast.NodeVisitor):
         """
         return node_str.lstrip(PALADIN_INLINE_DEFINITION_HEADER).rstrip(PALADIN_INLINE_DEFINITION_FOOTER)
 
-    def inline_loops(self):
+
+class AssignmentFinder(GenericFinder):
+    """
+        Finds all assignment statements in the node.
+    """
+
+    def __init__(self) -> None:
         """
-            Returns the loops that the PaLaDiN definitions validate.
+            Constructor.
+        """
+        # Call the super's constructor.
+        super().__init__()
+
+        # Initialize a list of the assignment statements.
+        self.ass_list = []
+
+    def visit(self, node) -> None:
+
+        # Search inside for assignments.
+        child_nodes = ast.iter_child_nodes(node)
+
+        for child_node in child_nodes:
+            if type(child_node, ast.Assign):
+                self.ass_list.append((node, child_node))
+
+    def visit_Assign(self, node) -> None:
+        """
+            Visits the Assignment statements.
+        :param node:
         :return:
         """
+        # Add to list.
+        self.ass_list.append(node)
 
-        if not self.visited:
-            raise NotVisitedException()
+        # Continue searching.
+        self.generic_visit(node)
 
-        return {pair[0]: pair[1] for pair in self.loop_map.items() if pair[1] is not None}
+    def _find(self):
+        return self.ass_list
 
 
 class DanglingPaLaDiNDefinition(Exception):

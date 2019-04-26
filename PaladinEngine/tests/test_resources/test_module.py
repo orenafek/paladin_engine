@@ -10,6 +10,7 @@ def power(n, p):
     :param p:
     :return:
     """
+    result = 1
     for i in range(p):
         """ 
         @@@
@@ -20,7 +21,7 @@ def power(n, p):
                     n < pre(n)
         @@@
         """
-        n *= n
+        result = result * n
     return n
 
 

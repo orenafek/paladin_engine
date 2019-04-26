@@ -1,7 +1,7 @@
 import ast
 from abc import ABC, abstractmethod
-
-from conf.engine_conf import AST_LOOP_TYPES
+from ast import *
+from typing import Union
 
 
 class Stubber(ABC, ast.NodeTransformer):
@@ -9,117 +9,226 @@ class Stubber(ABC, ast.NodeTransformer):
         An abstract basic stubber.
     """
 
-    def __init__(self, root_module, target_node, expected_target_node_types) -> None:
+    class _StubRecord(ABC):
+        """
+            An abstract class for representing a stub in the AST tree.
+        """
+
+        def __init__(self,
+                     original: AST,
+                     container: AST,
+                     attr_name: str,
+                     replace: Union[AST, list]) -> None:
+            """
+                Constructor.
+            :param original: (AST) The original AST node that will be replaced with a stub.
+            :param container: (AST) The container that holds the stubbed node.
+            :param attr_name: (str) The name of the attribute of the container that will be replaced.
+            :param replace: (Union[AST, list[AST]) The replacement to the original content in the container.
+            """
+            self.original = original
+            self.container = container
+            self.attr_name = attr_name
+            self.replace = replace
+
+        @abstractmethod
+        def create_stub(self) -> Union[AST, list]:
+            """
+                Creates a stub from the original and replacements.
+            :return:
+            """
+            raise NotImplementedError()
+
+        @abstractmethod
+        def fix_locations(self) -> None:
+            """
+                Fixes the locations of the nodes in the ast tree.
+            """
+            raise NotImplementedError()
+
+    class _EndStubRecord(_StubRecord):
+        def __init__(self,
+                     original: AST,
+                     container: AST,
+                     attr_name: str,
+                     replace: Union[AST, list]) -> None:
+            """
+                Constructor.
+            :param original: (AST) The original AST node that will be replaced with a stub.
+            :param container: (AST) The container that holds the stubbed node.
+            :param attr_name: (str) The name of the attribute of the container that will be replaced.
+            :param replace: (Union[AST, list[AST]) The replacement to the original content in the container.
+            """
+            super().__init__(original, container, attr_name, replace)
+
+        def create_stub(self) -> Union[AST, list]:
+            """
+                Creates a stub with the replacement at the end.
+            :return:
+            """
+            if isinstance(self.original, list):
+                stub = self.original.copy()
+            else:
+                stub = [self.original]
+
+            # Add the replacement in the end.
+            stub.append(self.replace)
+
+            return stub
+
+        def fix_locations(self) -> None:
+            """
+                Fixes the locations of the nodes in the ast tree.
+            """
+
+    class _BeginningStubRecord(_StubRecord):
+        """
+            A stub record for stubbing at the beginning of the container.
+        """
+
+        def __init__(self,
+                     original: AST,
+                     container: AST,
+                     attr_name: str,
+                     replace: Union[AST, list]) -> None:
+            """
+                Constructor.
+            :param original: (AST) The original AST node that will be replaced with a stub.
+            :param container: (AST) The container that holds the stubbed node.
+            :param attr_name: (str) The name of the attribute of the container that will be replaced.
+            :param replace: (Union[AST, list[AST]) The replacement to the original content in the container.
+            """
+            super().__init__(original, container, attr_name, replace)
+
+        def create_stub(self) -> Union[AST, list]:
+            """
+                Creates a stub with the replacement at the end.
+            :return:
+            """
+            # Extract the contents of the container.
+            container_content = self.container.__dict__[self.attr_name]
+
+            if isinstance(container_content, list):
+                stub = container_content
+            else:
+                stub = [container_content]
+
+            # Add the replacement in the end.
+            stub.insert(0, self.replace)
+
+            return stub
+
+        def fix_locations(self):
+
+            # TODO: Needs to handle an empty container situations.
+
+            # Extract nodes in container.
+            nodes = self.container.__dict__[self.attr_name]
+
+            # Extract the first element.
+            first_element = nodes[0]
+
+            # Fix the position of the first stubbed element.
+            ast.copy_location(first_element, self.original)
+
+            ast.fix_missing_locations(first_element)
+
+            # Iterate over all of the items in the container that needs a fix.
+            for node, node_index in zip(nodes[1:], range(1, len(nodes))):
+                # Copy the location.
+                ast.copy_location(node, nodes[node_index - 1])
+
+                # Fix missing locations.
+                ast.fix_missing_locations(node)
+
+    def __init__(self, root_module) -> None:
         """
             Constructor.
         :param root_module: (ast.Module) The root module that contains the items being stubbed.
-        :param target_node: (ast.AST) The node being stubbed.
-        :param expected_target_node_types: (list(class)) A list with possible expected types of the target.
+
         """
-
-        # Call the parent's constructor.
-        super().__init__()
-
-        # Validate the type of the loop node.
-        if type(target_node) not in expected_target_node_types:
-            raise NotImplementedError()
-
         # Set the root module.
         self.root_module = root_module
 
         # Set the changes map.
         self.change_map = []
 
-        # Set the node of the loop.
-        self.target_node = target_node
-
-    def _register_change(self, original, replacement) -> None:
+    def _register_change(self, stub_record: _StubRecord) -> None:
         """
             Register a replacement of a node.
-        :param original: (ast.AST) The node to replace.
-        :param replacement: (ast.AST) The node to replace with.
+        :param stub_record: (StubRecord) The record to stub.
         :return:
         """
         # Add to changes list.
-        self.change_map.append((original, replacement))
+        self.change_map.append(stub_record)
 
     def visit(self, node) -> None:
         """
             A visitor.
-        :param node: (ast.AST) The node that is currently visited.
-        :return:
+        :param node: (AST) The node that is currently visited.
+        :return: None.
         """
-        keys_for_removal = []
+        for stub_record in self.change_map:
+            if stub_record.original is node:
+                # Replace the original with the stub.
+                stub_record.container.__dict__[stub_record.attr_name] = stub_record.create_stub()
 
-        for original, replacement in self.change_map:
-            if node is original:
-                # Copy the location into the replacement.
-                ast.copy_location(replacement, original)
+                # Stub.
+                stubbed = stub_record.container.__dict__[stub_record.attr_name]
 
-                # Fix the line no. and the col offset.
-                ast.fix_missing_locations(replacement)
+                # Fix the locations of the nodes in the ast after the stubbing.
+                stub_record.fix_locations()
 
-                # Remove from dict.
-                keys_for_removal.append(original)
+                ast.fix_missing_locations(self.root_module)
 
-                # Remove changes from dict.
-                self.change_map = [change for change in self.change_map if change[0] not in keys_for_removal]
+                # Remove changes from list.
+                self.change_map.remove(stub_record)
 
-                return replacement
+                self.generic_visit(node)
+                return stubbed
 
-    def __stub(self, stub_node, list_positioner) -> ast.Module:
+        self.generic_visit(node)
+        return node
+
+    def _stub(self, stub_record: _StubRecord) -> ast.Module:
         """
             Stub the target node with the provided stub.
+        :param stub_record: (Stubber._StubRecord) The stub record.
         :param list_positioner: ((list, stub) -> None)) A function of the form: (list_of_nodes, stub) -> None
                                                         that positions the stub in thr list of nodes.
-        :param stub_node: (AST) The stub to add to the target's body.
+        :param single_extractor: (list[AST]) -> AST A function of the form: list_of_nodes -> node
+                                                    that extracts the single element to stub
+                                                    (replaced with a list of elements).
+
 
         :return: (ast.Module) The root module of the target that has just been stubbed.
          """
-        # Extract the loop's body.
-        body = self._extract_target_body()
-
-        # Check if the body is a complex block or a single statement.
-        if type(body) is list:
-            stubbed_body = body
-        else:
-            stubbed_body = []
-
-        # Add the stub.
-        list_positioner(stubbed_body, stub_node)
 
         # Register the change.
-        self._register_change(self.target_node.body, stubbed_body)
+        self._register_change(stub_record)
 
         # Update the root_module.
         self.visit(self.root_module)
 
         return self.root_module
 
-    def _stub_at_beginning(self, stub_node) -> ast.Module:
+    def extract_single_element_of_target(self, node, single_extractor):
         """
-            Add the stub to the beginning of the target node.
-        :param stub_node: (AST) The stub to add as the first element of the target's body.
-        :return: (ast.Module) The root module of the target that has just been stubbed.
+            Extract the single element out of the target supplied by the successors.
+        :param node: (AST) A node to extract the target from.
+        :param single_extractor: (list[AST]) -> AST A function of the form: list_of_nodes -> node
+                                                    that extracts the single element to stub
+                                                    (replaced with a list of elements).
+        :return: (AST) The target to stub.
         """
-        return self.__stub(stub_node, lambda stubbed_body, stub: stubbed_body.insert(0, stub))
+        # Extract target from successor.
+        target = self._extract_target(node)
 
-    def _stub_at_end(self, stub_node) -> ast.Module:
-        """
-            Add the stub to the end of the target node.
-        :param stub_node: (AST) The stub to add as the last element of the target's body.
-        :return: (ast.Module) The root module of the target that has just been stubbed.
-        """
-        return self.__stub(stub_node, lambda stubbed_body, stub: stubbed_body.append(stub))
+        if isinstance(target, list) and target != []:
+            # The replaced target is only the first element.
+            return single_extractor(target)
 
-    @abstractmethod
-    def _extract_target_body(self) -> ast.AST:
-        """
-            Extracts the body of the target node. The stub will be added to the body.
-            This is an abstract method that MUST be overridden by successors.
-        :return:
-        """
-        raise NotImplementedError()
+        return target
 
 
 class LoopStubber(Stubber):
@@ -127,29 +236,32 @@ class LoopStubber(Stubber):
         A stubber of loops.
     """
 
-    def __init__(self, root_module, loop_node) -> None:
+    def __init__(self, root_module) -> None:
         """
             Constructor
         :param root_module: (ast.module) The module that contains the loop.
         :param loop_node: (ast.stmt) The code of the loop being stubbed.
         """
         # Call the super constructor.
-        super().__init__(root_module, loop_node, AST_LOOP_TYPES)
+        super().__init__(root_module)
 
-    def _extract_target_body(self) -> ast.AST:
-        """
-            Extract the loop's body.
-        :return: (AST) The loop's body.
-        """
-        return self.target_node.body
-
-    def stub_loop_invariant(self, stub) -> ast.Module:
+    def stub_loop_invariant(self, loop_node: Union[For, While], container: AST, attr_name: str, stub: AST) -> Module:
         """
             Stub a loop invariant.
+         :param loop_node: (Union[For, While]) The code of the loop being stubbed.
+        :param container: (AST) The container that holds the loop node.
+        :param attr_name: (str) The name of the attribute of the container that will be replaced.
         :param stub: (AST) The stub to add as the first element of the loop's body.
         :return: (ast.Module) The module containing the loop.
         """
-        return self._stub_at_beginning(stub)
+        # Create a stub record.
+        stub_record = Stubber._BeginningStubRecord(loop_node, container, attr_name, stub)
+
+        # Stub.
+        self._stub(stub_record)
+
+        # Return the module.
+        return self.root_module
 
 
 class MethodStubber(Stubber):
@@ -157,34 +269,76 @@ class MethodStubber(Stubber):
         A stubber of methods.
     """
 
-    def __init__(self, root_module, method_node) -> None:
+    def __init__(self, root_module) -> None:
         """
             Constructor
         :param root_module: (ast.module) The module that contains the loop.
-        :param method_node: (ast.stmt) The code of the method being stubbed.
         """
         # Call the super constructor.
-        super().__init__(root_module, method_node, [ast.FunctionDef])
+        super().__init__(root_module)
 
-    def _extract_target_body(self) -> ast.AST:
-        """
-            Extract the loop's body.
-        :return: (AST) The loop's body.
-        """
-        return self.target_node.body
-
-    def stub_precondition(self, stub):
+    def stub_precondition(self, method_node: ast.FunctionDef, container: AST, attr_name: str, stub: AST) -> Module:
         """
             Stub a precondition invariant.
+        :param method_node: (ast.FunctionDef) The code of the method being stubbed.
+        :param container: (AST) The container that holds the method node.
+        :param attr_name: (str) The name of the attribute of the container that will be replaced.
         :param stub: (AST) The stub to add as the first element of the method's body.
-        :return: (ast.Module) The module containing the loop.
+        :return: (ast.Module) The module containing the method.
         """
-        return self._stub_at_beginning(stub)
 
-    def stub_postcondition(self, stub):
+        # Create a stub record.
+        stub_record = Stubber._BeginningStubRecord(method_node, container, attr_name, stub)
+        return self._stub(stub_record)
+
+    def stub_postcondition(self, method_node: ast.FunctionDef, container: AST, attr_name: str, stub: AST) -> Module:
         """
             Stub a post-condition invariant.
+        :param method_node: (ast.FunctionDef) The code of the method being stubbed.
+        :param container: (AST) The container that holds the method node.
+        :param attr_name: (str) The name of the attribute of the container that will be replaced.
         :param stub: (AST) The stub to add as the first element of the method's body.
-        :return: (ast.Module) The module containing the loop.
+        :return: (ast.Module) The module containing the method.
         """
-        return self._stub_at_end(stub)
+        # Create a stub record.
+        stub_record = Stubber._EndStubRecord(method_node, container, attr_name, stub)
+        return self._stub(stub_record)
+
+
+class AssignmentStubber(Stubber):
+    """
+        A stubber for assignment statements.
+    """
+
+    def __init__(self, root_module) -> None:
+        """
+            Constructor
+        :param root_module: (ast.module) The module that contains the assignment statement.
+        """
+        # Call the super constructor.
+        super().__init__(root_module)
+
+    def _extract_target(self, node):
+        """
+            Extract the assignment statements.
+        :param node: (AST) The node to extract the assignment statement from/
+        :return: (AST) The assignment statement.
+        """
+        if not isinstance(node, ast.Assign):
+            return None
+
+        return node
+
+    def stub_after_assignment(self, assignment_node, container, attr_name, stub: Union[AST, list]) -> Module:
+        """
+            Stub an assignment.
+        :param assignment_node: (ast.Assign) The assignment node.
+        :param container: (AST) The container that holds the assignment node.
+        :param attr_name: (str) The name of the attribute of the container that will be replaced.
+        :param stub: (AST) The stub to add after the assignment.
+        :return: (ast.Module) The module containing the assignment.
+        """
+
+        # Create a stub record.
+        stub_record = Stubber._EndStubRecord(assignment_node, container, attr_name, stub)
+        return self._stub(stub_record)

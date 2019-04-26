@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="BookmarkManager">
+    <bookmark url="file://$PROJECT_DIR$/stubbers.py" line="137" mnemonic="1" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="1e472ec1-e489-498a-97f4-cf941d221383" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/Owner.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/engine.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/finders.py" beforeDir="false" afterPath="$PROJECT_DIR$/finders.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/stubbers.py" beforeDir="false" afterPath="$PROJECT_DIR$/stubbers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/stubs.py" beforeDir="false" afterPath="$PROJECT_DIR$/stubs.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/test_resources/test_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_resources/test_module.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -15,7 +19,8 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="CoverageDataManager">
-    <SUITE FILE_PATH="coverage/PaladinEngine$engine.coverage" NAME="engine Coverage Results" MODIFIED="1555750550409" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/PaladinEngine$stubbers.coverage" NAME="stubbers Coverage Results" MODIFIED="1556118315968" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/PaladinEngine$engine.coverage" NAME="engine Coverage Results" MODIFIED="1556292626112" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="DatabaseView">
     <option name="SHOW_INTERMEDIATE" value="true" />
@@ -46,38 +51,40 @@
         <counts>
           <entry key="project.closed" value="2" />
           <entry key="project.open.time.0" value="1" />
+          <entry key="project.open.time.17" value="1" />
           <entry key="project.open.time.24" value="1" />
           <entry key="project.open.time.35" value="1" />
           <entry key="project.open.time.5" value="1" />
-          <entry key="project.opened" value="4" />
+          <entry key="project.opened" value="5" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
           <entry key="pmf" value="2" />
-          <entry key="py" value="28" />
+          <entry key="py" value="31" />
           <entry key="pyi" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="PLAIN_TEXT" value="2" />
-          <entry key="Python" value="28" />
+          <entry key="Python" value="31" />
           <entry key="PythonStub" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="dummy" value="8" />
+          <entry key="Python Console" value="1021" />
+          <entry key="dummy" value="9" />
           <entry key="pmf" value="65" />
-          <entry key="py" value="13348" />
-          <entry key="txt" value="116" />
+          <entry key="py" value="21624" />
+          <entry key="txt" value="196" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="PLAIN_TEXT" value="189" />
-          <entry key="Python" value="13348" />
+          <entry key="PLAIN_TEXT" value="270" />
+          <entry key="Python" value="22645" />
         </counts>
       </usages-collector>
     </session>
@@ -87,55 +94,84 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/engine.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="538">
-              <caret line="48" column="45" selection-start-line="48" selection-start-column="45" selection-end-line="48" selection-end-column="45" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$USER_HOME$/.PyCharm2018.2/system/python_stubs/699401336/builtins.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="67752">
-              <caret line="2823" column="10" selection-start-line="2823" selection-start-column="10" selection-end-line="2823" selection-end-column="10" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/finders.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2976">
-              <caret line="124" selection-start-line="124" selection-end-line="124" />
+            <state relative-caret-position="39">
+              <caret line="48" column="42" selection-start-line="48" selection-start-column="42" selection-end-line="48" selection-end-column="42" />
               <folding>
-                <marker date="1555620949844" expanded="true" signature="1408:1417" ph="..." />
-                <marker date="1555620949844" expanded="true" signature="1408:1559" ph="..." />
+                <element signature="e#127#139#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/codecs.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="191">
+              <caret line="308" selection-start-line="308" selection-end-line="308" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/site-packages/astunparse/__init__.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="168">
+              <caret line="10" column="11" selection-start-line="10" selection-start-column="4" selection-end-line="10" selection-end-column="11" />
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/stubbers.py">
+        <entry file="file://$PROJECT_DIR$/finders.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-710">
-              <caret line="136" column="14" selection-start-line="136" selection-start-column="14" selection-end-line="136" selection-end-column="14" />
+            <state relative-caret-position="-335">
+              <caret line="223" lean-forward="true" selection-start-line="223" selection-end-line="223" />
               <folding>
-                <element signature="e#0#10#0" expanded="true" />
-                <marker date="1555750550393" expanded="true" signature="134:4350" ph="..." />
-                <marker date="1555750550393" expanded="true" signature="272:817" ph="..." />
-                <marker date="1555750550393" expanded="true" signature="3274:4044" ph="..." />
-                <marker date="1555750550393" expanded="true" signature="3688:3697" ph="..." />
+                <element signature="e#0#35#0" expanded="true" />
+                <marker date="1556293028705" expanded="true" signature="5734:5744" ph="..." />
+                <marker date="1556293028705" expanded="true" signature="5734:5973" ph="..." />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/abc.py">
+        <entry file="file://$PROJECT_DIR$/stubbers.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="227">
-              <caret line="108" column="6" selection-start-line="108" selection-start-column="6" selection-end-line="108" selection-end-column="6" />
+            <state relative-caret-position="-2217">
+              <caret line="115" column="41" selection-start-line="115" selection-start-column="41" selection-end-line="115" selection-end-column="41" />
+              <folding>
+                <element signature="e#0#10#0" expanded="true" />
+                <element signature="e#139#185#1" />
+                <element signature="e#229#253#2" />
+                <element signature="e#547#977#1" />
+                <element signature="e#1215#1322#1" />
+                <element signature="e#1614#2044#1" />
+                <element signature="e#2184#2288#1" />
+                <element signature="e#2805#3235#1" />
+                <element signature="e#3375#3479#1" />
+                <element signature="e#3796#4064#0" />
+                <element signature="e#3796#3933#1" />
+                <element signature="e#4140#4279#1" />
+                <element signature="e#4399#4523#1" />
+                <element signature="e#5269#5990#1" />
+                <element signature="e#6590#7342#0" />
+                <element signature="e#6590#7074#1" />
+                <element signature="e#7227#7319#0" />
+                <element signature="e#7676#7715#1" />
+                <element signature="e#7781#7969#1" />
+                <element signature="e#8730#8771#1" />
+                <element signature="e#8839#8954#1" />
+                <element signature="e#10493#10549#1" />
+                <element signature="e#10604#10811#0" />
+                <element signature="e#10604#10735#1" />
+                <element signature="e#10858#11137#0" />
+                <element signature="e#10858#11047#1" />
+                <element signature="e#11229#11651#1" />
+                <marker date="1556292430792" expanded="true" signature="132:367" ph="..." />
+                <marker date="1556292430792" expanded="true" signature="4915:4916" ph="..." />
+                <marker date="1556292430792" expanded="true" signature="10057:10066" ph="..." />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -152,11 +188,13 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/stubs.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state>
+            <state relative-caret-position="382">
+              <caret line="46" selection-start-line="46" selection-end-line="46" />
               <folding>
-                <marker date="1555618025654" expanded="true" signature="39:40" ph="..." />
-                <marker date="1555618025654" expanded="true" signature="39:44" ph="..." />
-                <marker date="1555618025654" expanded="true" signature="235:758" ph="..." />
+                <marker date="1555756925045" expanded="true" signature="39:40" ph="..." />
+                <marker date="1555756925045" expanded="true" signature="39:44" ph="..." />
+                <marker date="1555756925045" expanded="true" signature="237:575" ph="..." />
+                <marker date="1555756925045" expanded="true" signature="618:1142" ph="..." />
               </folding>
             </state>
           </provider>
@@ -165,8 +203,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/ast.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="6048">
-              <caret line="252" selection-start-line="252" selection-end-line="252" />
+            <state relative-caret-position="505">
+              <caret line="177" column="4" selection-start-line="177" selection-start-column="4" selection-end-line="177" selection-end-column="4" />
             </state>
           </provider>
         </entry>
@@ -174,8 +212,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$USER_HOME$/.PyCharm2018.2/system/python_stubs/699401336/_ast.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="313">
-              <caret line="649" column="8" lean-forward="true" selection-start-line="649" selection-start-column="8" selection-end-line="649" selection-end-column="8" />
+            <state relative-caret-position="1752">
+              <caret line="187" column="13" selection-start-line="187" selection-start-column="13" selection-end-line="187" selection-end-column="13" />
               <folding>
                 <element signature="n#!!doc" />
                 <element signature="e#148#162#0" />
@@ -210,9 +248,7 @@
                 <element signature="e#3749#3890#0" />
                 <element signature="e#3832#3836#0" />
                 <element signature="e#3862#3884#0" />
-                <element signature="e#3917#4063#0" />
                 <element signature="e#4000#4004#0" />
-                <element signature="e#4030#4057#0" />
                 <element signature="e#4092#4270#0" />
                 <element signature="e#4175#4179#0" />
                 <element signature="e#4205#4264#0" />
@@ -467,8 +503,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/tests/test_resources/test_module.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="648">
-              <caret line="27" lean-forward="true" selection-start-line="27" selection-end-line="27" />
+            <state relative-caret-position="552">
+              <caret line="23" column="27" lean-forward="true" selection-start-line="23" selection-start-column="27" selection-end-line="23" selection-end-column="27" />
             </state>
           </provider>
         </entry>
@@ -493,7 +529,17 @@
       <find>While</find>
       <find>class For:</find>
       <find>class For</find>
+      <find>target_node</find>
+      <find>stub_loop</find>
+      <find>change_map</find>
+      <find>_extract</find>
+      <find>_reg</find>
+      <find>_regis</find>
+      <find>ast.AST</find>
     </findStrings>
+    <replaceStrings>
+      <replace>AST</replace>
+    </replaceStrings>
   </component>
   <component name="Git.Settings">
     <option name="PREVIOUS_COMMIT_AUTHORS">
@@ -516,12 +562,12 @@
         <option value="$PROJECT_DIR$/archive/archive.py" />
         <option value="$PROJECT_DIR$/finder.py" />
         <option value="$PROJECT_DIR$/conf/engine_conf.py" />
-        <option value="$PROJECT_DIR$/stubs.py" />
         <option value="$PROJECT_DIR$/pretty_printer.py" />
-        <option value="$PROJECT_DIR$/finders.py" />
         <option value="$PROJECT_DIR$/tests/test_resources/test_module.py" />
+        <option value="$PROJECT_DIR$/stubs.py" />
         <option value="$PROJECT_DIR$/engine.py" />
         <option value="$PROJECT_DIR$/stubbers.py" />
+        <option value="$PROJECT_DIR$/finders.py" />
       </list>
     </option>
   </component>
@@ -670,29 +716,45 @@
       <option name="project" value="LOCAL" />
       <updated>1555620953358</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Added a MethodStubber and refactored the whole hierarchy&#10;of the stubbers.">
+      <created>1555750593500</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1555750593500</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
+  </component>
+  <component name="TodoView">
+    <todo-panel id="selected-file">
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+    <todo-panel id="all">
+      <are-packages-shown value="true" />
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.1913646" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.10074627" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3286334" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.15618221" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.39827254" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.42299348" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.35140997" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info anchor="bottom" id="TODO" order="6" weight="0.329718" />
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" show_stripe_button="false" />
       <window_info anchor="bottom" id="Database Changes" order="9" show_stripe_button="false" />
       <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" weight="0.329718" />
-      <window_info anchor="bottom" id="Terminal" order="11" weight="0.32917467" />
-      <window_info anchor="bottom" id="Python Console" order="12" />
+      <window_info anchor="bottom" id="Terminal" order="11" weight="0.3286334" />
+      <window_info anchor="bottom" id="Python Console" order="12" weight="0.329718" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -707,10 +769,12 @@
     <option name="myLimit" value="2678400000" />
   </component>
   <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="CHECK_CODE_CLEANUP_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="CHECK_NEW_TODO" value="false" />
     <MESSAGE value="Added stubbers and finders.&#10;Now the injection of a code to the beginning of the loop is done." />
-    <option name="LAST_COMMIT_MESSAGE" value="Added stubbers and finders.&#10;Now the injection of a code to the beginning of the loop is done." />
+    <MESSAGE value="Added a MethodStubber and refactored the whole hierarchy&#10;of the stubbers." />
+    <option name="LAST_COMMIT_MESSAGE" value="Added a MethodStubber and refactored the whole hierarchy&#10;of the stubbers." />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REARRANGE_BEFORE_PROJECT_COMMIT" value="true" />
@@ -720,27 +784,21 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/engine.py</url>
-          <line>42</line>
-          <option name="timeStamp" value="6" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/finders.py</url>
-          <line>137</line>
-          <option name="timeStamp" value="7" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/finders.py</url>
-          <line>124</line>
-          <option name="timeStamp" value="8" />
+          <line>48</line>
+          <option name="timeStamp" value="36" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/stubbers.py</url>
-          <line>56</line>
-          <option name="timeStamp" value="10" />
+          <line>174</line>
+          <option name="timeStamp" value="38" />
         </line-breakpoint>
       </breakpoints>
       <breakpoints-dialog>
-        <breakpoints-dialog />
+        <breakpoints-dialog>
+          <selected-grouping-rules>
+            <grouping-rule id="by-file" />
+          </selected-grouping-rules>
+        </breakpoints-dialog>
       </breakpoints-dialog>
       <default-breakpoints>
         <breakpoint type="python-exception">
@@ -750,21 +808,61 @@
         </breakpoint>
       </default-breakpoints>
     </breakpoint-manager>
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="self.root_module.body" />
+      </configuration>
+    </watches-manager>
   </component>
   <component name="debuggerHistoryManager">
     <expressions id="evaluateExpression">
+      <expression>
+        <expression-string>self.root_module.body</expression-string>
+        <language-id>Python</language-id>
+        <evaluation-mode>EXPRESSION</evaluation-mode>
+      </expression>
+      <expression>
+        <expression-string>stub_record.container.__dict__[stub_record.attr_name]</expression-string>
+        <language-id>Python</language-id>
+        <evaluation-mode>EXPRESSION</evaluation-mode>
+      </expression>
+      <expression>
+        <expression-string>_union</expression-string>
+        <language-id>Python</language-id>
+        <evaluation-mode>EXPRESSION</evaluation-mode>
+      </expression>
+      <expression>
+        <expression-string>self</expression-string>
+        <language-id>Python</language-id>
+        <evaluation-mode>EXPRESSION</evaluation-mode>
+      </expression>
+      <expression>
+        <expression-string>unparse(ass)</expression-string>
+        <language-id>Python</language-id>
+        <evaluation-mode>EXPRESSION</evaluation-mode>
+      </expression>
+      <expression>
+        <expression-string>self.target_node</expression-string>
+        <language-id>Python</language-id>
+        <evaluation-mode>EXPRESSION</evaluation-mode>
+      </expression>
+      <expression>
+        <expression-string>unparse(module)</expression-string>
+        <language-id>Python</language-id>
+        <evaluation-mode>EXPRESSION</evaluation-mode>
+      </expression>
+      <expression>
+        <expression-string>unparse(ass_stub)</expression-string>
+        <language-id>Python</language-id>
+        <evaluation-mode>EXPRESSION</evaluation-mode>
+      </expression>
       <expression>
         <expression-string>[x for x in self.loop_map.keys()][0].body</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>self.loop_map.keys()</expression-string>
-        <language-id>Python</language-id>
-        <evaluation-mode>EXPRESSION</evaluation-mode>
-      </expression>
-      <expression>
-        <expression-string>[loop for loop in self.loop_map.keys() if loop.body is node]</expression-string>
+        <expression-string>[arg for arg in args]</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
@@ -847,14 +945,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/finders.py">
+    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/abc.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2976">
-          <caret line="124" selection-start-line="124" selection-end-line="124" />
-          <folding>
-            <marker date="1555620949844" expanded="true" signature="1408:1417" ph="..." />
-            <marker date="1555620949844" expanded="true" signature="1408:1559" ph="..." />
-          </folding>
+        <state relative-caret-position="2592">
+          <caret line="108" column="6" selection-start-line="108" selection-start-column="6" selection-end-line="108" selection-end-column="6" />
         </state>
       </provider>
     </entry>
@@ -865,42 +959,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/stubs.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <folding>
-            <marker date="1555618025654" expanded="true" signature="39:40" ph="..." />
-            <marker date="1555618025654" expanded="true" signature="39:44" ph="..." />
-            <marker date="1555618025654" expanded="true" signature="235:758" ph="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/ast.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="6048">
-          <caret line="252" selection-start-line="252" selection-end-line="252" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/tests/test_resources/test_module.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="648">
-          <caret line="27" lean-forward="true" selection-start-line="27" selection-end-line="27" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/abc.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="227">
-          <caret line="108" column="6" selection-start-line="108" selection-start-column="6" selection-end-line="108" selection-end-column="6" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.PyCharm2018.2/system/python_stubs/699401336/_ast.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="313">
-          <caret line="649" column="8" lean-forward="true" selection-start-line="649" selection-start-column="8" selection-end-line="649" selection-end-column="8" />
+        <state relative-caret-position="1752">
+          <caret line="187" column="13" selection-start-line="187" selection-start-column="13" selection-end-line="187" selection-end-column="13" />
           <folding>
             <element signature="n#!!doc" />
             <element signature="e#148#162#0" />
@@ -935,9 +997,7 @@
             <element signature="e#3749#3890#0" />
             <element signature="e#3832#3836#0" />
             <element signature="e#3862#3884#0" />
-            <element signature="e#3917#4063#0" />
             <element signature="e#4000#4004#0" />
-            <element signature="e#4030#4057#0" />
             <element signature="e#4092#4270#0" />
             <element signature="e#4175#4179#0" />
             <element signature="e#4205#4264#0" />
@@ -1188,23 +1248,104 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/site-packages/astunparse/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="168">
+          <caret line="10" column="11" selection-start-line="10" selection-start-column="4" selection-end-line="10" selection-end-column="11" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/codecs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="191">
+          <caret line="308" selection-start-line="308" selection-end-line="308" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/stubs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="382">
+          <caret line="46" selection-start-line="46" selection-end-line="46" />
+          <folding>
+            <marker date="1555756925045" expanded="true" signature="39:40" ph="..." />
+            <marker date="1555756925045" expanded="true" signature="39:44" ph="..." />
+            <marker date="1555756925045" expanded="true" signature="237:575" ph="..." />
+            <marker date="1555756925045" expanded="true" signature="618:1142" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/ast.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="505">
+          <caret line="177" column="4" selection-start-line="177" selection-start-column="4" selection-end-line="177" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/test_resources/test_module.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="552">
+          <caret line="23" column="27" lean-forward="true" selection-start-line="23" selection-start-column="27" selection-end-line="23" selection-end-column="27" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/engine.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="538">
-          <caret line="48" column="45" selection-start-line="48" selection-start-column="45" selection-end-line="48" selection-end-column="45" />
+        <state relative-caret-position="39">
+          <caret line="48" column="42" selection-start-line="48" selection-start-column="42" selection-end-line="48" selection-end-column="42" />
+          <folding>
+            <element signature="e#127#139#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/stubbers.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-710">
-          <caret line="136" column="14" selection-start-line="136" selection-start-column="14" selection-end-line="136" selection-end-column="14" />
+        <state relative-caret-position="-2217">
+          <caret line="115" column="41" selection-start-line="115" selection-start-column="41" selection-end-line="115" selection-end-column="41" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
-            <marker date="1555750550393" expanded="true" signature="134:4350" ph="..." />
-            <marker date="1555750550393" expanded="true" signature="272:817" ph="..." />
-            <marker date="1555750550393" expanded="true" signature="3274:4044" ph="..." />
-            <marker date="1555750550393" expanded="true" signature="3688:3697" ph="..." />
+            <element signature="e#139#185#1" />
+            <element signature="e#229#253#2" />
+            <element signature="e#547#977#1" />
+            <element signature="e#1215#1322#1" />
+            <element signature="e#1614#2044#1" />
+            <element signature="e#2184#2288#1" />
+            <element signature="e#2805#3235#1" />
+            <element signature="e#3375#3479#1" />
+            <element signature="e#3796#4064#0" />
+            <element signature="e#3796#3933#1" />
+            <element signature="e#4140#4279#1" />
+            <element signature="e#4399#4523#1" />
+            <element signature="e#5269#5990#1" />
+            <element signature="e#6590#7342#0" />
+            <element signature="e#6590#7074#1" />
+            <element signature="e#7227#7319#0" />
+            <element signature="e#7676#7715#1" />
+            <element signature="e#7781#7969#1" />
+            <element signature="e#8730#8771#1" />
+            <element signature="e#8839#8954#1" />
+            <element signature="e#10493#10549#1" />
+            <element signature="e#10604#10811#0" />
+            <element signature="e#10604#10735#1" />
+            <element signature="e#10858#11137#0" />
+            <element signature="e#10858#11047#1" />
+            <element signature="e#11229#11651#1" />
+            <marker date="1556292430792" expanded="true" signature="132:367" ph="..." />
+            <marker date="1556292430792" expanded="true" signature="4915:4916" ph="..." />
+            <marker date="1556292430792" expanded="true" signature="10057:10066" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/finders.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-335">
+          <caret line="223" lean-forward="true" selection-start-line="223" selection-end-line="223" />
+          <folding>
+            <element signature="e#0#35#0" expanded="true" />
+            <marker date="1556293028705" expanded="true" signature="5734:5744" ph="..." />
+            <marker date="1556293028705" expanded="true" signature="5734:5973" ph="..." />
           </folding>
         </state>
       </provider>
