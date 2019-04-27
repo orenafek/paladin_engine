@@ -220,12 +220,14 @@ class AssignmentFinder(GenericFinder):
 
     def visit(self, node) -> None:
 
-        # Search inside for assignments.
-        child_nodes = ast.iter_child_nodes(node)
+        self.visited = True
 
-        for child_node in child_nodes:
-            if type(child_node, ast.Assign):
-                self.ass_list.append((node, child_node))
+        # Search in direct children nodes.
+        for attr_name, child_node in AssignmentFinder.__iter_child_nodes(node):
+            if type(child_node) is ast.Assign:
+                self.ass_list.append((node, attr_name, child_node))
+
+        self.generic_visit(node)
 
     def visit_Assign(self, node) -> None:
         """
@@ -241,6 +243,20 @@ class AssignmentFinder(GenericFinder):
 
     def _find(self):
         return self.ass_list
+
+    @staticmethod
+    def __iter_child_nodes(node):
+        """
+        Yield all direct child nodes of *node*, that is, all fields that are nodes
+        and all items of fields that are lists of nodes.
+        """
+        for name, field in ast.iter_fields(node):
+            if isinstance(field, ast.AST):
+                yield name, field
+            elif isinstance(field, list):
+                for item in field:
+                    if isinstance(item, ast.AST):
+                        yield name, item
 
 
 class DanglingPaLaDiNDefinition(Exception):

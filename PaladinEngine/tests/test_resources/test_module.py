@@ -22,7 +22,7 @@ def power(n, p):
         @@@
         """
         result = result * n
-    return n
+    return result
 
 
 print(power(2, 5))

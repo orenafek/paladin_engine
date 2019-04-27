@@ -1,7 +1,7 @@
 import ast
 
 
-def for_loop_stub(target):
+def __FLI__(target):
     """
         A stub for a for loop.
     :param target: The target of the loop.
@@ -10,7 +10,7 @@ def for_loop_stub(target):
     print('Stub! target is {}'.format(target))
 
 
-def assignment_stub(*targets, value) -> None:
+def __AS__(*targets, value) -> None:
     """
         A stub for assignment statement.
     :param targets: (list[ast.Name]) The targets being assigned.
@@ -19,7 +19,7 @@ def assignment_stub(*targets, value) -> None:
     """
 
     # Create the targets str:
-    trgts_str = ', '.join([target for target in targets])
+    trgts_str = ', '.join([str(target) for target in targets])
     print('Assignment: {} = {}'.format(trgts_str, value))
 
 
@@ -29,11 +29,25 @@ def create_ast_stub(stub, *args, **kwargs):
     :param stub: (function) A stub
     :return:
     """
+
+    # Initialize args list.
+    arg_list = []
+
+    for arg in args:
+        if type(arg) is tuple:
+            arg_name = arg[0]
+            arg_type = arg[1]
+
+            if arg_type is str:
+                arg = "'{}'".format(arg_name)
+
+        arg_list.append(arg)
+
     # Create the args list str.
-    args_str = ', '.join([arg for arg in args])
+    args_str = ', '.join([arg.strip() for arg in arg_list])
 
     # Create the kwargs list str.
-    kwargs_str = ','.join('{}={}'.format(kw[0], kw[1]) for kw in kwargs.items())
+    kwargs_str = ','.join('{}={}'.format(kw[0].strip(), kw[1].strip()) for kw in kwargs.items())
 
     # Create the args/kwargs list str.
     args_kwargs_str = ','.join([args_str, kwargs_str])

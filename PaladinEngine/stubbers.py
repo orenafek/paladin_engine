@@ -61,20 +61,24 @@ class Stubber(ABC, ast.NodeTransformer):
             """
             super().__init__(original, container, attr_name, replace)
 
-        def create_stub(self) -> Union[AST, list]:
+        def create_stub(self) -> list:
             """
                 Creates a stub with the replacement at the end.
             :return:
             """
-            if isinstance(self.original, list):
-                stub = self.original.copy()
-            else:
-                stub = [self.original]
 
-            # Add the replacement in the end.
-            stub.append(self.replace)
+            # Initialize a new container.
+            container_with_stub = []
 
-            return stub
+            # Find the original node in the container.
+            for node in self.container.__dict__[self.attr_name]:
+                container_with_stub.append(node)
+
+                if node is self.original:
+                    # Add the stub.
+                    container_with_stub.append(self.replace)
+
+            return container_with_stub
 
         def fix_locations(self) -> None:
             """
@@ -105,18 +109,19 @@ class Stubber(ABC, ast.NodeTransformer):
                 Creates a stub with the replacement at the end.
             :return:
             """
-            # Extract the contents of the container.
-            container_content = self.container.__dict__[self.attr_name]
 
-            if isinstance(container_content, list):
-                stub = container_content
-            else:
-                stub = [container_content]
+            # Initialize a new container.
+            container_with_stub = []
 
-            # Add the replacement in the end.
-            stub.insert(0, self.replace)
+            # Find the original node in the container.
+            for node in self.container.__dict__[self.attr_name]:
+                if node is self.original:
+                    # Add the stub.
+                    container_with_stub.append(self.replace)
 
-            return stub
+                container_with_stub.append(node)
+
+            return container_with_stub
 
         def fix_locations(self):
 

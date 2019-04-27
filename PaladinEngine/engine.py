@@ -6,10 +6,11 @@
 """
 
 import astor
+from astunparse import unparse
 
 from finders import *
 from stubbers import *
-from stubs import *
+from stubs import __AS__, __FLI__, create_ast_stub
 
 
 def create_ast(src_file) -> ast.AST:
@@ -39,12 +40,12 @@ def main():
     loop = [l for l in loops.keys()][0]
 
     # Create a stub.
-    stub = create_ast_stub(for_loop_stub, loop.target.id)
+    stub = create_ast_stub(__FLI__, loop.target.id)
 
     # Create a stubber.
     stubber = LoopStubber(module)
 
-    # Stub the loop invariant.
+    # Stub the loop invariant
     module = stubber.stub_loop_invariant(loop.body[0], loop, 'body', stub)
 
     # Print a separator.
@@ -55,15 +56,16 @@ def main():
     assignments_finder.visit(module)
     assignments = assignments_finder.find()
 
-    # for ass in assignments:
-    #     # Create a stub.
-    #     ass_stub = create_ast_stub(assignment_stub, *[target.id for target in ass.targets], value=unparse(ass.value))
-    #
-    #     # Create a stubber.
-    #     ass_stubber = AssignmentStubber(module)
-    #
-    #     # Stub.
-    #     module = ass_stubber.stub_after_assignment(ass, ass_stub)
+    for container, attr_name, ass in assignments:
+        # Create a stub.
+        ass_stub = create_ast_stub(__AS__, *[(target.id, str) for target in ass.targets],
+                                   value=unparse(ass.value))
+
+        # Create a stubber.
+        ass_stubber = AssignmentStubber(module)
+
+        # Stub.
+        module = ass_stubber.stub_after_assignment(ass, container, attr_name, ass_stub)
 
     # Convert back to source.
     source_code = astor.to_source(module)
