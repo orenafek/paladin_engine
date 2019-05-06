@@ -1,5 +1,7 @@
 import ast
 
+from archive.archive import Archive
+
 
 def __FLI__(target):
     """
@@ -7,20 +9,24 @@ def __FLI__(target):
     :param target: The target of the loop.
     :return:
     """
-    print('Stub! target is {}'.format(target))
+    print("For Loop Stub: Iteration ", target)
 
 
-def __AS__(*targets, value) -> None:
+archive = Archive()
+
+
+def __AS__(*assignment_pairs) -> None:
     """
         A stub for assignment statement.
-    :param targets: (list[ast.Name]) The targets being assigned.
-    :param value: (ast.AST) The assigned value.
+    :param assignment_pairs: (list[(str, str]) A list of pairs of assignment pairs of:
+                                               (target, value)
     :return: None
     """
 
-    # Create the targets str:
-    trgts_str = ', '.join([str(target) for target in targets])
-    print('Assignment: {} = {}'.format(trgts_str, value))
+    # Iterate over the targets of the assignment.
+    for assignment_pair in assignment_pairs:
+        # Record the value.
+        archive[assignment_pair[0]] = assignment_pair[1]
 
 
 def create_ast_stub(stub, *args, **kwargs):
@@ -33,15 +39,29 @@ def create_ast_stub(stub, *args, **kwargs):
     # Initialize args list.
     arg_list = []
 
-    for arg in args:
-        if type(arg) is tuple:
-            arg_name = arg[0]
-            arg_type = arg[1]
+    for arg_tuple_list in args:
 
-            if arg_type is str:
+        # Initialize the inner tuple string.
+        inner_tuple_strings = []
+        for arg_tuple in arg_tuple_list:
+
+            # Extract the argument's name.
+            arg_name = arg_tuple[0]
+
+            # Extract the argument's type.
+            arg_type = arg_tuple[1]
+
+            if arg_type is StubArgumentType.PLAIN:
+                arg = "{}".format(arg_name)
+            elif arg_type is StubArgumentType.NAME:
                 arg = "'{}'".format(arg_name)
+            else:
+                raise NotImplementedError('arg_type is not of of type: ', StubArgumentType)
 
-        arg_list.append(arg)
+            # Add to the inner tuple strings list.
+            inner_tuple_strings.append(arg)
+
+        arg_list.append('({})'.format(', '.join(inner_tuple_strings)))
 
     # Create the args list str.
     args_str = ', '.join([arg.strip() for arg in arg_list])
@@ -59,3 +79,21 @@ def create_ast_stub(stub, *args, **kwargs):
     ast_node = ast.parse(call_str).body[0]
 
     return ast_node
+
+
+class StubArgumentType(enumerate):
+    """
+        Types of arguments to stubs.
+    """
+
+    # Pass the argument "as is."
+    # e.g.: if a stub stubs the statement: print(x)
+    #       and the value of x should be passed to the stub,
+    #       the stub will be: __STUB_PRINT(x)
+    PLAIN = 0
+
+    # Pass the argument's name.
+    # e.g.: if a stub stubs the statement: print(x)
+    #       and the name of x should be passed to the stub,
+    #       the stub will be: __STUB_PRINT('x')
+    NAME = 1

@@ -84,6 +84,8 @@ class Stubber(ABC, ast.NodeTransformer):
             """
                 Fixes the locations of the nodes in the ast tree.
             """
+            # TODO: Implement?
+            pass
 
     class _BeginningStubRecord(_StubRecord):
         """
@@ -347,3 +349,66 @@ class AssignmentStubber(Stubber):
         # Create a stub record.
         stub_record = Stubber._EndStubRecord(assignment_node, container, attr_name, stub)
         return self._stub(stub_record)
+
+    def stub_assignment_with_tmp(self):
+
+        class _with_tmp_(Stubber._StubRecord):
+            """
+                A stub record for stubbing with tmp.
+            """
+
+            def __init__(self,
+                         original: AST,
+                         container: AST,
+                         attr_name: str,
+                         replace: Union[AST, list]) -> None:
+                """
+                    Constructor.
+                :param original: (AST) The original AST node that will be replaced with a stub.
+                :param container: (AST) The container that holds the stubbed node.
+                :param attr_name: (str) The name of the attribute of the container that will be replaced.
+                :param replace: (Union[AST, list[AST]) The replacement to the original content in the container.
+                """
+                super().__init__(original, container, attr_name, replace)
+
+            def create_stub(self) -> Union[AST, list]:
+                """
+                    Creates a stub with the replacement at the end.
+                :return:
+                """
+
+                # Initialize a new container.
+                container_with_stub = []
+
+                # Find the original node in the container.
+                for node in self.container.__dict__[self.attr_name]:
+                    if node is self.original:
+                        # Add the stub.
+                        container_with_stub.append(self.replace)
+
+                    container_with_stub.append(node)
+
+                return container_with_stub
+
+            def fix_locations(self):
+
+                # TODO: Needs to handle an empty container situations.
+
+                # Extract nodes in container.
+                nodes = self.container.__dict__[self.attr_name]
+
+                # Extract the first element.
+                first_element = nodes[0]
+
+                # Fix the position of the first stubbed element.
+                ast.copy_location(first_element, self.original)
+
+                ast.fix_missing_locations(first_element)
+
+                # Iterate over all of the items in the container that needs a fix.
+                for node, node_index in zip(nodes[1:], range(1, len(nodes))):
+                    # Copy the location.
+                    ast.copy_location(node, nodes[node_index - 1])
+
+                    # Fix missing locations.
+                    ast.fix_missing_locations(node)

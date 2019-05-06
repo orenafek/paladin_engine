@@ -6,11 +6,10 @@
 """
 
 import astor
-from astunparse import unparse
 
 from finders import *
 from stubbers import *
-from stubs import __AS__, __FLI__, create_ast_stub
+from stubs import __AS__, __FLI__, create_ast_stub, archive, StubArgumentType
 
 
 def create_ast(src_file) -> ast.AST:
@@ -40,7 +39,7 @@ def main():
     loop = [l for l in loops.keys()][0]
 
     # Create a stub.
-    stub = create_ast_stub(__FLI__, loop.target.id)
+    stub = create_ast_stub(__FLI__, [(loop.target.id, StubArgumentType.PLAIN)])
 
     # Create a stubber.
     stubber = LoopStubber(module)
@@ -57,9 +56,11 @@ def main():
     assignments = assignments_finder.find()
 
     for container, attr_name, ass in assignments:
+        # Create the list of the targets of the assignment.
+        Assign()
         # Create a stub.
-        ass_stub = create_ast_stub(__AS__, *[(target.id, str) for target in ass.targets],
-                                   value=unparse(ass.value))
+        ass_stub = create_ast_stub(__AS__, *[[(target.id, StubArgumentType.NAME),
+                                              (target.id, StubArgumentType.PLAIN)] for target in ass.targets])
 
         # Create a stubber.
         ass_stubber = AssignmentStubber(module)
@@ -75,6 +76,9 @@ def main():
 
     # Run it.
     exec(source_code)
+
+    # Print the archive.
+    print(archive.all_values())
 
 
 if __name__ == '__main__':

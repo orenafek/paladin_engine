@@ -1,8 +1,3 @@
-# @Paladin.postcond('n', 'n > 0')
-# def square(n):
-#     return n * n
-
-
 def power(n, p):
     """
 
@@ -11,7 +6,9 @@ def power(n, p):
     :return:
     """
     result = 1
+    __AS__(('result', result))
     for i in range(p):
+        __FLI__(i)
         """ 
         @@@
             loop-invariant(n):
@@ -22,7 +19,7 @@ def power(n, p):
         @@@
         """
         result = result * n
-        # z, [x, y] = 4, [1, 2]
+        __AS__(('result', result))
     return result
 
 
