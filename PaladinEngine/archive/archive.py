@@ -7,6 +7,9 @@
 
 import prettytable
 
+from conf.engine_conf import ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
+
+
 class Archive(object):
     """
         An archive of all values of variables throughout  the history of the program.
@@ -165,22 +168,14 @@ class Archive(object):
         table = prettytable.PrettyTable(border=prettytable.ALL,
                                         hrules=1,
                                         field_names=['variable', 'values'])
-
-        widths = []
+        table.align = 'l'
+        table.max_width = ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
 
         # Add rows from the archive.
         for var, values in self.all_values().items():
-            flat_values = ', '.join(_flatten(values, []))
+            table.add_row([var, ', '.join(_flatten(values, []))])
 
-            widths.append(len(flat_values))
-
-            table.add_row([var, flat_values])
-
-        table.max_width = 100
-        table.align = 'l'
         return table.get_string()
-
-        # return '\n'.join(output)
 
     def vars(self) -> list:
         """

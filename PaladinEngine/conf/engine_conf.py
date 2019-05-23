@@ -14,3 +14,5 @@ AST_LOOP_TYPES = [
     ast.For,  # for <target> in <iter>:
     ast.While  # While <cond>
 ]
+
+ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH = 100  # Characters

@@ -93,7 +93,6 @@ def main():
     exec(compiled_code, globals())
 
     # Print the archive.
-    # print([(k, str(v)) for k, v in archive.all_values().items()])
     print(archive)
 
 if __name__ == '__main__':
