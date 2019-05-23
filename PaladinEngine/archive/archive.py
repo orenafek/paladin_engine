@@ -5,6 +5,7 @@
     :since: 05/04/2019
 """
 
+import prettytable
 
 class Archive(object):
     """
@@ -146,25 +147,40 @@ class Archive(object):
             For each var, a list of strings representing the values of the var throughout its history.
         :return:
         """
-        output = []
 
-        def _flatten(o, output):
+        def _flatten(o, flat):
             if type(o) is not list:
                 if type(o) is type:
-                    output.append(o.__qualname__)
+                    flat.append(o.__qualname__)
                 else:
-                    output.append(str(o))
-                return output
+                    flat.append(str(o))
+                return flat
             else:
                 for v in o:
-                    output = _flatten(v, output)
+                    _flatten(v, flat)
 
-            return output
+            return flat
 
+        # Create a pretty table.
+        table = prettytable.PrettyTable(border=prettytable.ALL,
+                                        hrules=1,
+                                        field_names=['variable', 'values'])
+
+        widths = []
+
+        # Add rows from the archive.
         for var, values in self.all_values().items():
-            output.append(f'{str(var)}: {_flatten(values, [])}')
+            flat_values = ', '.join(_flatten(values, []))
 
-        return '\n'.join(output)
+            widths.append(len(flat_values))
+
+            table.add_row([var, flat_values])
+
+        table.max_width = 100
+        table.align = 'l'
+        return table.get_string()
+
+        # return '\n'.join(output)
 
     def vars(self) -> list:
         """

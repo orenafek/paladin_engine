@@ -94,7 +94,7 @@ def main():
 
     # Print the archive.
     # print([(k, str(v)) for k, v in archive.all_values().items()])
-    print(str(archive))
+    print(archive)
 
 if __name__ == '__main__':
     main()
