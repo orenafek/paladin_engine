@@ -140,6 +140,32 @@ class Archive(object):
 
         return {var: self.values(var) for var in self.vars_dict.keys()}
 
+    def __str__(self):
+        """
+            Returns a string representing the archive.
+            For each var, a list of strings representing the values of the var throughout its history.
+        :return:
+        """
+        output = []
+
+        def _flatten(o, output):
+            if type(o) is not list:
+                if type(o) is type:
+                    output.append(o.__qualname__)
+                else:
+                    output.append(str(o))
+                return output
+            else:
+                for v in o:
+                    output = _flatten(v, output)
+
+            return output
+
+        for var, values in self.all_values().items():
+            output.append(f'{str(var)}: {_flatten(values, [])}')
+
+        return '\n'.join(output)
+
     def vars(self) -> list:
         """
             Extract all of the variables that has been recorded in the archive.

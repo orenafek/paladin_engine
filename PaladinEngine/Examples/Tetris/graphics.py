@@ -126,18 +126,16 @@ http://mcsp.wartburg.edu/zelle/python for a quick reference"""
 #     Added ability to set text atttributes.
 #     Added Entry boxes.
 
-import time, os, sys
-import Tkinter
+import os
+import time
+import tkinter
 
-tk = Tkinter
+tk = tkinter
 
 ##########################################################################
-# Module Exceptions
-
-import exceptions
 
 
-class GraphicsError(exceptions.Exception):
+class GraphicsError(Exception):
     """Generic error class for graphics module exceptions."""
     # def __init__(self, *args):
     # self.args=args
@@ -179,7 +177,7 @@ class CanvasFrame(tk.Frame):
 
     def __checkOpen(self):
         if self.closed:
-            raise GraphicsError, "window is closed"
+            raise GraphicsError("window is closed")
 
     def setBackground(self, color):
         """Set background color of the window"""
@@ -227,7 +225,7 @@ class CanvasFrame(tk.Frame):
         self.mouseY = None
         while self.mouseX == None or self.mouseY == None:
             self.update()
-            if self.isClosed(): raise GraphicsError, "getMouse in closed window"
+            if self.isClosed(): raise GraphicsError("getMouse in closed window")
             time.sleep(.1)  # give up thread
         x, y = self.toWorld(self.mouseX, self.mouseY)
         self.mouseX = None
@@ -238,7 +236,7 @@ class CanvasFrame(tk.Frame):
         """Return last mouse click or None if mouse has
         not been clicked since last call"""
         if self.isClosed():
-            raise GraphicsError, "checkMouse in closed window"
+            raise GraphicsError("checkMouse in closed window")
         self.update()
         if self.mouseX != None and self.mouseY != None:
             x, y = self.toWorld(self.mouseX, self.mouseY)
@@ -359,8 +357,8 @@ class GraphicsObject:
         window. Raises an error if attempt made to draw an object that
         is already visible."""
 
-        if self.canvas_frame and not self.canvas_frame.isClosed(): raise GraphicsError, OBJ_ALREADY_DRAWN
-        if canvas_frame.isClosed(): raise GraphicsError, "Can't draw to closed window"
+        if self.canvas_frame and not self.canvas_frame.isClosed(): raise GraphicsError(OBJ_ALREADY_DRAWN)
+        if canvas_frame.isClosed(): raise GraphicsError("Can't draw to closed window")
         self.canvas_frame = canvas_frame
         self.id = self._draw(canvas_frame, self.config)
 
@@ -396,8 +394,8 @@ class GraphicsObject:
         # Internal method for changing configuration of the object
         # Raises an error if the option does not exist in the config
         #    dictionary for this object
-        if not self.config.has_key(option):
-            raise GraphicsError, UNSUPPORTED_METHOD
+        if option not in self.config:
+            raise GraphicsError(UNSUPPORTED_METHOD)
         options = self.config
         options[option] = setting
         if self.canvas_frame and not self.canvas_frame.isClosed():
@@ -436,6 +434,9 @@ class Point(GraphicsObject):
     def getX(self): return self.x
 
     def getY(self): return self.y
+
+    def __str__(self) -> str:
+        return f'({self.x}, {self.y})'
 
 
 class _BBox(GraphicsObject):
@@ -537,7 +538,7 @@ class Line(_BBox):
 
     def setArrow(self, option):
         if not option in ["first", "last", "both", "none"]:
-            raise GraphicsError, BAD_OPTION
+            raise GraphicsError(BAD_OPTION)
         self._reconfig("arrow", option)
 
 
@@ -547,16 +548,16 @@ class Polygon(GraphicsObject):
         # if points passed as a list, extract it
         if len(points) == 1 and type(points[0] == type([])):
             points = points[0]
-        self.points = map(Point.clone, points)
+        self.points = list(map(Point.clone, points))
         GraphicsObject.__init__(self, ["outline", "width", "fill"])
 
     def clone(self):
-        other = apply(Polygon, self.points)
+        other = Polygon(*self.points)
         other.config = self.config.copy()
         return other
 
     def getPoints(self):
-        return map(Point.clone, self.points)
+        return list(map(Point.clone, self.points))
 
     def _move(self, dx, dy):
         for p in self.points:
@@ -569,7 +570,7 @@ class Polygon(GraphicsObject):
             args.append(x)
             args.append(y)
         args.append(options)
-        return apply(tk.Canvas.create_polygon, args)
+        return tk.Canvas.create_polygon(*args)
 
 
 class Text(GraphicsObject):
@@ -608,21 +609,21 @@ class Text(GraphicsObject):
             f, s, b = self.config['font']
             self._reconfig("font", (face, s, b))
         else:
-            raise GraphicsError, BAD_OPTION
+            raise GraphicsError(BAD_OPTION)
 
     def setSize(self, size):
         if 5 <= size <= 72:
             f, s, b = self.config['font']
             self._reconfig("font", (f, size, b))
         else:
-            raise GraphicsError, BAD_OPTION
+            raise GraphicsError(BAD_OPTION)
 
     def setStyle(self, style):
         if style in ['bold', 'normal', 'italic', 'bold italic']:
             f, s, b = self.config['font']
             self._reconfig("font", (f, s, style))
         else:
-            raise GraphicsError, BAD_OPTION
+            raise GraphicsError(BAD_OPTION)
 
     def setTextColor(self, color):
         # self.config['fg'] = color;
@@ -696,19 +697,19 @@ class Entry(GraphicsObject):
         if face in ['helvetica', 'arial', 'courier', 'times roman']:
             self._setFontComponent(0, face)
         else:
-            raise GraphicsError, BAD_OPTION
+            raise GraphicsError(BAD_OPTION)
 
     def setSize(self, size):
         if 5 <= size <= 36:
             self._setFontComponent(1, size)
         else:
-            raise GraphicsError, BAD_OPTION
+            raise GraphicsError(BAD_OPTION)
 
     def setStyle(self, style):
         if style in ['bold', 'normal', 'italic', 'bold italic']:
             self._setFontComponent(2, style)
         else:
-            raise GraphicsError, BAD_OPTION
+            raise GraphicsError(BAD_OPTION)
 
     def setTextColor(self, color):
         self.color = color
@@ -795,14 +796,14 @@ class Pixmap:
         if type(value) == int:
             return [value, value, value]
         else:
-            return map(int, value.split())
+            return list(map(int, value.split()))
 
-    def setPixel(self, x, y, (r, g, b)):
+    def setPixel(self, x, y, xxx_todo_changeme):
         """Sets pixel (x,y) to the color given by RGB values r, g, and b.
         r,g,b should be in range(256)
 
         """
-
+        (r, g, b) = xxx_todo_changeme
         self.image.put("{%s}" % color_rgb(r, g, b), (x, y))
 
     def clone(self):

@@ -1,10 +1,13 @@
-from graphics import *
+
 import random
+
+from Examples.Tetris.graphics import Window, Point, Rectangle, CanvasFrame, Text
 
 
 ############################################################
 # BLOCK CLASS
 ############################################################
+
 
 class Block(Rectangle):
     ''' Block class:
@@ -21,6 +24,7 @@ class Block(Rectangle):
     def __init__(self, pos, color):
         self.x = pos.x
         self.y = pos.y
+        self.color = color
 
         p1 = Point(pos.x * Block.BLOCK_SIZE + Block.OUTLINE_WIDTH,
                    pos.y * Block.BLOCK_SIZE + Block.OUTLINE_WIDTH)
@@ -66,6 +70,9 @@ class Block(Rectangle):
         rot_y = center.y + dir * center.x - dir * self.x
 
         return rot_x, rot_y
+
+    def __str__(self) -> str:
+        return f'B({self.x}, {self.y}, {self.color})'
 
 
 ############################################################
@@ -197,6 +204,8 @@ class Shape(object):
         if self.shift_rotation_dir:
             self.rotation_dir *= -1
 
+    def __str__(self):
+        return f'{type(self).__qualname__}'
 
 ############################################################
 # ALL SHAPE CLASSES
@@ -406,8 +415,7 @@ class Board(object):
         '''
         # TODO: FIX!
         # Get all rows from y_start to 0 (descending order).
-        print
-        'reversed(range(0, y_start)) = ', list(reversed(range(0, y_start)))
+        print('reversed(range(0, y_start)) = ', list(reversed(range(0, y_start))))
         for y in reversed(range(0, y_start)):
             for x in [_x for (_x, _y) in self.grid if _y == y]:
                 # Remove it from the grid.
@@ -415,12 +423,10 @@ class Board(object):
 
                 # Move it on the screen.
                 if block.can_move(self, x, y):
-                    print
-                    'Moving ({}, {})'.format(x, y)
+                    print('Moving ({}, {})'.format(x, y))
                     block.move(0, 1)
 
-                print
-                'After move: block.x, block.y', block.x, ', ', block.y
+                print('After move: block.x, block.y', block.x, ', ', block.y)
 
                 # Replace it in the grid.
                 self.grid[(x, y + 1)] = block
@@ -602,7 +608,8 @@ class Tetris(object):
 ################################################################
 # Start the game
 ################################################################
-
-win = Window("Tetris")
-game = Tetris(win)
-win.mainloop()
+if __name__ == '__main__':
+    I_shape(Point(1, 2))
+    win = Window("Tetris")
+    game = Tetris(win)
+    win.mainloop()

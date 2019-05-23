@@ -21,16 +21,7 @@ def create_ast(src_file) -> ast.AST:
     return ast.parse(src_file)
 
 
-def main():
-    # Read source file.
-    with open(
-            r'C:\Users\Owner\Documents\master\Project A\paladin_engine\PaladinEngine\tests\test_resources\test_module'
-            r'.py',
-            'rb') as f:
-        tetris_source_file = f.read()
-
-    module = create_ast(tetris_source_file)
-
+def loop_invariant_process(module):
     pidf = PaladinInlineDefinitionFinder()
     pidf.visit(module)
     loops = pidf.find()
@@ -47,6 +38,15 @@ def main():
     # Stub the loop invariant
     module = stubber.stub_loop_invariant(loop.body[0], loop, 'body', stub)
 
+
+def main():
+    # Read source file.
+    with open(R'C:\Users\Owner\Documents\master\Project A\paladin_engine\PaladinEngine\Examples\Tetris\tetris.py') as f:
+        tetris_source_file = f.read()
+
+    module = create_ast(tetris_source_file)
+
+
     # Print a separator.
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
@@ -58,9 +58,21 @@ def main():
     for container, attr_name, ass in assignments:
         # Create the list of the targets of the assignment.
         Assign()
+
+        # Create a list for the assignment targets.
+        targets = []
+
+        class nameVisitor(ast.NodeVisitor):
+            def visit_Name(self, node):
+                targets.append([(node.id, StubArgumentType.NAME), (node.id, StubArgumentType.PLAIN)])
+                self.generic_visit(node)
+
+        for target in ass.targets:
+            # Search for the targets in the left hand side of the assignment.
+            nameVisitor().visit(target)
+
         # Create a stub.
-        ass_stub = create_ast_stub(__AS__, *[[(target.id, StubArgumentType.NAME),
-                                              (target.id, StubArgumentType.PLAIN)] for target in ass.targets])
+        ass_stub = create_ast_stub(__AS__, *targets)
 
         # Create a stubber.
         ass_stubber = AssignmentStubber(module)
@@ -74,12 +86,15 @@ def main():
     # Print the source code.
     print(source_code)
 
+    # Compile it.
+    compiled_code = compile(source_code, r'C:\Users\Owner\AppData\Local\Temp\error', mode='exec')
+
     # Run it.
-    exec(source_code)
+    exec(compiled_code, globals())
 
     # Print the archive.
-    print(archive.all_values())
-
+    # print([(k, str(v)) for k, v in archive.all_values().items()])
+    print(str(archive))
 
 if __name__ == '__main__':
     main()

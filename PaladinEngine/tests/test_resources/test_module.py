@@ -22,7 +22,8 @@ def power(n, p):
         @@@
         """
         result = result * n
-        # z, [x, y] = 4, [1, 2]
+        x, y = result, result / 2
+        z, [x, y] = 4, [1, 2]
     return result
 
 
