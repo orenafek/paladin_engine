@@ -4,96 +4,100 @@
     :author: Oren Afek
     :since: 05/04/19
 """
-
-import astor
+from types import CodeType
 
 from finders import *
+from module_transformer.module_transformator import ModuleTransformer
 from stubbers import *
-from stubs import __AS__, __FLI__, create_ast_stub, archive, StubArgumentType
+# DO NOT REMOVE!!!!
+# noinspection PyUnresolvedReferences
+from stubs import __FLI__, __AS__
+from stubs import archive
 
 
-def create_ast(src_file) -> ast.AST:
+class PaLaDiNEngine(object):
+    ...
+
+
+# noinspection PyRedeclaration
+class PaLaDiNEngine(object):
     """
-        Create an AST object out of a string of a source file.
-    :param src_file: (str) A source file.
-    :return: (Node) An AST node.
+        Paladin's conversion engine.
     """
-    return ast.parse(src_file)
 
+    __INSTANCE = PaLaDiNEngine()
 
-def loop_invariant_process(module):
-    pidf = PaladinInlineDefinitionFinder()
-    pidf.visit(module)
-    loops = pidf.find()
+    __PALADIN_STUBS_LIST = [__AS__, __FLI__]
 
-    # Take the first loop.
-    loop = [l for l in loops.keys()][0]
+    __COMPILATION_MODE = 'exec'
 
-    # Create a stub.
-    stub = create_ast_stub(__FLI__, [(loop.target.id, StubArgumentType.PLAIN)])
+    def __new__(cls, *args, **kwargs):
+        return PaLaDiNEngine.__INSTANCE
 
-    # Create a stubber.
-    stubber = LoopStubber(module)
+    @staticmethod
+    def compile(source_code) -> CodeType:
+        # Compile it.
+        return compile(source_code, PALADIN_ERROR_FILE_PATH, mode=PaLaDiNEngine.__COMPILATION_MODE)
 
-    # Stub the loop invariant
-    module = stubber.stub_loop_invariant(loop.body[0], loop, 'body', stub)
+    @staticmethod
+    def execute_with_paladin(source_code):
+        """
+            Execute a source code with the paladin environment.
+        :param source_code:
+        :return:
+        """
+        return exec(source_code,
+                    {f.__name__: f for f in PaLaDiNEngine.__PALADIN_STUBS_LIST})
+
+    @staticmethod
+    def process_module(module: ast.AST) -> ast.AST:
+        """
+            Activate all the transformers on a module.
+        :param module:
+        :return:
+        """
+        return ModuleTransformer(module) \
+            .transform_loop_invariants() \
+            .transform_assignments() \
+            .module()
+
+    @staticmethod
+    def create_module(src_file) -> ast.AST:
+        """
+            Create an AST object out of a string of a source file.
+        :param src_file: (str) Source code.
+        :return: (Node) An AST node.
+        """
+        return ast.parse(src_file)
+
+    @staticmethod
+    def transform(code: str) -> CodeType:
+        """
+            Transform a code into a code with PaLaDiN.
+        :param code: (str) source code.
+        :return:
+        """
+        return PaLaDiNEngine.compile(
+            PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
 
 
 def main():
     # Read source file.
-    with open(R'C:\Users\Owner\Documents\master\Project A\paladin_engine\PaladinEngine\Examples\Tetris\tetris.py') as f:
+    with open(
+            r'C:\Users\Owner\Documents\master\Project A\paladin_engine\PaladinEngine\tests\test_resources\test_module'
+            r'.py') as f:
+        # Read the source file.
         tetris_source_file = f.read()
 
-    module = create_ast(tetris_source_file)
+        # Transform into a PaLaDiN form.
+        paladinized = PaLaDiNEngine.transform(tetris_source_file)
 
+        # Execute the code.
+        PaLaDiNEngine.execute_with_paladin(paladinized)
 
-    # Print a separator.
-    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        # Print the archive.
+        print(archive)
 
-    # Find all assignments.
-    assignments_finder = AssignmentFinder()
-    assignments_finder.visit(module)
-    assignments = assignments_finder.find()
-
-    for container, attr_name, ass in assignments:
-        # Create the list of the targets of the assignment.
-        Assign()
-
-        # Create a list for the assignment targets.
-        targets = []
-
-        class nameVisitor(ast.NodeVisitor):
-            def visit_Name(self, node):
-                targets.append([(node.id, StubArgumentType.NAME), (node.id, StubArgumentType.PLAIN)])
-                self.generic_visit(node)
-
-        for target in ass.targets:
-            # Search for the targets in the left hand side of the assignment.
-            nameVisitor().visit(target)
-
-        # Create a stub.
-        ass_stub = create_ast_stub(__AS__, *targets)
-
-        # Create a stubber.
-        ass_stubber = AssignmentStubber(module)
-
-        # Stub.
-        module = ass_stubber.stub_after_assignment(ass, container, attr_name, ass_stub)
-
-    # Convert back to source.
-    source_code = astor.to_source(module)
-
-    # Print the source code.
-    print(source_code)
-
-    # Compile it.
-    compiled_code = compile(source_code, r'C:\Users\Owner\AppData\Local\Temp\error', mode='exec')
-
-    # Run it.
-    exec(compiled_code, globals())
-
-    # Print the archive.
-    print(archive)
 
 if __name__ == '__main__':
     main()

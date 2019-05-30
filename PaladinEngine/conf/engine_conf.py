@@ -9,6 +9,7 @@ import ast
 PALADIN_INLINE_DEFINITION_HEADER = '@@@'
 PALADIN_INLINE_DEFINITION_FOOTER = PALADIN_INLINE_DEFINITION_HEADER
 
+PALADIN_ERROR_FILE_PATH = r'C:\Users\Owner\AppData\Local\Temp\error'
 # Types of loops.
 AST_LOOP_TYPES = [
     ast.For,  # for <target> in <iter>:
