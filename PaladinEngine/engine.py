@@ -83,9 +83,7 @@ class PaLaDiNEngine(object):
 
 def main():
     # Read source file.
-    with open(
-            r'C:\Users\Owner\Documents\master\Project A\paladin_engine\PaladinEngine\tests\test_resources\test_module'
-            r'.py') as f:
+    with open(r'tests\test_resources\test_module.py') as f:
         # Read the source file.
         tetris_source_file = f.read()
 
