@@ -67,7 +67,7 @@ class Archive(object):
         # Initialize the variables dict.
         self.vars_dict = {}
 
-    def __getitem__(self, var) -> object:
+    def __getitem__(self, var) -> Record:
         """
             Retrieve the last value of of a variable.
         :param var (str) The name of the variable to retrieve its value.

@@ -2,17 +2,26 @@ import ast
 
 from archive.archive import Archive
 
+archive = Archive()
 
-def __FLI__(target):
+
+def __FLI__(locals, globals):
     """
         A stub for a for loop.
-    :param target: The target of the loop.
+    :param locals: The local names accessible from the loop.
+    :param locals: The global names accessible from the loop.
     :return:
     """
-    print("For Loop Stub: Iteration ", target)
+    all_vars = {**locals, **globals}
 
+    n = all_vars['n']
 
-archive = Archive()
+    result = all_vars['result']
+
+    if n >= 1:
+        assert result >= all([v for v in archive.values('result')])
+    else:
+        assert result < all([v for v in archive.values('result')])
 
 
 def __AS__(*assignment_pairs) -> None:
@@ -70,7 +79,12 @@ def create_ast_stub(stub, *args, **kwargs):
     kwargs_str = ','.join('{}={}'.format(kw[0].strip(), kw[1].strip()) for kw in kwargs.items())
 
     # Create the args/kwargs list str.
-    args_kwargs_str = ','.join([args_str, kwargs_str])
+    if args_str == '':
+        args_kwargs_str = kwargs_str
+    elif kwargs_str == '':
+        args_kwargs_str = args_str
+    else:
+        args_kwargs_str = ','.join([args_str, kwargs_str])
 
     # Create the call as a str.
     call_str = '{func}({args_kwargs})'.format(func=stub.__name__, args_kwargs=args_kwargs_str)

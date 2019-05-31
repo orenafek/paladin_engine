@@ -14,14 +14,16 @@ def power(n, p):
     for i in range(p):
         """ 
         @@@
-            loop-invariant(n):
+            loop-invariant:
                 if |n| >= 1:
-                    n >= pre(n)
+                    result >= pre(result)
                 else:
-                    n < pre(n)
+                    result < pre(result)
         @@@
         """
         result = result * n
+        if i == 2:
+            result = -1
     return result
 
 

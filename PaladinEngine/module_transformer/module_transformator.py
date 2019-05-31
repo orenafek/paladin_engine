@@ -34,7 +34,8 @@ class ModuleTransformer(object):
         loop = [l for l in loops.keys()][0]
 
         # Create a stub.
-        stub = create_ast_stub(__FLI__, [(loop.target.id, StubArgumentType.PLAIN)])
+        # stub = create_ast_stub(__FLI__, [(loop.target.id, StubArgumentType.PLAIN)])
+        stub = create_ast_stub(__FLI__, locals='locals()', globals='globals()')
 
         # Create a stubber.
         stubber = LoopStubber(self.__module)

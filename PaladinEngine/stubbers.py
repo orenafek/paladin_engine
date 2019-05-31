@@ -219,25 +219,6 @@ class Stubber(ABC, ast.NodeTransformer):
 
         return self.root_module
 
-    def extract_single_element_of_target(self, node, single_extractor):
-        """
-            Extract the single element out of the target supplied by the successors.
-        :param node: (AST) A node to extract the target from.
-        :param single_extractor: (list[AST]) -> AST A function of the form: list_of_nodes -> node
-                                                    that extracts the single element to stub
-                                                    (replaced with a list of elements).
-        :return: (AST) The target to stub.
-        """
-        # Extract target from successor.
-        target = self._extract_target(node)
-
-        if isinstance(target, list) and target != []:
-            # The replaced target is only the first element.
-            return single_extractor(target)
-
-        return target
-
-
 class LoopStubber(Stubber):
     """
         A stubber of loops.
