@@ -18,7 +18,7 @@ def __FLI__(locals, globals):
 
     result = all_vars['result']
 
-    if n >= 1:
+    if abs(n) >= 1:
         assert result >= all([v for v in archive.values('result')])
     else:
         assert result < all([v for v in archive.values('result')])
