@@ -4,6 +4,7 @@
     :author: Oren Afek
     :since: 05/04/2019
 """
+import copy
 
 import prettytable
 
@@ -102,8 +103,11 @@ class Archive(object):
         else:
             time = records[0].time() + 1
 
+        # Clone the value.
+        cloned_value = copy.deepcopy(value)
+
         # Create a record.
-        record = Archive.Record(time, value)
+        record = Archive.Record(time, cloned_value)
 
         # Save the new record.
         records.insert(0, record)
@@ -151,19 +155,6 @@ class Archive(object):
         :return:
         """
 
-        def _flatten(o, flat):
-            if type(o) is not list:
-                if type(o) is type:
-                    flat.append(o.__qualname__)
-                else:
-                    flat.append(str(o))
-                return flat
-            else:
-                for v in o:
-                    _flatten(v, flat)
-
-            return flat
-
         # Create a pretty table.
         table = prettytable.PrettyTable(border=prettytable.ALL,
                                         hrules=1,
@@ -173,7 +164,7 @@ class Archive(object):
 
         # Add rows from the archive.
         for var, values in self.all_values().items():
-            table.add_row([var, ', '.join(_flatten(values, []))])
+            table.add_row([var, ', '.join(str(v) for v in values)])
 
         return table.get_string()
 

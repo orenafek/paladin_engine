@@ -24,6 +24,7 @@ def power(n, p):
         result = result * n
         if i == 2:
             result = -1
+
     return result
 
 

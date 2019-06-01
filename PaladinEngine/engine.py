@@ -4,7 +4,10 @@
     :author: Oren Afek
     :since: 05/04/19
 """
+import traceback
 from types import CodeType
+
+import astor
 
 from finders import *
 from module_transformer.module_transformator import ModuleTransformer
@@ -71,14 +74,13 @@ class PaLaDiNEngine(object):
         return ast.parse(src_file)
 
     @staticmethod
-    def transform(code: str) -> CodeType:
+    def transform(code: str) -> str:
         """
             Transform a code into a code with PaLaDiN.
         :param code: (str) source code.
-        :return:
+        :return: (str) The PaLaDiNized code.
         """
-        return PaLaDiNEngine.compile(
-            PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
+        return astor.to_source(PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
 
 
 def main():
@@ -90,11 +92,22 @@ def main():
         # Transform into a PaLaDiN form.
         paladinized = PaLaDiNEngine.transform(tetris_source_file)
 
-        # Execute the code.
-        PaLaDiNEngine.execute_with_paladin(paladinized)
+        # Print the code.
+        print(str(paladinized))
 
-        # Print the archive.
-        print(archive)
+        # Compile it.
+        complied_code = PaLaDiNEngine.compile(paladinized)
+
+        try:
+            # Execute the code.
+            PaLaDiNEngine.execute_with_paladin(complied_code)
+
+        except BaseException:
+            traceback.print_exc()
+
+        finally:
+            # Print the archive.
+            print(archive)
 
 
 if __name__ == '__main__':

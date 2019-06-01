@@ -1,3 +1,10 @@
+def __AS__(*a):
+    ...
+
+
+def __FLI__(*a, **b):
+    ...
+
 def power(n, p):
     """
 
@@ -8,18 +15,21 @@ def power(n, p):
     result = 1
     __AS__(('result', result))
     for i in range(p):
-        __FLI__(i)
+        __FLI__(locals=locals(), globals=globals())
         """ 
         @@@
-            loop-invariant(n):
+            loop-invariant:
                 if |n| >= 1:
-                    n >= pre(n)
+                    result >= pre(result)
                 else:
-                    n < pre(n)
+                    result < pre(result)
         @@@
         """
         result = result * n
         __AS__(('result', result))
+        if i == 2:
+            result = -1
+            __AS__(('result', result))
     return result
 
 
