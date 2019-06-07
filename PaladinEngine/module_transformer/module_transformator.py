@@ -8,8 +8,8 @@ import ast
 
 import astor
 
-from finders import PaladinInlineDefinitionFinder, AssignmentFinder
-from stubbers import LoopStubber, Assign, AssignmentStubber
+from finders import PaladinInlineDefinitionFinder, AssignmentFinder, ParametrizedFunctionCallFinder
+from stubbers import LoopStubber, AssignmentStubber
 from stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType
 
 
@@ -45,16 +45,28 @@ class ModuleTransformer(object):
 
         return self
 
+    def transform_parametrized_function_calls(self) -> ModuleTransformer:
+        """
+            TODO: Doc.
+        :return:
+        """
+
+        # Find all parametrized function calls.
+        function_calls_finder = ParametrizedFunctionCallFinder()
+        function_calls_finder.visit(self.__module)
+        function_calls = ParametrizedFunctionCallFinder.find()
+
     def transform_assignments(self) -> ModuleTransformer:
+        """
+            TODO: Doc.
+        :return:
+        """
         # Find all assignments.
         assignments_finder = AssignmentFinder()
         assignments_finder.visit(self.__module)
         assignments = assignments_finder.find()
 
         for container, attr_name, ass in assignments:
-            # Create the list of the targets of the assignment.
-            Assign()
-
             # Create a list for the assignment targets.
             targets = []
 

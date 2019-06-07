@@ -219,6 +219,7 @@ class Stubber(ABC, ast.NodeTransformer):
 
         return self.root_module
 
+
 class LoopStubber(Stubber):
     """
         A stubber of loops.
@@ -331,65 +332,55 @@ class AssignmentStubber(Stubber):
         stub_record = Stubber._EndStubRecord(assignment_node, container, attr_name, stub)
         return self._stub(stub_record)
 
-    def stub_assignment_with_tmp(self):
 
-        class _with_tmp_(Stubber._StubRecord):
-            """
-                A stub record for stubbing with tmp.
-            """
+class ParametrizedFunctionStubber(Stubber):
+    """
+        A stubber for parametrized function calls.
+    """
 
-            def __init__(self,
-                         original: AST,
-                         container: AST,
-                         attr_name: str,
-                         replace: Union[AST, list]) -> None:
-                """
-                    Constructor.
-                :param original: (AST) The original AST node that will be replaced with a stub.
-                :param container: (AST) The container that holds the stubbed node.
-                :param attr_name: (str) The name of the attribute of the container that will be replaced.
-                :param replace: (Union[AST, list[AST]) The replacement to the original content in the container.
-                """
-                super().__init__(original, container, attr_name, replace)
+    def __init__(self, root_module) -> None:
+        """
+            Constructor
+        :param root_module: (ast.module) The module that contains the parametrized function call.
+        """
+        # Call the super constructor.
+        super().__init__(root_module)
 
-            def create_stub(self) -> Union[AST, list]:
-                """
-                    Creates a stub with the replacement at the end.
-                :return:
-                """
+    def _extract_target(self, node):
+        """
+            Extract the assignment statements.
+        :param node: (AST) The node to extract the parametrized function call from.
+        :return: (AST) The function call.
+        """
+        if not isinstance(node, ast.Call):
+            return None
 
-                # Initialize a new container.
-                container_with_stub = []
+        return node
 
-                # Find the original node in the container.
-                for node in self.container.__dict__[self.attr_name]:
-                    if node is self.original:
-                        # Add the stub.
-                        container_with_stub.append(self.replace)
+    def stub_before_function_call(self, function_call_node, container, attr_name, stub: Union[AST, list]) -> Module:
+        """
+            Stub a parametrized function call before its call.
+        :param function_call_node: (ast.Call) The parametrized function call.
+        :param container: (AST) The container that holds the parametrized function call node.
+        :param attr_name: (str) The name of the attribute of the container that will be replaced.
+        :param stub: (AST) The stub to add before the parametrized function call.
+        :return: (ast.Module) The module containing the parametrized function call.
+        """
 
-                    container_with_stub.append(node)
+        # Create a stub record.
+        stub_record = Stubber._BeginningStubRecord(function_call_node, container, attr_name, stub)
+        return self._stub(stub_record)
 
-                return container_with_stub
+    def stub_after_function_call(self, function_call_node, container, attr_name, stub: Union[AST, list]) -> Module:
+        """
+            Stub a parametrized function call after its call.
+        :param function_call_node: (ast.Call) The parametrized function call.
+        :param container: (AST) The container that holds the parametrized function call node.
+        :param attr_name: (str) The name of the attribute of the container that will be replaced.
+        :param stub: (AST) The stub to add after the parametrized function call.
+        :return: (ast.Module) The module containing the parametrized function call.
+        """
 
-            def fix_locations(self):
-
-                # TODO: Needs to handle an empty container situations.
-
-                # Extract nodes in container.
-                nodes = self.container.__dict__[self.attr_name]
-
-                # Extract the first element.
-                first_element = nodes[0]
-
-                # Fix the position of the first stubbed element.
-                ast.copy_location(first_element, self.original)
-
-                ast.fix_missing_locations(first_element)
-
-                # Iterate over all of the items in the container that needs a fix.
-                for node, node_index in zip(nodes[1:], range(1, len(nodes))):
-                    # Copy the location.
-                    ast.copy_location(node, nodes[node_index - 1])
-
-                    # Fix missing locations.
-                    ast.fix_missing_locations(node)
+        # Create a stub record.
+        stub_record = Stubber._EndStubRecord(function_call_node, container, attr_name, stub)
+        return self._stub(stub_record)
