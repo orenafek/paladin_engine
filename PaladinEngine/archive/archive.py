@@ -23,6 +23,35 @@ class Archive(object):
         """
         pass
 
+    class Var(object):
+        """
+            A variable that is stored in the archive.
+        """
+
+        def __init__(self, var_id, var_name):
+            """
+                Constructor.
+            :param var_id: (int) The pythonic identification number of the variable.
+            :param var_name: (str) The name of the variable.
+            """
+            self.var_id = var_id
+            self.var_name = var_name
+
+        def __hash__(self):
+            return self.var_id.__hash__()
+
+        def __eq__(self, other):
+            return isinstance(other, Archive.Var) and other.var_id == self.var_id
+
+        def __ne__(self, other):
+            return not (self == other)
+
+        def __cmp__(self, other):
+            if not isinstance(other, Archive.Var):
+                return 1
+            else:
+                return self.var_id.__cmp__(other.var_id)
+
     class Record(object):
         """
             A record of a variable's value in a point in history.
@@ -84,10 +113,11 @@ class Archive(object):
         # Extract last value.
         return records[0]
 
-    def __setitem__(self, var, value):
+    def __setitem__(self, var_id, var_name, value):
         """
             Record a new value of a variable.
-        :param var (str) The name of the variable to record its new value.
+        :param var_id (id) The id of the variable to record its new value.
+        :param var_name (str) The name of the variable to record its new value.
         :param value (object) The value to record.
         """
         # Check if the var has been recorded yet:

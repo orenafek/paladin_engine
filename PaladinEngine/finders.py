@@ -27,6 +27,9 @@ class GenericFinder(ABC, ast.NodeVisitor):
         # Mark flag.
         self.visited = True
 
+        # Visit.
+        self._visit(node)
+
         # Visit by super's visitor.
         super().visit(node)
 
@@ -41,11 +44,21 @@ class GenericFinder(ABC, ast.NodeVisitor):
         return self._find()
 
     @abstractmethod
+    def _visit(self, node):
+        """
+            An inner visit method. MUST be overridden by successors.
+        :param node:
+        :return:
+        """
+        pass
+
+    @abstractmethod
     def _find(self):
         """
             An inner find method. MUST be overridden by successors.
         :return:
         """
+        pass
 
 
 class DecoratorFinder(GenericFinder):
@@ -85,6 +98,53 @@ class DecoratorFinder(GenericFinder):
 
     def _find(self):
         # TODO: Complete.
+        pass
+
+
+class InnerFinder(GenericFinder):
+    """
+        A finder for elements that can be found in any inner nodes.
+    """
+
+    @staticmethod
+    def __iter_child_nodes(node):
+        """
+        Yield all direct child nodes of *node*, that is, all fields that are nodes
+        and all items of fields that are lists of nodes.
+        """
+        for name, field in ast.iter_fields(node):
+            if isinstance(field, ast.AST):
+                yield name, field
+            elif isinstance(field, list):
+                for item in field:
+                    if isinstance(item, ast.AST):
+                        yield name, item
+
+    def _visit(self, node: ast.AST) -> None:
+        # Search in direct children nodes.
+        for attr_name, child_node in InnerFinder.__iter_child_nodes(node):
+            if type(child_node) is self._target_type():
+                self._do_when_found((node, attr_name, child_node))
+
+        # Continue searching inside.
+        self.generic_visit(node)
+
+    @abstractmethod
+    def _target_type(self) -> type:
+        """
+            Returns the target type of the searched node.
+            MUST be overridden by successors.
+        :return: (type)
+        """
+        pass
+
+    @abstractmethod
+    def _do_when_found(self, result: tuple) -> None:
+        """
+            Performs an action when the target node is found.
+        :param result: (tuple) The found node.
+        :return: None
+        """
         pass
 
 
@@ -203,7 +263,7 @@ class PaladinInlineDefinitionFinder(GenericFinder):
         return node_str.lstrip(PALADIN_INLINE_DEFINITION_HEADER).rstrip(PALADIN_INLINE_DEFINITION_FOOTER)
 
 
-class AssignmentFinder(GenericFinder):
+class AssignmentFinder(InnerFinder):
     """
         Finds all assignment statements in the node.
     """
@@ -217,17 +277,6 @@ class AssignmentFinder(GenericFinder):
 
         # Initialize a list of the assignment statements.
         self.ass_list = []
-
-    def visit(self, node) -> None:
-
-        self.visited = True
-
-        # Search in direct children nodes.
-        for attr_name, child_node in AssignmentFinder.__iter_child_nodes(node):
-            if type(child_node) is ast.Assign:
-                self.ass_list.append((node, attr_name, child_node))
-
-        self.generic_visit(node)
 
     def visit_Assign(self, node) -> None:
         """
@@ -244,19 +293,48 @@ class AssignmentFinder(GenericFinder):
     def _find(self):
         return self.ass_list
 
-    @staticmethod
-    def __iter_child_nodes(node):
+    def _target_type(self) -> type:
+        return ast.Assign
+
+    def _do_when_found(self, result: tuple) -> None:
+        self.ass_list.append(result)
+
+
+class ParametrizedFunctionCallFinder(GenericFinder):
+    """
+        Finds all function calls with arguments.
+        e.g. : f(x, y)
+    """
+
+    def _visit(self, node):
+        super()._visit(node)
+
+    def __init__(self):
         """
-        Yield all direct child nodes of *node*, that is, all fields that are nodes
-        and all items of fields that are lists of nodes.
+            Constructor
         """
-        for name, field in ast.iter_fields(node):
-            if isinstance(field, ast.AST):
-                yield name, field
-            elif isinstance(field, list):
-                for item in field:
-                    if isinstance(item, ast.AST):
-                        yield name, item
+        super().__init__()
+
+        # Initialize the list of parametrized function calls.
+        self.param_func_calls = []
+
+    def visit_Call(self, node: ast.AST) -> None:
+        """
+            Visits function calls.
+        :param node: (ast.AST) An AST node.
+        :return: None
+        """
+        if node.args:
+            self.param_func_calls.append(node)
+
+        self.generic_visit(node)
+
+    def _find(self) -> list:
+        """
+            Returns all the findings from the visiting through this finder.
+        :return: (list[ast.AST) A list of the visited function calls.
+        """
+        return self.param_func_calls
 
 
 class DanglingPaLaDiNDefinition(Exception):
