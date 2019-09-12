@@ -4,18 +4,18 @@
     :author: Oren Afek
     :since: 05/04/19
 """
+import ast
 import traceback
 from types import CodeType
 
 import astor
 
-from finders import *
-from module_transformer.module_transformator import ModuleTransformer
-from stubbers import *
+from PaladinEngine.finders import *
+from PaladinEngine.module_transformer.module_transformator import ModuleTransformer
+from PaladinEngine.stubbers import *
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from stubs import __FLI__, __AS__
-from stubs import archive
+from PaladinEngine.stubs import __FLI__, __AS__, archive
 
 
 class PaLaDiNEngine(object):
@@ -62,6 +62,7 @@ class PaLaDiNEngine(object):
         return ModuleTransformer(module) \
             .transform_loop_invariants() \
             .transform_assignments() \
+            .transform_paladin_classes() \
             .module()
 
     @staticmethod
@@ -85,7 +86,7 @@ class PaLaDiNEngine(object):
 
 def main():
     # Read source file.
-    with open(r'tests\test_resources\test_module.py') as f:
+    with open(r'tests/test_resources/test_module.py') as f:
         # Read the source file.
         tetris_source_file = f.read()
 

@@ -8,7 +8,7 @@ import copy
 
 import prettytable
 
-from conf.engine_conf import ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
+from PaladinEngine.conf.engine_conf import ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
 
 
 class Archive(object):

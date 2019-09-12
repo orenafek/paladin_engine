@@ -1,2 +1,2 @@
-# paladin_engine
+# PaLaDiN Engine
 The negine for PaLaDin assertions programming langague

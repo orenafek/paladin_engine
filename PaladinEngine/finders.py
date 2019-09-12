@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from conf.engine_conf import *
+from PaladinEngine.conf.engine_conf import *
 
 
 class GenericFinder(ABC, ast.NodeVisitor):
@@ -48,6 +48,40 @@ class GenericFinder(ABC, ast.NodeVisitor):
         """
 
 
+class ClassDecoratorFinder(GenericFinder):
+    """
+        TODO: Doc.
+        """
+
+    def __init__(self, decorator_name) -> None:
+        """
+            Constructor.
+        """
+        # Call the super's constructor.
+        super().__init__()
+
+        # Save the decorator name in which we will filter the decorators above the lists.
+        self.__decorator_to_keep = decorator_name
+
+        # Create a list for all decorators
+        self.__classes = []
+
+    def visit_ClassDef(self, node):
+        if self.__decorator_to_keep in self.__extract_decorator_names(node):
+            self.__classes.append(node)
+
+        self.generic_visit(node)
+
+    def __extract_decorator_names(self, node: ast.ClassDef):
+        if node.decorator_list is []:
+            return []
+        else:
+            return [elem.id for elem in node.decorator_list if type(elem) is ast.Name]
+
+    def _find(self):
+        return self.__classes
+
+
 class DecoratorFinder(GenericFinder):
     """
     TODO: Doc.
@@ -60,8 +94,11 @@ class DecoratorFinder(GenericFinder):
         # Call the super's constructor.
         super().__init__()
 
+        # Create a list for all decorators
+        self.__decorators_list = []
+
     def visit_FunctionDef(self, node):
-        print('Visited: \n{dl}\ndef {n}({a})'.format(
+        self.__decorators_list.append('Visited: \n{dl}\ndef {n}({a})'.format(
             dl=self.__decorator_list_to_str(node),
             a=', '.join(self.__args_to_str(node)),
             n=node.name,
@@ -84,8 +121,7 @@ class DecoratorFinder(GenericFinder):
         return '\n'.join(decorators)
 
     def _find(self):
-        # TODO: Complete.
-        pass
+        return self.__decorators_list
 
 
 class PaladinInlineDefinitionFinder(GenericFinder):

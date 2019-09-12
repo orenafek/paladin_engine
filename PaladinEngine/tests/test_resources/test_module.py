@@ -1,7 +1,12 @@
 # @Paladin.postcond('n', 'n > 0')
 # def square(n):
 #     return n * n
+from PaladinEngine.api.api import Paladinize
 
+
+@Paladinize
+class X(object):
+    pass
 
 def power(n, p):
     """

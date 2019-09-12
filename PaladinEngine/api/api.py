@@ -6,3 +6,7 @@ class Paladin(object):
     @staticmethod
     def postcond(func, *args, **kwargs):
         pass
+
+
+def Paladinize(cls):
+    pass

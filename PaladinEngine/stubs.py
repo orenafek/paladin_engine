@@ -1,6 +1,6 @@
 import ast
 
-from archive.archive import Archive
+from PaladinEngine.archive.archive import Archive
 
 archive = Archive()
 
@@ -33,9 +33,9 @@ def __AS__(*assignment_pairs) -> None:
     """
 
     # Iterate over the targets of the assignment.
-    for assignment_pair in assignment_pairs:
+    for assignment_triplet in assignment_pairs:
         # Record the value.
-        archive[assignment_pair[0]] = assignment_pair[1]
+        archive[assignment_triplet[0]] = assignment_triplet[1]
 
 
 def create_ast_stub(stub, *args, **kwargs):
@@ -64,6 +64,8 @@ def create_ast_stub(stub, *args, **kwargs):
                 arg = "{}".format(arg_name)
             elif arg_type is StubArgumentType.NAME:
                 arg = "'{}'".format(arg_name)
+            elif arg_type is StubArgumentType.ID:
+                arg = "id({})".format(arg_name)
             else:
                 raise NotImplementedError('arg_type is not of of type: ', StubArgumentType)
 
@@ -111,3 +113,9 @@ class StubArgumentType(enumerate):
     #       and the name of x should be passed to the stub,
     #       the stub will be: __STUB_PRINT('x')
     NAME = 1
+
+    # Pass the argument's id.
+    # e.g.: if a stub stubs the statement: print(x)
+    #       and the if of x should be passed to the stub,
+    #       the stub will be: __STUB_PRINT(id(x))
+    ID = 2

@@ -8,9 +8,9 @@ import ast
 
 import astor
 
-from finders import PaladinInlineDefinitionFinder, AssignmentFinder
-from stubbers import LoopStubber, Assign, AssignmentStubber
-from stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType
+from PaladinEngine.finders import PaladinInlineDefinitionFinder, AssignmentFinder, ClassDecoratorFinder
+from PaladinEngine.stubbers import LoopStubber, Assign, AssignmentStubber
+from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType
 
 
 class ModuleTransformer(object):
@@ -45,6 +45,17 @@ class ModuleTransformer(object):
 
         return self
 
+    def transform_paladin_classes(self) -> ModuleTransformer:
+        # Find all classes marked with @Paladin.
+        classes_finder = ClassDecoratorFinder('Paladinize')
+        classes_finder.visit(self.__module)
+        marked_classes = classes_finder.find()
+
+
+        print(marked_classes)
+
+        return self
+
     def transform_assignments(self) -> ModuleTransformer:
         # Find all assignments.
         assignments_finder = AssignmentFinder()
@@ -60,7 +71,9 @@ class ModuleTransformer(object):
 
             class NameVisitor(ast.NodeVisitor):
                 def visit_Name(self, node):
-                    targets.append([(node.id, StubArgumentType.NAME), (node.id, StubArgumentType.PLAIN)])
+                    targets.append([(node.id, StubArgumentType.NAME),
+                                    (node.id, StubArgumentType.ID),
+                                    (node.id, StubArgumentType.PLAIN)])
                     self.generic_visit(node)
 
             for target in ass.targets:
