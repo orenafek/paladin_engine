@@ -116,6 +116,6 @@ class StubArgumentType(enumerate):
 
     # Pass the argument's id.
     # e.g.: if a stub stubs the statement: print(x)
-    #       and the if of x should be passed to the stub,
+    #       and the id of x should be passed to the stub,
     #       the stub will be: __STUB_PRINT(id(x))
     ID = 2
