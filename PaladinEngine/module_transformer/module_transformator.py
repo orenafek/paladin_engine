@@ -72,7 +72,6 @@ class ModuleTransformer(object):
             class NameVisitor(ast.NodeVisitor):
                 def visit_Name(self, node):
                     targets.append([(node.id, StubArgumentType.NAME),
-                                    (node.id, StubArgumentType.ID),
                                     (node.id, StubArgumentType.PLAIN)])
                     self.generic_visit(node)
 
@@ -81,7 +80,7 @@ class ModuleTransformer(object):
                 NameVisitor().visit(target)
 
             # Create a stub.
-            ass_stub = create_ast_stub(__AS__, *targets)
+            ass_stub = create_ast_stub(__AS__, *targets, locals='locals()', globals='globals()')
 
             # Create a stubber.
             ass_stubber = AssignmentStubber(self.__module)

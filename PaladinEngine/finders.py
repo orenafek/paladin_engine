@@ -199,7 +199,7 @@ class PaladinInlineDefinitionFinder(GenericFinder):
         :param loop: (ast.stmt) A Loop.
         :return: True <==> the node is the only or first statement of the body.
         """
-        return (type(loop.body) is list and loop.body[0].get_values is node) or loop.body.get_values is node
+        return (type(loop.body) is list and loop.body[0].value is node) or loop.body.value is node
 
     @staticmethod
     def __is_inline_def(node):

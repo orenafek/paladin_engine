@@ -4,7 +4,6 @@
     :author: Oren Afek
     :since: 05/04/2019
 """
-import copy
 import inspect
 from abc import abstractmethod, ABC
 from enum import Enum
@@ -198,50 +197,6 @@ class Archive(object):
         # Initialize the anonymous dict.
         self.__anonymous_records = {}
 
-    def __getitem__(self, var) -> Record:
-        """
-            Retrieve the last value of of a variable.
-        :param var (str) The name of the variable to retrieve its value.
-        :return: The last value of the variable.
-        """
-        # Check if the var has been recorded yet:
-        if var not in self.vars_dict:
-            raise Archive.VariableNeverRecordedException(var)
-
-        # Extract record list.
-        records = self.vars_dict[var]
-
-        # Extract last value.
-        return records[0]
-
-    def __setitem__(self, var, value):
-        """
-            Record a new value of a variable.
-        :param var (str) The name of the variable to record its new value.
-        :param value (object) The value to record.
-        """
-        # Check if the var has been recorded yet:
-        if var not in self.vars_dict:
-            self.vars_dict[var] = []
-
-        # Extract record list.
-        records = self.vars_dict[var]
-
-        # Set the time.
-        if not records:
-            time = 0
-        else:
-            time = records[0].time() + 1
-
-        # Clone the value.
-        cloned_value = copy.deepcopy(value)
-
-        # Create a record.
-        record = Archive.Record(cloned_value)
-
-        # Save the new record.
-        records.insert(0, record)
-
     def history(self, var) -> list:
         """
             Extract all history of a variable.
@@ -249,10 +204,10 @@ class Archive(object):
         :return: (list[Record]) The history of the variable.
         """
         # Check if the var has been recorded yet:
-        if var not in self.vars_dict:
+        if var not in self.__named_records:
             raise Archive.VariableNeverRecordedException(var)
 
-        return self.vars_dict[var]
+        return self.__named_records[var]
 
     def values(self, var) -> list:
         """
@@ -260,7 +215,7 @@ class Archive(object):
         :param var: (str) The name of a variable.
         :return: (list) All of the values of the variable.
         """
-        return [record.get_values() for record in self.history(var)]
+        return self.history(var)
 
     def all_history(self) -> dict:
         """
@@ -403,13 +358,14 @@ class Archive(object):
         # Return the value of the last component found.
         return record
 
-    def retrieve(self, full_name: str, vars_dict: dict = None) -> object:
+    def retrieve(self, full_name: str, vars_dict: dict = None) -> list:
         """
             Searches for an object in the archive by a full name.
             A 'Full Name' contains a series of references leading to the searched object.
             e.g.: 'x.y.z'
 
         :param full_name: (str) A 'Full Name'
+        :param vars_dict: (dict) The dict containing the named variables.
         :return: The searched record or None if such doesn't exist.
         """
         if vars_dict is None:
@@ -423,10 +379,11 @@ class Archive(object):
 
         return record.get_values()
 
-    def store(self, full_name: str, vars_dict: dict = None) -> Archive:
+    def store(self, full_name: str, value: object, vars_dict: dict = None) -> Archive:
         """
             Stores a new object in the archive.
         :param full_name: (str) The full name fo the object to store.
+        :param value: (object) A new value to store.
         :param vars_dict: (dict) The dict containing the named variables.
         :return: self.
         """
@@ -438,6 +395,7 @@ class Archive(object):
         record = self.__search_by_full_name_and_create_missing(full_name, vars_dict,
                                                                Archive.__ModeOfSearch.CREATE_IF_MISSING)
 
+        record.append(value)
         return self
 
     @staticmethod

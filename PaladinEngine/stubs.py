@@ -19,12 +19,12 @@ def __FLI__(locals, globals):
     result = all_vars['result']
 
     if abs(n) >= 1:
-        assert result >= all([v for v in archive.values('result')])
+        assert result >= all(archive.retrieve('result'))
     else:
-        assert result < all([v for v in archive.values('result')])
+        assert result < all(archive.retrieve('result'))
 
 
-def __AS__(*assignment_pairs) -> None:
+def __AS__(*assignment_pairs, locals, globals) -> None:
     """
         A stub for assignment statement.
     :param assignment_pairs: (list[(str, str]) A list of pairs of assignment pairs of:
@@ -35,7 +35,7 @@ def __AS__(*assignment_pairs) -> None:
     # Iterate over the targets of the assignment.
     for assignment_triplet in assignment_pairs:
         # Record the value.
-        archive[assignment_triplet[0]] = assignment_triplet[1]
+        archive.store(*assignment_triplet, vars_dict={**locals, **globals})
 
 
 def create_ast_stub(stub, *args, **kwargs):
