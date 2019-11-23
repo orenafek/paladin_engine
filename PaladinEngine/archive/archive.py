@@ -68,8 +68,8 @@ class Archive(object):
             # Set the time.
             self.__time = time
 
-            # Set the value.
-            self.__value = value
+            # Initialize the values list.
+            self.__values = [value]
 
         def time(self) -> int:
             """
@@ -78,23 +78,36 @@ class Archive(object):
             """
             return self.__time
 
-        def get_value(self) -> object:
+        def __getitem__(self, time: int):
             """
-                Getter.
-            :return: The value that was record.
+                A getter for a specific value in time.
+            :param time: (int) A specific time to retrieve a value of a record.
+            :return: (object)
             """
-            return self.__value
+            return self.__values[time]
 
-        def set_value(self, new_value) -> Archive.Record:
+        def __setitem__(self, time: int, new_value: object):
             """
-                Setter.
-            :param new_value: (object) A new value.
+                Set a new value in a specific time.
+            :param time:  (int) A specific time.
+            :param new_value: (object) A new value to store.
+            """
+            self.__values[time] = new_value
+
+        def get_values(self) -> object:
+            """
+                A getter.
+            :return: The values that were record.
+            """
+            return self.__values
+
+        def append(self, value: object) -> Archive.Record:
+            """
+                Appends a value to the list of values of this record.
+            :param value: (object) A new value to store.
             :return: self.
             """
-            self.__value = new_value
-
-            # Advance time.
-            self.__time += 1
+            self.__values.append(value)
 
             return self
 
@@ -103,7 +116,7 @@ class Archive(object):
                 ToString.
             :return: (str)
             """
-            return '{i}:{t}:{v}'.format(i=self.get_identifier(), t=self.time(), v=self.get_value())
+            return '{i}:{t}:{v}'.format(i=self.get_identifier(), t=self.time(), v=self.get_values())
 
         @abstractmethod
         def __eq__(self, other):
@@ -247,7 +260,7 @@ class Archive(object):
         :param var: (str) The name of a variable.
         :return: (list) All of the values of the variable.
         """
-        return [record.get_value() for record in self.history(var)]
+        return [record.get_values() for record in self.history(var)]
 
     def all_history(self) -> dict:
         """
@@ -262,7 +275,6 @@ class Archive(object):
         all_records.update(self.__named_records)
         all_records.update(self.__anonymous_records)
         return all_records
-
 
     def __str__(self):
         """
@@ -282,7 +294,7 @@ class Archive(object):
 
         # Add rows from the archive.
         for record in all_records.values():
-            table.add_row([record.get_identifier(), record.get_value()])
+            table.add_row([record.get_identifier(), record.get_values()])
 
         return table.get_string()
 
@@ -316,7 +328,8 @@ class Archive(object):
         THROW_IF_MISSING = 2
 
     def __search_by_full_name_and_create_missing(self, full_name: str, vars_dict: dict,
-                                                 mode_of_search: Archive.__ModeOfSearch) -> Record:
+                                                 mode_of_search: Archive.__ModeOfSearch,
+                                                 time_of_search: int = -1) -> Record:
         """
             Searches for an object in the archive by a full name.
             A 'Full Name' contains a series of references leading to the searched object.
@@ -324,6 +337,8 @@ class Archive(object):
 
         :param full_name: (str) A 'Full Name'
         :param vars_dict: (dict) A dictionary with all vars to look in.
+        :param time_of_search: (int) The time of the value to search.
+                                (-1): To search for the last value of the record.
         :return: The searched record or None if such doesn't exist.
         """
 
@@ -354,11 +369,21 @@ class Archive(object):
         # Initiate a pointer to the record.
         record = self.__named_records[name]
 
-        next_component_value = record.get_value()
+        # Fetch all components values.
+        component_values = record.get_values()
+
+        # Fetch the component's value.
+        if time_of_search == -1:
+            component_value = component_values[::-1][0]
+        else:
+            component_value = component_values[time_of_search]
+
+        next_component_value = component_value
 
         for component in components[1::]:
             # Search for the next component's id.
-            next_component_value = record.get_value().__getattribute__(component)
+            next_component_value = component_value.__getattribute__(component)
+
             next_component_id = id(next_component_value)
 
             # Retrieve the record from the archive.
@@ -373,7 +398,7 @@ class Archive(object):
 
         if mode_of_search is Archive.__ModeOfSearch.CREATE_IF_MISSING:
             # Update the record's value.
-            record.set_value(next_component_value)
+            record.append(next_component_value)
 
         # Return the value of the last component found.
         return record
@@ -396,7 +421,7 @@ class Archive(object):
         if record is None:
             return record
 
-        return record.get_value()
+        return record.get_values()
 
     def store(self, full_name: str, vars_dict: dict = None) -> Archive:
         """

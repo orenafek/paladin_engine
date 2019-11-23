@@ -116,7 +116,7 @@ class DecoratorFinder(GenericFinder):
         decorators = []
 
         for d in node.decorator_list:
-            decorators.append('@{name}({args})'.format(name=d.func.get_value.id,
+            decorators.append('@{name}({args})'.format(name=d.func.get_values.id,
                                                        args=[a.s for a in d.args]))
         return '\n'.join(decorators)
 
@@ -199,7 +199,7 @@ class PaladinInlineDefinitionFinder(GenericFinder):
         :param loop: (ast.stmt) A Loop.
         :return: True <==> the node is the only or first statement of the body.
         """
-        return (type(loop.body) is list and loop.body[0].get_value is node) or loop.body.get_value is node
+        return (type(loop.body) is list and loop.body[0].get_values is node) or loop.body.get_values is node
 
     @staticmethod
     def __is_inline_def(node):
