@@ -9,7 +9,7 @@ def __FLI__(locals, globals):
     """
         A stub for a for loop.
     :param locals: The local names accessible from the loop.
-    :param locals: The global names accessible from the loop.
+    :param globals: The global names accessible from the loop.
     :return:
     """
     all_vars = {**locals, **globals}
