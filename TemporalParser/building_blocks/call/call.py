@@ -34,29 +34,40 @@ class FuncCall(Collectible):
 
     @params.setter
     def params(self, value):
-        import copy
-        copy.deepcopy()
         self.__params = value
 
-    def collect(self, stack: list):
+    def __extract_params(self, stack: list):
         # Pop closing brace.
         stack.pop()
+
+        # Reverse it.
+        stack.reverse()
 
         # Find open-brace index.
         open_brace_index = stack.index(FuncCall.OPEN_BRACE)
 
         # Extract params.
-        params = stack.reverse()[0:open_brace_index]
+        params = stack.copy()[0:open_brace_index]
 
         # Remove commas (if more than one param).
         if FuncCall.PARAMS_SEPARATOR in params:
             params.remove(FuncCall.PARAMS_SEPARATOR)
 
-        # Pop params.
-        stack = stack[open_brace_index:]
+        # Set params.
+        self.params = params
 
-        # Pop open-brace.
-        stack.pop()
+        # Pop all the params and the open brace.
+        stack = stack[open_brace_index + 1::]
+
+        # Re-reverse the stack.
+        stack.reverse()
+
+        # Return the stack.
+        return stack
+
+    def collect(self, stack: list):
+        # Extract and save the params.
+        stack = self.__extract_params(stack)
 
         # Pop func name.
         self.func_name = stack.pop()
@@ -89,3 +100,15 @@ class MethodCall(FuncCall):
     @target.setter
     def target(self, value):
         self.__target = value
+
+    def collect(self, stack: list):
+        # Discard the dot of the target call (target.func(params))
+        stack.pop()
+
+        # Extract target name.
+        self.target = stack.pop()
+
+        # Discard the func call (as we are also the func call ourselves).
+        stack.pop()
+
+        return stack

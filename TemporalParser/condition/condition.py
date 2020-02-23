@@ -1,9 +1,9 @@
-from TemporalParser.building_blocks.abstract.keyword import Keyword
+from TemporalParser.building_blocks.abstract.collectible import Collectible
 
 
-class Condition(Keyword):
-    def __init__(self, literal, case=None):
-        super().__init__(literal, case)
+class Condition(Collectible):
+    def __init__(self, *args):
+        super().__init__()
         self.__condition = None
 
     @property
@@ -17,8 +17,3 @@ class Condition(Keyword):
     def collect(self, stack: list) -> list:
         self.condition = stack.pop()
         return stack
-
-
-always = Condition("always")
-eventually = Condition("eventually")
-never = Condition("never")

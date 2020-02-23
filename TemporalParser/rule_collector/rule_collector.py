@@ -24,6 +24,8 @@ class RuleCollector(Collector):
         nonterm = nonterm_class(*components)
 
         for component in components:
+            if type(component[1]) is tuple:
+                continue
             stack.append(component[1])
 
         # Collect rule.

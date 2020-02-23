@@ -13,9 +13,6 @@ building_blocks_classes = [
     FuncCall,
     MethodCall,
     Event,
-    ImmediateEvent,
-    CallEvent,
-    ChangeDataEvent,
     Condition
 ]
 

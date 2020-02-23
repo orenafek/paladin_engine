@@ -3,7 +3,6 @@ from lrparsing import List, Prio, Ref
 
 from TemporalParser.building_blocks.abstract.keyword import Keyword
 from TemporalParser.building_blocks.abstract.token import Token
-from TemporalParser.condition.condition import always, eventually, never
 from TemporalParser.rule_collector.rule_collector import RuleCollector, TokenCollector
 
 
@@ -26,7 +25,7 @@ class Parser(object):
 
         time_connector = T.first | T.last | T.since
 
-        condition = always | eventually | never
+        condition = T.always | T.eventually | T.never
         func_call = T.ident + '(' + List(T.ident, ',') + ')'
         method_call = T.ident + '.' + func_call
         # call = call | method_call
@@ -76,9 +75,7 @@ if __name__ == '__main__':
             collector = rule_collector
 
         # Collect rule.
-
-        updated_stack = collector.collect(stack, target, *x[1::])
-        stack = updated_stack
+        stack = collector.collect(stack, target, *x[1::])
 
         return x
 

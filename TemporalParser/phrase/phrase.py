@@ -15,7 +15,10 @@ class Phrase(Collectible):
         self.__inner_phrase = value
 
     def collect(self, stack: list):
-        return super().collect(stack)
+        # Extract inner phrase.
+        self.__inner_phrase = stack.pop()
+
+        return stack
 
 
 class SimplePhrase(Phrase):
@@ -45,7 +48,19 @@ class ComplexPhrase(Phrase):
         self.__phrase = None
 
     def collect(self, stack: list):
-        print()
+        # Extract phrase.
+        self.phrase = stack.pop()
+
+        # Extract condition.
+        self.condition = stack.pop()
+
+        # Extract event.
+        self.event = stack.pop()
+
+        # Extract time-connector.
+        self.time_connector = stack.pop()
+
+        return stack
 
     @property
     def time_connector(self):
