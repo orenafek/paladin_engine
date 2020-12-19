@@ -10,3 +10,8 @@ class Paladin(object):
 
 def Paladinize(cls):
     pass
+
+def PaladinPostCondition(condition):
+    def decorator(func):
+        return func
+    return decorator

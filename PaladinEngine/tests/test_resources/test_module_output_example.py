@@ -27,9 +27,7 @@ def power(n, p):
         """
         result = result * n
         __AS__(('result', result))
-        if i == 2:
-            result = -1
-            __AS__(('result', result))
+
     return result
 
 

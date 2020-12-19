@@ -1,8 +1,10 @@
 import ast
+import inspect
 
 from PaladinEngine.archive.archive import Archive
 
 archive = Archive()
+from Examples.Tetris.tetris import Board, Block
 
 
 def __FLI__(locals, globals):
@@ -24,7 +26,39 @@ def __FLI__(locals, globals):
         assert result < all(archive.retrieve('result'))
 
 
-def __AS__(*assignment_pairs, locals, globals) -> None:
+def handle_broken_commitment(frame, line_no):
+    frame_info = inspect.getframeinfo(frame)
+
+    raise RuntimeError( '@#@#$@&^#$%^&@$$& COMMITMENT HAS BEEN BROKEN! @#@#$@&^#$%^&@$$&\n      '
+                       f'@#@#$@&^#$%^&@$$&     In line: {line_no}      @#@#$@&^#$%^&@$$&')
+
+
+def __POST_CONDITION__(frame: dict, locals, globals):
+    all_vars = {**locals, **globals}
+
+    y = all_vars['y']
+    board = all_vars['self']
+
+    def Drawn(block: Block, board: Board) -> bool:
+        return block in board.grid.keys()
+
+    def _row(board: Board, y: int) -> list:
+        return list(filter(lambda block: block[1] == y, board.grid))
+
+    # noinspection PyTypeChecker
+    def commitment(record: Archive.Record, line_no: int):
+        # Extract the board from the record.
+        board = record.get_last_value()
+
+        # Extract all blocks in the grid in the row yr.
+        if _row(board, y) != []:
+            handle_broken_commitment(frame, line_no)
+
+    # Make a commitment.
+    archive.make_commitment('self', frame, commitment, all_vars)
+
+
+def __AS__(*assignment_pairs, locals, globals, frame, line_no) -> None:
     """
         A stub for assignment statement.
     :param assignment_pairs: (list[(str, str]) A list of pairs of assignment pairs of:
@@ -35,7 +69,7 @@ def __AS__(*assignment_pairs, locals, globals) -> None:
     # Iterate over the targets of the assignment.
     for assignment_triplet in assignment_pairs:
         # Record the value.
-        archive.store(*assignment_triplet, vars_dict={**locals, **globals})
+        archive.store(*assignment_triplet, frame=frame, vars_dict={**locals, **globals}, line_no=line_no)
 
 
 def create_ast_stub(stub, *args, **kwargs):
