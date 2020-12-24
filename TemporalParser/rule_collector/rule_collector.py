@@ -16,7 +16,7 @@ class Collector(ABC):
 class RuleCollector(Collector):
     def collect(self, stack: list, rule: Rule, *components) -> (list, object):
         # Convert rule name.
-        rule_name = ''.join(word.title() for word in rule.name.split('_'))
+        rule_name = ''.join(word.title() for word in rule.identifier.split('_'))
         # Extract rule's class
         nonterm_class = building_blocks[rule_name]
 
