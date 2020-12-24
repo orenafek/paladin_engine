@@ -3,10 +3,10 @@ import random
 
 from Examples.Tetris.graphics import Window, Point, Rectangle, CanvasFrame, Text
 
-
 ############################################################
 # BLOCK CLASS
 ############################################################
+from api.api import Paladinize, PaladinPostCondition
 
 
 class Block(Rectangle):
@@ -296,6 +296,9 @@ class Z_shape(Shape):
 # BOARD CLASS
 ############################################################
 
+
+
+
 class Board(object):
     ''' Board class: it represents the Tetris board
 
@@ -319,6 +322,10 @@ class Board(object):
         # currently we have no shapes on the board
         self.grid = {}
 
+        self.__DEBUG_X = -1
+        self.__DEBUG_Y = -1
+
+
     def draw_shape(self, shape):
         ''' Parameters: shape - type: Shape
             Return value: type: bool
@@ -326,6 +333,10 @@ class Board(object):
             draws the shape on the board if there is space for it
             and returns True, otherwise it returns False
         '''
+
+        if self.__DEBUG_X != -1 and self.__DEBUG_Y != -1:
+            self.grid[self.__DEBUG_X, self.__DEBUG_Y] = shape.get_blocks()[0]
+            #TODO: row(board, y) != []
         if shape.can_move(self, 0, 0):
             shape.draw(self.canvas)
             return True
@@ -369,8 +380,19 @@ class Board(object):
         for block in shape.get_blocks():
             self.grid[(block.x, block.y)] = block
 
+
+    def row(self, y):
+        # TODO: Implement.
+        #return filter(lambda block: block[1] == y, self.grid)
+        extracted_row = []
+        for block in self.grid:
+            if block[1] == y:
+                extracted_row.append(block)
+
+        return extracted_row
+    @PaladinPostCondition("")
     def delete_row(self, y):
-        '''
+        """
             Parameters: y - type:int
 
             remove all the blocks in row y
@@ -380,15 +402,18 @@ class Board(object):
             from the screen, take a look at the Graphics Library
             handout
 
-        '''
+        """
 
         # Remove the blocks in the row from the grid.
-        for _x, _y in filter(lambda k: k[1] == y, self.grid.keys()):
+        for _x, _y in filter(lambda k: k[1] == y, self.grid.copy().keys()):
             # Undraw from screen.
             self.grid[_x, _y].undraw()
 
             # Remove from grid.
             del self.grid[_x, _y]
+
+            self.__DEBUG_X = _x
+            self.__DEBUG_Y = _y
 
     def is_row_complete(self, y):
         ''' Parameter: y - type: int
@@ -415,7 +440,6 @@ class Board(object):
         '''
         # TODO: FIX!
         # Get all rows from y_start to 0 (descending order).
-        print('reversed(range(0, y_start)) = ', list(reversed(range(0, y_start))))
         for y in reversed(range(0, y_start)):
             for x in [_x for (_x, _y) in self.grid if _y == y]:
                 # Remove it from the grid.
@@ -423,11 +447,7 @@ class Board(object):
 
                 # Move it on the screen.
                 if block.can_move(self, x, y):
-                    print('Moving ({}, {})'.format(x, y))
                     block.move(0, 1)
-
-                print('After move: block.x, block.y', block.x, ', ', block.y)
-
                 # Replace it in the grid.
                 self.grid[(x, y + 1)] = block
 
@@ -448,11 +468,14 @@ class Board(object):
                 # Push down all the rows beneath
                 self.move_down_rows(y - 1)
 
+
     def game_over(self):
         ''' display "Game Over !!!" message in the center of the board
             HINT: use the Text class from the graphics library
         '''
         Text(Point(int(self.width / 2), int(self.height / 2)), "Game Over !!!").draw(self.canvas)
+        win.destroy()
+
 
 
 ############################################################
@@ -478,11 +501,15 @@ class Tetris(object):
     DIRECTION = {'Left': (-1, 0), 'Right': (1, 0), 'Down': (0, 1)}
     BOARD_WIDTH = 10
     BOARD_HEIGHT = 20
+    __TEST_MODE = True
 
     def __init__(self, win):
         self.board = Board(win, self.BOARD_WIDTH, self.BOARD_HEIGHT)
         self.win = win
-        self.delay = 1000  # ms
+        self.delay = 500  # ms
+
+        self.__TEST_MOCK_COUNTER_X = -1
+        self.__TEST_MOCK_COUNTER_Y = self.BOARD_HEIGHT -2
 
         # sets up the keyboard events
         # when a key is called the method key_pressed will be called
@@ -498,6 +525,7 @@ class Tetris(object):
         # For Step 9:  animate the shape!
         self.animate_shape()
 
+
     def create_new_shape(self):
         ''' Return value: type: Shape
 
@@ -506,8 +534,9 @@ class Tetris(object):
             return the shape
         '''
 
-        shape_class = random.choice(Shape.__subclasses__())
-        return shape_class(Point(x=int(self.BOARD_WIDTH / 2), y=0))
+        #shape_class = random.choice(Shape.__subclasses__())
+        #return shape_class(Point(x=int(self.BOARD_WIDTH / 2), y=0))
+        return O_shape(Point(self.BOARD_WIDTH/2, y=0  ))
 
     def animate_shape(self):
         ''' animate the shape - move down at equal intervals
@@ -604,12 +633,15 @@ class Tetris(object):
         elif key == 'Up':
             self.do_rotate()
 
+        # TODO: THIS IS FOR TESTING!!!
+        if key == 'Q' or key == 'q':
+            self.board.game_over()
+
 
 ################################################################
 # Start the game
 ################################################################
 if __name__ == '__main__':
-    I_shape(Point(1, 2))
     win = Window("Tetris")
     game = Tetris(win)
     win.mainloop()
