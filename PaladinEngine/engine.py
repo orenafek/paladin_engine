@@ -4,18 +4,18 @@
     :author: Oren Afek
     :since: 05/04/19
 """
+import inspect
 import traceback
 from types import CodeType
 
 import astor
 
-from finders import *
-from module_transformer.module_transformator import ModuleTransformer
-from stubbers import *
+from PaladinEngine.finders import *
+from PaladinEngine.module_transformer.module_transformator import ModuleTransformer
+from PaladinEngine.stubbers import *
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from stubs import __FLI__, __AS__
-from stubs import archive
+from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive
 
 
 class PaLaDiNEngine(object):
@@ -30,11 +30,19 @@ class PaLaDiNEngine(object):
 
     __INSTANCE = PaLaDiNEngine()
 
-    __PALADIN_STUBS_LIST = [__AS__, __FLI__]
+    # List of stubs that can be added to the PaLaDiNized code
+    __PALADIN_STUBS_LIST = [__AS__, __FLI__, __POST_CONDITION__]
 
+    # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
 
     def __new__(cls, *args, **kwargs):
+        """
+        Constructor for PaLaDiNEngine class.
+        Keeps the engine singleton.
+        :param args:
+        :param kwargs:
+        """
         return PaLaDiNEngine.__INSTANCE
 
     @staticmethod
@@ -43,14 +51,29 @@ class PaLaDiNEngine(object):
         return compile(source_code, PALADIN_ERROR_FILE_PATH, mode=PaLaDiNEngine.__COMPILATION_MODE)
 
     @staticmethod
-    def execute_with_paladin(source_code):
+    def execute_with_paladin(source_code, original_file_name: str):
         """
             Execute a source code with the paladin environment.
         :param source_code:
         :return:
         """
-        return exec(source_code,
-                    {f.__name__: f for f in PaLaDiNEngine.__PALADIN_STUBS_LIST})
+        print(source_code)
+        # Set the variables for the run.
+        variables = {f.__name__: f for f in PaLaDiNEngine.__PALADIN_STUBS_LIST}
+
+        # Make sure that the script runs as if was alone.
+        variables['__name__'] = '__main__'
+        variables['__PALADIN_file__'] = original_file_name
+
+        # Collect imports.
+        variables.update(PaLaDiNEngine.__collect_imports_to_execution())
+
+        return exec(source_code, variables)
+
+    @staticmethod
+    def __collect_imports_to_execution():
+        return {module.__name__: module for module in [sys, inspect]}
+
 
     @staticmethod
     def process_module(module: ast.AST) -> ast.AST:
@@ -62,6 +85,7 @@ class PaLaDiNEngine(object):
         return ModuleTransformer(module) \
             .transform_loop_invariants() \
             .transform_assignments() \
+            .transform_paladin_post_condition() \
             .module()
 
     @staticmethod
@@ -85,7 +109,8 @@ class PaLaDiNEngine(object):
 
 def main():
     # Read source file.
-    with open(r'tests\test_resources\test_module.py') as f:
+    file_name = r'tests/test_resources/test_module.py'
+    with open(file_name) as f:
         # Read the source file.
         tetris_source_file = f.read()
 
@@ -96,11 +121,11 @@ def main():
         print(str(paladinized))
 
         # Compile it.
-        complied_code = PaLaDiNEngine.compile(paladinized)
-
         try:
+            complied_code = PaLaDiNEngine.compile(paladinized)
+
             # Execute the code.
-            PaLaDiNEngine.execute_with_paladin(complied_code)
+            PaLaDiNEngine.execute_with_paladin(complied_code, file_name)
 
         except BaseException:
             traceback.print_exc()

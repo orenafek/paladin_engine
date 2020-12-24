@@ -46,7 +46,7 @@ class Stubber(ABC, ast.NodeTransformer):
             """
             raise NotImplementedError()
 
-    class _EndStubRecord(_StubRecord):
+    class _AfterStubRecord(_StubRecord):
         def __init__(self,
                      original: AST,
                      container: AST,
@@ -147,6 +147,8 @@ class Stubber(ABC, ast.NodeTransformer):
 
                 # Fix missing locations.
                 ast.fix_missing_locations(node)
+
+
 
     def __init__(self, root_module) -> None:
         """
@@ -279,7 +281,7 @@ class MethodStubber(Stubber):
         stub_record = Stubber._BeginningStubRecord(method_node, container, attr_name, stub)
         return self._stub(stub_record)
 
-    def stub_postcondition(self, method_node: ast.FunctionDef, container: AST, attr_name: str, stub: AST) -> Module:
+    def stub_postcondition(self, method_node: ast.FunctionDef, _, __, stub: AST) -> Module:
         """
             Stub a post-condition invariant.
         :param method_node: (ast.FunctionDef) The code of the method being stubbed.
@@ -288,8 +290,11 @@ class MethodStubber(Stubber):
         :param stub: (AST) The stub to add as the first element of the method's body.
         :return: (ast.Module) The module containing the method.
         """
+        # Get the last element in the method.
+        last_element_in_method = method_node.body[-1]
+
         # Create a stub record.
-        stub_record = Stubber._EndStubRecord(method_node, container, attr_name, stub)
+        stub_record = Stubber._AfterStubRecord(last_element_in_method, method_node, 'body', stub)
         return self._stub(stub_record)
 
 
@@ -328,68 +333,5 @@ class AssignmentStubber(Stubber):
         """
 
         # Create a stub record.
-        stub_record = Stubber._EndStubRecord(assignment_node, container, attr_name, stub)
+        stub_record = Stubber._AfterStubRecord(assignment_node, container, attr_name, stub)
         return self._stub(stub_record)
-
-    def stub_assignment_with_tmp(self):
-
-        class _with_tmp_(Stubber._StubRecord):
-            """
-                A stub record for stubbing with tmp.
-            """
-
-            def __init__(self,
-                         original: AST,
-                         container: AST,
-                         attr_name: str,
-                         replace: Union[AST, list]) -> None:
-                """
-                    Constructor.
-                :param original: (AST) The original AST node that will be replaced with a stub.
-                :param container: (AST) The container that holds the stubbed node.
-                :param attr_name: (str) The name of the attribute of the container that will be replaced.
-                :param replace: (Union[AST, list[AST]) The replacement to the original content in the container.
-                """
-                super().__init__(original, container, attr_name, replace)
-
-            def create_stub(self) -> Union[AST, list]:
-                """
-                    Creates a stub with the replacement at the end.
-                :return:
-                """
-
-                # Initialize a new container.
-                container_with_stub = []
-
-                # Find the original node in the container.
-                for node in self.container.__dict__[self.attr_name]:
-                    if node is self.original:
-                        # Add the stub.
-                        container_with_stub.append(self.replace)
-
-                    container_with_stub.append(node)
-
-                return container_with_stub
-
-            def fix_locations(self):
-
-                # TODO: Needs to handle an empty container situations.
-
-                # Extract nodes in container.
-                nodes = self.container.__dict__[self.attr_name]
-
-                # Extract the first element.
-                first_element = nodes[0]
-
-                # Fix the position of the first stubbed element.
-                ast.copy_location(first_element, self.original)
-
-                ast.fix_missing_locations(first_element)
-
-                # Iterate over all of the items in the container that needs a fix.
-                for node, node_index in zip(nodes[1:], range(1, len(nodes))):
-                    # Copy the location.
-                    ast.copy_location(node, nodes[node_index - 1])
-
-                    # Fix missing locations.
-                    ast.fix_missing_locations(node)

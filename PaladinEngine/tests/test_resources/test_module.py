@@ -1,6 +1,11 @@
 # @Paladin.postcond('n', 'n > 0')
 # def square(n):
 #     return n * n
+import abc
+
+from PaladinEngine.api.api import Paladinize
+from pycallgraph import PyCallGraph, GlobbingFilter, Config
+from pycallgraph.output import  GraphvizOutput
 
 
 def power(n, p):
@@ -14,11 +19,11 @@ def power(n, p):
     for i in range(p):
         """ 
         @@@
-            loop-invariant:
-                if |n| >= 1:
-                    result >= pre(result)
-                else:
-                    result < pre(result)
+           loop-invariant:
+               if |n| >= 1:
+                   result >= pre(result)
+               else:
+                   result < pre(result)
         @@@
         """
         result = result * n

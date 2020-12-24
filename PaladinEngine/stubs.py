@@ -1,15 +1,17 @@
 import ast
+import inspect
 
-from archive.archive import Archive
+from PaladinEngine.archive.archive import Archive
 
 archive = Archive()
+from Examples.Tetris.tetris import Board, Block
 
 
 def __FLI__(locals, globals):
     """
         A stub for a for loop.
     :param locals: The local names accessible from the loop.
-    :param locals: The global names accessible from the loop.
+    :param globals: The global names accessible from the loop.
     :return:
     """
     all_vars = {**locals, **globals}
@@ -19,12 +21,44 @@ def __FLI__(locals, globals):
     result = all_vars['result']
 
     if abs(n) >= 1:
-        assert result >= all([v for v in archive.values('result')])
+        assert result >= all(archive.retrieve('result'))
     else:
-        assert result < all([v for v in archive.values('result')])
+        assert result < all(archive.retrieve('result'))
 
 
-def __AS__(*assignment_pairs) -> None:
+def handle_broken_commitment(frame, line_no):
+    frame_info = inspect.getframeinfo(frame)
+
+    raise RuntimeError( '@#@#$@&^#$%^&@$$& COMMITMENT HAS BEEN BROKEN! @#@#$@&^#$%^&@$$&\n      '
+                       f'@#@#$@&^#$%^&@$$&     In line: {line_no}      @#@#$@&^#$%^&@$$&')
+
+
+def __POST_CONDITION__(frame: dict, locals, globals):
+    all_vars = {**locals, **globals}
+
+    y = all_vars['y']
+    board = all_vars['self']
+
+    def Drawn(block: Block, board: Board) -> bool:
+        return block in board.grid.keys()
+
+    def _row(board: Board, y: int) -> list:
+        return list(filter(lambda block: block[1] == y, board.grid))
+
+    # noinspection PyTypeChecker
+    def commitment(record: Archive.Record, line_no: int):
+        # Extract the board from the record.
+        board = record.get_last_value()
+
+        # Extract all blocks in the grid in the row yr.
+        if _row(board, y) != []:
+            handle_broken_commitment(frame, line_no)
+
+    # Make a commitment.
+    archive.make_commitment('self', frame, commitment, all_vars)
+
+
+def __AS__(*assignment_pairs, locals, globals, frame, line_no) -> None:
     """
         A stub for assignment statement.
     :param assignment_pairs: (list[(str, str]) A list of pairs of assignment pairs of:
@@ -33,9 +67,9 @@ def __AS__(*assignment_pairs) -> None:
     """
 
     # Iterate over the targets of the assignment.
-    for assignment_pair in assignment_pairs:
+    for assignment_triplet in assignment_pairs:
         # Record the value.
-        archive[assignment_pair[0]] = assignment_pair[1]
+        archive.store(*assignment_triplet, frame=frame, vars_dict={**locals, **globals}, line_no=line_no)
 
 
 def create_ast_stub(stub, *args, **kwargs):
@@ -64,6 +98,8 @@ def create_ast_stub(stub, *args, **kwargs):
                 arg = "{}".format(arg_name)
             elif arg_type is StubArgumentType.NAME:
                 arg = "'{}'".format(arg_name)
+            elif arg_type is StubArgumentType.ID:
+                arg = "id({})".format(arg_name)
             else:
                 raise NotImplementedError('arg_type is not of of type: ', StubArgumentType)
 
@@ -111,3 +147,9 @@ class StubArgumentType(enumerate):
     #       and the name of x should be passed to the stub,
     #       the stub will be: __STUB_PRINT('x')
     NAME = 1
+
+    # Pass the argument's id.
+    # e.g.: if a stub stubs the statement: print(x)
+    #       and the id of x should be passed to the stub,
+    #       the stub will be: __STUB_PRINT(id(x))
+    ID = 2
