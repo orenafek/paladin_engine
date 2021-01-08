@@ -2,11 +2,13 @@ import os
 import traceback
 
 import pytest
-
-from engine import PaLaDiNEngine
+import threading
+from engine.engine import PaLaDiNEngine
 from stubs import archive
 from pycallgraph import PyCallGraph, GlobbingFilter, Config
 from pycallgraph.output import GraphvizOutput
+from pynput.keyboard import Key, Controller
+
 
 class CallGraphCreator:
     def __init__(self):
@@ -37,6 +39,7 @@ class CallGraphCreator:
         config.trace_filter = trace_filter
         self.config = config
 
+
 class TestEngine:
     TEST_RESOURCES_RELATIVE_DIR = '../test_resources'
     CALL_GRAPH_CREATOR = CallGraphCreator()
@@ -46,9 +49,11 @@ class TestEngine:
         return os.path.join(TestEngine.TEST_RESOURCES_RELATIVE_DIR, test_src_name)
 
     @staticmethod
-    def basic_test(test_file_path: str, verbose: bool = False, with_call_graph: bool = False, valid_exceptions: list = []):
+    def basic_test(test_file_path: str, verbose: bool = False, with_call_graph: bool = False,
+                   valid_exceptions: list = []):
         if with_call_graph:
-            with PyCallGraph(output=TestEngine.CALL_GRAPH_CREATOR.graphviz, config=TestEngine.CALL_GRAPH_CREATOR.config):
+            with PyCallGraph(output=TestEngine.CALL_GRAPH_CREATOR.graphviz,
+                             config=TestEngine.CALL_GRAPH_CREATOR.config):
                 TestEngine._basic_test(test_file_path, verbose, valid_exceptions)
 
         else:
@@ -85,8 +90,10 @@ class TestEngine:
                     # Print the archive.
                     print(archive)
 
-    #@pytest.mark.skip(reason="")
+    # @pytest.mark.skip(reason="")
     def test_0(self):
+        import os
+        print('$%%%%%%%%%%*(&&$%(*&(*&$(*#&%(*$@&%(*$@&%(*$@&' + os.getcwd())
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'test_module.py'
         ),
@@ -96,15 +103,31 @@ class TestEngine:
 
     @pytest.mark.skip(reason="")
     def test_1(self):
+
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(r'test_module2.py'), verbose=True)
 
     @pytest.mark.skip(reason="")
     def test_2(self):
         self.basic_test(self.test_0, with_call_graph=True)
 
-    #@pytest.mark.skip(reason="")
+    # @pytest.mark.skip(reason="")
     def test3(self):
-        TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
-            r'../test_resources/Tetris/tetris.py'),
-            verbose=True,
-            with_call_graph=False)
+        class TestThread(threading.Thread):
+            def run(self) -> None:
+                TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
+                    r'../test_resources/Tetris/tetris.py'),
+                    verbose=True,
+                    with_call_graph=False)
+
+        # class KeyboardThread(threading.Thread):
+        #     def run(self) -> None:
+        #         from appscript import app
+        #         import time
+        #         while True:
+        #             app('System Events').keystroke(f'{Key.down}')
+        #             time.sleep(1)
+        #
+        # KeyboardThread().start()
+        TestThread().run()
+
+

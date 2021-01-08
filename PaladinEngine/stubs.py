@@ -2,6 +2,7 @@ import ast
 import inspect
 
 from PaladinEngine.archive.archive import Archive
+from interactive_debugger import InteractiveDebugger
 
 archive = Archive()
 from Examples.Tetris.tetris import Board, Block
@@ -26,14 +27,15 @@ def __FLI__(locals, globals):
         assert result < all(archive.retrieve('result'))
 
 
-def handle_broken_commitment(frame, line_no):
+def handle_broken_commitment(condition, frame, line_no):
     frame_info = inspect.getframeinfo(frame)
 
-    raise RuntimeError( '@#@#$@&^#$%^&@$$& COMMITMENT HAS BEEN BROKEN! @#@#$@&^#$%^&@$$&\n      '
-                       f'@#@#$@&^#$%^&@$$&     In line: {line_no}      @#@#$@&^#$%^&@$$&')
+    # Initialize PaLaDinInteractiveDebugger.
+    interactive_debugger = InteractiveDebugger(archive, condition, line_no)
+    interactive_debugger.cmdloop()
 
 
-def __POST_CONDITION__(frame: dict, locals, globals):
+def __POST_CONDITION__(condition: str, frame: dict, locals, globals):
     all_vars = {**locals, **globals}
 
     y = all_vars['y']
@@ -47,12 +49,12 @@ def __POST_CONDITION__(frame: dict, locals, globals):
 
     # noinspection PyTypeChecker
     def commitment(record: Archive.Record, line_no: int):
-        # Extract the board from the record.
-        board = record.get_last_value()
+        # Extract the last board value from the record.
+        last_board_value, last_board_line_no = record.get_last_value()
 
         # Extract all blocks in the grid in the row yr.
-        if _row(board, y) != []:
-            handle_broken_commitment(frame, line_no)
+        if _row(last_board_value, y) != []:
+            handle_broken_commitment(condition, frame, line_no)
 
     # Make a commitment.
     archive.make_commitment('self', frame, commitment, all_vars)

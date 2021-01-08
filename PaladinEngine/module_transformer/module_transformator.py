@@ -57,9 +57,22 @@ class ModuleTransformer(object):
 
             class NameVisitor(ast.NodeVisitor):
                 def visit_Name(self, node):
-                    targets.append([(node.id, StubArgumentType.NAME),
-                                    (node.id, StubArgumentType.PLAIN)])
+                    self._add_to_targets(node.id)
                     self.generic_visit(node)
+
+                def visit_Attribute(self, node):
+                    # Extract Name.
+                    name = node.value.id
+                    self._add_to_targets(name, node.attr)
+                    self.generic_visit(node)
+
+                def _add_to_targets(self, name, attr=None):
+                    if attr is not None:
+                        target_string = name + "." + str(attr)
+                    else:
+                        target_string = name
+
+                    targets.append([(target_string, StubArgumentType.NAME), (target_string, StubArgumentType.PLAIN)])
 
             container = stub_entry.container
             attr_name = stub_entry.attr_name
@@ -89,7 +102,8 @@ class ModuleTransformer(object):
         paladin_post_conditions = paladin_post_condition_finder.find()
         for stub_entry in paladin_post_conditions:
             # Create a stub.
-            post_cond_stub = create_ast_stub(__POST_CONDITION__, locals='locals()', globals='globals()', frame='sys._getframe(0)')
+            post_cond_stub = create_ast_stub(__POST_CONDITION__, condition=f'"{stub_entry.extra[0].params[0]}"',
+                                             locals='locals()', globals='globals()', frame='sys._getframe(0)')
 
             # Create a stubber.
             method_stubber = MethodStubber(self.__module)

@@ -58,7 +58,7 @@ class Archive(object):
             A record of a variable's value in a point in history.
         """
 
-        def __init__(self, frame, value, time):
+        def __init__(self, frame, value, line_no, time):
             """
                 Constructor.
             :param time (int): The time of the record.
@@ -72,7 +72,7 @@ class Archive(object):
             self.__time = time
 
             # Initialize the values list.
-            self.__values = [value]
+            self.__values = [(value, line_no)]
 
             # Set the type.
             self.__type = type(value)
@@ -97,7 +97,6 @@ class Archive(object):
         def key(self):
             return Archive.Record.RecordKey(self.get_identifier(), self.frame)
 
-
         def __getitem__(self, time: int):
             """
                 A getter for a specific value in time.
@@ -106,7 +105,7 @@ class Archive(object):
             """
             return self.__values[time]
 
-        def __setitem__(self, time: int, new_value: object):
+        def __setitem__(self, time: int, new_value: object, line_no: int):
             """
                 Set a new value in a specific time.
             :param time:  (int) A specific time.
@@ -131,13 +130,14 @@ class Archive(object):
         def get_values_string(self):
             return Archive.Record.stringify(self.get_values())
 
-        def append(self, value: object) -> Archive.Record:
+        def store_value(self, value: object, line_no: int) -> Archive.Record:
             """
-                Appends a value to the list of values of this record.
+            Appends a value to the list of values of this record.
             :param value: (object) A new value to store.
-            :return: self.
+            :param line_no: (int) The line number in which this value was stored.
+            :return:
             """
-            self.__values.append(value)
+            self.__values.append((value, line_no))
 
             return self
 
@@ -180,7 +180,7 @@ class Archive(object):
 
                 key = list(obj.keys())[0]
                 value = obj.pop(key)
-                return f'{Archive.Record.stringify(key)}: {Archive.Record.stringify(value)}' +  \
+                return f'{Archive.Record.stringify(key)}: {Archive.Record.stringify(value)}' + \
                        Archive.Record.stringify(obj)
 
             return str(obj)
@@ -206,14 +206,13 @@ class Archive(object):
             def __hash__(self):
                 return hash(hash(self.identifier) + hash(self.frame))
 
-
     class AnonymousRecord(Record):
         """
             An anonymous record, identified by the python built-in id.
         """
 
-        def __init__(self, id, frame, value, time=0):
-            super().__init__(frame, value, time)
+        def __init__(self, id, frame, value, line_no, time=0):
+            super().__init__(frame, value, line_no, time)
 
             # Set the id.
             self.__id = id
@@ -243,13 +242,12 @@ class Archive(object):
             A Named record tracks an object with a given variable name.
         """
 
-        def __init__(self, name, frame, value, time=0):
+        def __init__(self, name, frame, value, line_no, time=0):
             # Initialize parent.
-            super().__init__(frame, value, time)
+            super().__init__(frame, value, line_no, time)
 
             # Set the name.
             self.__name = name
-
 
         def __eq__(self, other):
             """
@@ -272,9 +270,6 @@ class Archive(object):
 
         def get_identifier(self):
             return self.__name
-
-
-
 
     def __init__(self) -> None:
         """
@@ -378,8 +373,12 @@ class Archive(object):
         CREATE_IF_MISSING = 1,
         THROW_IF_MISSING = 2
 
-    def __search_by_full_name_and_create_missing(self, full_name: str, vars_dict: dict,
-                                                 mode_of_search: Archive.__ModeOfSearch, frame: dict = None,
+    def __search_by_full_name_and_create_missing(self,
+                                                 full_name: str,
+                                                 vars_dict: dict,
+                                                 mode_of_search: Archive.__ModeOfSearch,
+                                                 frame: dict = None,
+                                                 line_no: int = -1,
                                                  time_of_search: int = -1) -> Record:
         """
             Searches for an object in the archive by a full name.
@@ -403,16 +402,16 @@ class Archive(object):
         # Extract the name.
         name = components[0]
 
-        record = self.__search_or_create_named_record(frame, full_name, mode_of_search, name, vars_dict)
+        record = self.__search_or_create_named_record(frame, full_name, mode_of_search, name, line_no, vars_dict)
 
         # Fetch all components values.
         component_values = record.get_values()
 
         # Fetch the component's value.
         if time_of_search == -1:
-            component_value = component_values[::-1][0]
+            component_value = component_values[::-1][0][0]
         else:
-            component_value = component_values[time_of_search]
+            component_value = component_values[time_of_search][0][0]
 
         next_component_value = component_value
 
@@ -427,19 +426,19 @@ class Archive(object):
                 record = self.__anonymous_records[next_component_id]
             except KeyError:
                 # There is no suitable anonymous record for this component, create one.
-                record = Archive.AnonymousRecord(next_component_id, next_component_value)
+                record = Archive.AnonymousRecord(next_component_id, frame, next_component_value, line_no)
 
                 # Store it in the anonymous records table.
                 self.__anonymous_records[next_component_id] = record
 
         if mode_of_search is Archive.__ModeOfSearch.CREATE_IF_MISSING:
             # Update the record's value.
-            record.append(next_component_value)
+            record.store_value(next_component_value, line_no)
 
         # Return the value of the last component found.
         return record
 
-    def __search_or_create_named_record(self, frame, full_name, mode_of_search, name, vars_dict):
+    def __search_or_create_named_record(self, frame, full_name, mode_of_search, name, line_no, vars_dict):
         # Initiate.
         named_record_key = None
 
@@ -461,18 +460,18 @@ class Archive(object):
                 raise Archive.VariableNeverRecordedException(full_name)
 
             # Create a named record
-            self.__create_named_record(name, frame, vars_dict)
+            self.__create_named_record(name, line_no, frame, vars_dict)
 
         # Initiate a pointer to the record.
         record = self.__named_records[named_record_key]
         return record
 
-    def __create_named_record(self, name, frame, vars_dict):
+    def __create_named_record(self, name, line_no, frame, vars_dict):
         # Fetch the value of the name from the vars dict.
         value = self.__find_symbol_in_vars_dict(vars_dict, name)
 
         # Create a named record.
-        named_record = Archive.NamedRecord(name, frame, value)
+        named_record = Archive.NamedRecord(name, frame, value, line_no)
 
         # Store it in the named records map.
         self.__named_records[named_record.key] = named_record
@@ -512,15 +511,18 @@ class Archive(object):
             vars_dict = Archive.__retrieve_callee_locals_and_globals()
 
         # Search for the record.
-        record = self.__search_by_full_name_and_create_missing(full_name, vars_dict,
-                                                               Archive.__ModeOfSearch.CREATE_IF_MISSING, frame)
+        record = self.__search_by_full_name_and_create_missing(full_name,
+                                                               vars_dict,
+                                                               Archive.__ModeOfSearch.CREATE_IF_MISSING,
+                                                               frame,
+                                                               line_no)
 
         # Validate commitments.
         if record.frame is frame:
             self._validate_commitments(record, line_no)
 
         # Store the new value.
-        record.append(value)
+        record.store_value(value, line_no)
 
         return self
 
@@ -561,7 +563,7 @@ class Archive(object):
         # Clear anonymous records.
         self.__anonymous_records.clear()
 
-    def make_commitment(self, name: str, frame:dict, commitment, vars_dict: dict = None) -> Archive:
+    def make_commitment(self, name: str, frame: dict, commitment, vars_dict: dict = None) -> Archive:
         """
             Make a commitment that should satisfy a record throughout the run.
         :param record: A record to commit.
@@ -586,7 +588,7 @@ class Archive(object):
         :param record: A record to validate
         :return:
         """
-        #if self._commitments == {} or record.key not in self._commitments:
+        # if self._commitments == {} or record.key not in self._commitments:
         #    return
 
         # If there are no commitments, leave.
@@ -597,11 +599,13 @@ class Archive(object):
             # Filter the keys that match the same identifier.
             matching_identifiers = record.key.frame.f_locals.keys() & commitment_record_key.frame.f_locals.keys()
 
-            matching_types = type(record.key.frame.f_locals[record.key.identifier]) is \
-                type(commitment_record_key.frame.f_locals[commitment_record_key.identifier])
+            if record.key.identifier in record.key.frame.f_locals:
+                matching_types = type(record.key.frame.f_locals[record.key.identifier]) is \
+                                 type(commitment_record_key.frame.f_locals[commitment_record_key.identifier])
 
-            return len(matching_identifiers) > 0 and matching_types
+                return len(matching_identifiers) > 0 and matching_types
 
+            return False
 
         # Filter the commitments by the record's type.
         # TODO: This is a patch and should be rethought in the future.
