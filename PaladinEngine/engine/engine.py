@@ -16,6 +16,7 @@ from PaladinEngine.stubbers import *
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
 from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive
+from source_provider import SourceProvider
 
 
 class PaLaDiNEngine(object):
@@ -35,6 +36,12 @@ class PaLaDiNEngine(object):
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
+
+    __SOURCE_PROVIDER = None
+
+    @staticmethod
+    def get_source_provider():
+        return PaLaDiNEngine.__SOURCE_PROVIDER
 
     def __new__(cls, *args, **kwargs):
         """
@@ -104,6 +111,7 @@ class PaLaDiNEngine(object):
         :param code: (str) source code.
         :return: (str) The PaLaDiNized code.
         """
+        SourceProvider.set_code(code)
         return astor.to_source(PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
 
 
