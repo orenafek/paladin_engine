@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from ast import *
 from typing import Union
 
+import astor
+
 
 class Stubber(ABC, ast.NodeTransformer):
     """
@@ -39,12 +41,30 @@ class Stubber(ABC, ast.NodeTransformer):
             """
             raise NotImplementedError()
 
-        @abstractmethod
         def fix_locations(self) -> None:
             """
-                Fixes the locations of the nodes in the ast tree.
+               Fixes the locations of the nodes in the ast tree.
             """
-            raise NotImplementedError()
+            # TODO: Needs to handle an empty container situations.
+
+            # Extract nodes in container.
+            nodes = self.container.__dict__[self.attr_name]
+
+            # Extract the first element.
+            first_element = nodes[0]
+
+            # Fix the position of the first stubbed element.
+            ast.copy_location(first_element, self.original)
+
+            ast.fix_missing_locations(first_element)
+
+            # Iterate over all of the items in the container that needs a fix.
+            for node, node_index in zip(nodes[1:], range(1, len(nodes))):
+                # Copy the location.
+                ast.copy_location(node, nodes[node_index - 1])
+
+                # Fix missing locations.
+                ast.fix_missing_locations(node)
 
     class _AfterStubRecord(_StubRecord):
         def __init__(self,
@@ -79,13 +99,6 @@ class Stubber(ABC, ast.NodeTransformer):
                     container_with_stub.append(self.replace)
 
             return container_with_stub
-
-        def fix_locations(self) -> None:
-            """
-                Fixes the locations of the nodes in the ast tree.
-            """
-            # TODO: Implement?
-            pass
 
     class _BeginningStubRecord(_StubRecord):
         """
@@ -125,30 +138,48 @@ class Stubber(ABC, ast.NodeTransformer):
 
             return container_with_stub
 
-        def fix_locations(self):
+    class _ReplacingStubRecord(_StubRecord):
+        """
+            A stub record for replacing a node with another instead.
+        """
 
-            # TODO: Needs to handle an empty container situations.
+        def __init__(self,
+                     original: AST,
+                     container: AST,
+                     attr_name: str,
+                     replace: Union[AST, list]) -> None:
+            """
+                Constructor.
+            :param original: (AST) The original AST node that will be replaced with a stub.
+            :param container: (AST) The container that holds the stubbed node.
+            :param attr_name: (str) The name of the attribute of the container that will be replaced.
+            :param replace: (Union[AST, list[AST]) The replacement to the original content in the container.
+            """
+            super().__init__(original, container, attr_name, replace)
 
-            # Extract nodes in container.
-            nodes = self.container.__dict__[self.attr_name]
+        def create_stub(self) -> Union[AST, list]:
+            """
+                Creates a stub with the replacement at the end.
+            :return:
+            """
 
-            # Extract the first element.
-            first_element = nodes[0]
+            # Initialize a new container.
+            container_with_stub = []
 
-            # Fix the position of the first stubbed element.
-            ast.copy_location(first_element, self.original)
+            if type(self.replace) is list:
+                replacee = self.replace
+            else:
+                replacee = [self.replace]
 
-            ast.fix_missing_locations(first_element)
+            # Find the original node in the container.
+            for node in self.container.__dict__[self.attr_name]:
+                if node is self.original:
+                    # Add the stub.
+                    container_with_stub.extend(replacee)
+                else:
+                    container_with_stub.append(node)
 
-            # Iterate over all of the items in the container that needs a fix.
-            for node, node_index in zip(nodes[1:], range(1, len(nodes))):
-                # Copy the location.
-                ast.copy_location(node, nodes[node_index - 1])
-
-                # Fix missing locations.
-                ast.fix_missing_locations(node)
-
-
+            return container_with_stub
 
     def __init__(self, root_module) -> None:
         """
@@ -221,6 +252,7 @@ class Stubber(ABC, ast.NodeTransformer):
 
         return self.root_module
 
+
 class LoopStubber(Stubber):
     """
         A stubber of loops.
@@ -252,6 +284,64 @@ class LoopStubber(Stubber):
 
         # Return the module.
         return self.root_module
+
+
+class ForToWhilerLoopStubber(LoopStubber):
+    WHILE_LOOP_TEMPLATE = \
+        "__iter = {iterator}.__iter__()\n" + \
+        "while True:\n" + \
+        "    try:\n" + \
+        "        {loop_index} = __iter.__next__()\n" + \
+        "    except StopIteration:\n" + \
+        "        break\n" + \
+        "\n" + \
+        "{body}\n"
+
+    def __init__(self, root_module) -> None:
+        super().__init__(root_module)
+
+    def _create_while_loop_code(self, for_loop_node: ast.For):
+        """
+
+        :return:
+        """
+
+        # Extract the loop index from the for loop.
+        loop_index = astor.to_source(for_loop_node.target).strip()
+
+        # Extract the collection from the for loop.
+        iterator = astor.to_source(for_loop_node.iter).strip()
+
+        SPACE = ' '
+
+        # Extract the body from the for loop.
+        for_loop_body = []
+
+        for for_loop_body_node in for_loop_node.body:
+            spaces_to_add = for_loop_body_node.col_offset - for_loop_node.col_offset
+            source_lines = [f'{SPACE * spaces_to_add}{line}\n'
+                            for line in astor.to_source(for_loop_body_node).lstrip().split('\n')]
+            for_loop_body.append(''.join(source_lines))
+
+        for_loop_body = ''.join(for_loop_body)
+
+        # Fill the while loop template.
+        return ForToWhilerLoopStubber.WHILE_LOOP_TEMPLATE.format(iterator=iterator, loop_index=loop_index,
+                                                                 body=for_loop_body)
+
+    def stub_while_loop_instead_of_for_loop(self, for_loop_node,
+                                            container: ast.AST,
+                                            attr_name: str) -> ast.Module:
+        # Create the while loop code.
+        while_loop_code = self._create_while_loop_code(for_loop_node).replace('\t', "    ")
+
+        # Parse to ast.
+        while_loop_ast = ast.parse(while_loop_code).body
+
+        # Create a replacing stub record.
+        replacing_stub_record = Stubber._ReplacingStubRecord(for_loop_node, container, attr_name, while_loop_ast)
+
+        return self._stub(replacing_stub_record)
 
 
 class MethodStubber(Stubber):
