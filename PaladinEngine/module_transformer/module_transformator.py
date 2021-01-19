@@ -8,9 +8,9 @@ import ast
 
 import astor
 
-from PaladinEngine.finders import PaladinLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder
-from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber
+from PaladinEngine.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
+    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, StubEntry
+from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber
 from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__
 from api.api import PaladinPostCondition
 
@@ -28,7 +28,7 @@ class ModuleTransformer(object):
         self.__module = module
 
     def transform_loop_invariants(self) -> ModuleTransformer:
-        pidf = PaladinLoopInvariantsFinder()
+        pidf = PaladinForLoopInvariantsFinder()
         pidf.visit(self.__module)
         loops = pidf.find()
 
@@ -45,6 +45,21 @@ class ModuleTransformer(object):
 
         return self
 
+    def transform_for_loops_to_while_loops(self) -> ModuleTransformer:
+        plf = PaladinForLoopFinder()
+        plf.visit(self.__module)
+        for_loop_entries = plf.find()
+
+        for for_loop_entry in for_loop_entries:
+            # Create a stuber.
+            stuber = ForToWhilerLoopStubber(self.__module)
+
+            # Stub.
+            self.__module = stuber.stub_while_loop_instead_of_for_loop(for_loop_entry.node,
+                                                                       for_loop_entry.container,
+                                                                       for_loop_entry.attr_name)
+        return self
+
     def transform_assignments(self) -> ModuleTransformer:
         # Find all assignments.
         assignments_finder = AssignmentFinder()
@@ -59,7 +74,8 @@ class ModuleTransformer(object):
             targets = stub_entry.extra
 
             # Create a stub.
-            ass_stub = create_ast_stub(__AS__, *targets, locals='locals()', globals='globals()', frame='sys._getframe(0)',
+            ass_stub = create_ast_stub(__AS__, *targets, locals='locals()', globals='globals()',
+                                       frame='sys._getframe(0)',
                                        line_no=f'{ass.lineno}')
 
             # Create a stubber.
@@ -124,4 +140,3 @@ class PaladinPostConditionTransformer(ast.NodeTransformer):
         :return: True if the decorator should be added.
         """
         return DecoratorFinder.Decorator(func, decorator).name == PaladinPostCondition.__name__
-
