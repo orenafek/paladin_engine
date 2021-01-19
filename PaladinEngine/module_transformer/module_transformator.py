@@ -53,34 +53,10 @@ class ModuleTransformer(object):
 
         for stub_entry in assignments:
             # Create a list for the assignment targets.
-            targets = []
-
-            class NameVisitor(ast.NodeVisitor):
-                def visit_Name(self, node):
-                    self._add_to_targets(node.id)
-                    self.generic_visit(node)
-
-                def visit_Attribute(self, node):
-                    # Extract Name.
-                    name = node.value.id
-                    self._add_to_targets(name, node.attr)
-                    self.generic_visit(node)
-
-                def _add_to_targets(self, name, attr=None):
-                    if attr is not None:
-                        target_string = name + "." + str(attr)
-                    else:
-                        target_string = name
-
-                    targets.append([(target_string, StubArgumentType.NAME), (target_string, StubArgumentType.PLAIN)])
-
             container = stub_entry.container
             attr_name = stub_entry.attr_name
             ass = stub_entry.node
-
-            for target in ass.targets:
-                # Search for the targets in the left hand side of the assignment.
-                NameVisitor().visit(target)
+            targets = stub_entry.extra
 
             # Create a stub.
             ass_stub = create_ast_stub(__AS__, *targets, locals='locals()', globals='globals()', frame='sys._getframe(0)',

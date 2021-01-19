@@ -266,10 +266,28 @@ class Archive(object):
             return hash(self.__name)
 
         def __str__(self):
-            return '{n}:{rest}'.format(n=self.__name, rest=super().__str__())
+            return f'{self.__name}:{str(super())}'
 
         def get_identifier(self):
             return self.__name
+
+    class SubscriptRecord(NamedRecord):
+
+        def __init__(self, name, frame, value, _slice, line_no, time=0):
+            super().__init__(name, frame, value, line_no, time)
+
+            # Set slice.
+            self.__slice = _slice
+
+        def __eq__(self, other):
+            return super().__eq__(other) and self.slice == other.slice
+
+        def __hash__(self):
+            return hash(hash(super) + hash(self.__slice))
+
+        @property
+        def slice(self):
+            return self.__slice
 
     def __init__(self) -> None:
         """
@@ -498,7 +516,7 @@ class Archive(object):
 
         return record.get_values()
 
-    def store(self, full_name: str, value: object, frame: dict, line_no: int, vars_dict: dict = None) -> Archive:
+    def store(self, full_name: str, value: object, frame: dict, line_no: int, vars_dict: dict = None, slice=None) -> Archive:
         """
             Stores a new object in the archive.
         :param full_name: (str) The full name fo the object to store.
@@ -507,10 +525,13 @@ class Archive(object):
         :return: self.
         """
 
+        if slice is not None:
+             x = 1 + 1
+
         if vars_dict is None:
             vars_dict = Archive.__retrieve_callee_locals_and_globals()
 
-        # Search for the record.
+        # Search for the record and store.
         record = self.__search_by_full_name_and_create_missing(full_name,
                                                                vars_dict,
                                                                Archive.__ModeOfSearch.CREATE_IF_MISSING,
@@ -518,11 +539,8 @@ class Archive(object):
                                                                line_no)
 
         # Validate commitments.
-        if record.frame is frame:
-            self._validate_commitments(record, line_no)
-
-        # Store the new value.
-        record.store_value(value, line_no)
+        #if record.frame is frame:
+        self._validate_commitments(record, line_no)
 
         return self
 
@@ -595,17 +613,35 @@ class Archive(object):
         if self._commitments == {}:
             return
 
+        def try_to_locate_object_in_frame(object_id, frame):
+            for local in frame.f_locals.values():
+                # Look for the local itself.
+                if id(local) is object_id:
+                    return local
+
+                # Go over the attributes of the local.
+                for attr in local.__dict__.values():
+                    if id(attr) == object_id:
+                        return attr
+
+            return None
+
         def is_key_match(commitment_record_key: Archive.Record.RecordKey) -> bool:
-            # Filter the keys that match the same identifier.
-            matching_identifiers = record.key.frame.f_locals.keys() & commitment_record_key.frame.f_locals.keys()
+            # # Filter the keys that match the same identifier.
+            # matching_identifiers = record.key.frame.f_locals.keys() & commitment_record_key.frame.f_locals.keys()
+            #
+            # if isinstance(record, Archive.NamedRecord) and record.key.identifier in record.key.frame.f_locals or\
+            #         isinstance(record, Archive.AnonymousRecord) and \
+            #         record.key.identifier in [id(record.key.frame.f_locals[local]) for local in record.key.frame.f_locals]:
+            #     matching_types = type(record.key.frame.f_locals[record.key.identifier]) is \
+            #                      type(commitment_record_key.frame.f_locals[commitment_record_key.identifier])
+            #
+            #     return len(matching_identifiers) > 0 and matching_types
 
-            if record.key.identifier in record.key.frame.f_locals:
-                matching_types = type(record.key.frame.f_locals[record.key.identifier]) is \
-                                 type(commitment_record_key.frame.f_locals[commitment_record_key.identifier])
+            return record.key.identifier == commitment_record_key.identifier
+            #return try_to_locate_object_in_frame(record.key.identifier, commitment_record_key.frame) is not None
 
-                return len(matching_identifiers) > 0 and matching_types
 
-            return False
 
         # Filter the commitments by the record's type.
         # TODO: This is a patch and should be rethought in the future.
