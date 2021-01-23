@@ -26,10 +26,11 @@ def __FLI__(locals, globals):
         else:
             result < pre(result)'''
     try:
+        values = archive.retrieve('result').values
         if abs(n) >= 1:
-            assert result >= all(archive.retrieve('result'))
+            assert result >= all(values)
         else:
-            assert result < all(archive.retrieve('result'))
+            assert result < all(values)
     except BaseException:
         InteractiveDebugger(archive, f'For Loop invariant: {error_line}\nhas been broken.', 21).cmdloop()
 
