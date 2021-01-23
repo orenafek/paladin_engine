@@ -7,6 +7,7 @@
 import inspect
 from abc import abstractmethod, ABC
 from enum import Enum
+from typing import Union
 
 import prettytable
 
@@ -14,9 +15,6 @@ from PaladinEngine.conf.engine_conf import ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
 
 
 class Archive(object):
-    class VariableNeverRecordedException(Exception):
-        ...
-
     class Record(ABC):
         ...
 
@@ -58,7 +56,7 @@ class Archive(object):
             A record of a variable's value in a point in history.
         """
 
-        def __init__(self, frame, value, line_no, time):
+        def __init__(self, frame, value_type):
             """
                 Constructor.
             :param time (int): The time of the record.
@@ -68,26 +66,15 @@ class Archive(object):
             # Set the frame.
             self.__frame = frame
 
-            # Set the time.
-            self.__time = time
-
             # Initialize the values list.
-            self.__values = [(value, line_no)]
+            self.__values = []
 
             # Set the type.
-            self.__type = type(value)
+            self.__type = value_type
 
         @property
         def frame(self):
             return self.__frame
-
-        @property
-        def time(self) -> int:
-            """
-                Getter.
-            :return: (int) The time that the record was taken.
-            """
-            return self.__time
 
         @property
         def type(self):
@@ -113,7 +100,8 @@ class Archive(object):
             """
             self.__values[time] = new_value
 
-        def get_values(self) -> list:
+        @property
+        def values(self) -> list:
             """
                 A getter.
             :return: The values that were record.
@@ -125,19 +113,36 @@ class Archive(object):
                 A getter that retrieves the last inserted value.
             :return:
             """
-            return self.__values[len(self.__values) - 1]
+            return self.__values[::-1][0]
 
-        def get_values_string(self):
-            return Archive.Record.stringify(self.get_values())
-
-        def store_value(self, value: object, line_no: int) -> Archive.Record:
+        def get_values_from_time(self, time: int) -> list:
             """
-            Appends a value to the list of values of this record.
-            :param value: (object) A new value to store.
-            :param line_no: (int) The line number in which this value was stored.
+                Get the values of this record that were stored in a certain time, and beforehand.
+            :param time: The time to filter from.
             :return:
             """
-            self.__values.append((value, line_no))
+            return [(v, l_no, t) for v, l_no, t in self.values if t <= time]
+
+        def get_last_value_from_time(self, time: int) -> tuple:
+            """
+                Get the last value of this record that was stored in a certain time, or beforehand.
+            :param time: The time to filter from.
+            :return: Either the last value (a tuple) or None.
+            """
+            return self.get_values_from_time(time)[::-1][0]
+
+        def get_values_string(self):
+            return Archive.Record.stringify(self.values)
+
+        def store_value(self, value: object, line_no: int, time: int) -> Archive.Record:
+            """
+            Appends a value to the list of values of this record.
+            :param value: A new value to store.
+            :param line_no: The line number in which this value was stored.
+            :param time: The time to store the value.
+            :return:
+            """
+            self.__values.append((value, line_no, time))
 
             return self
 
@@ -146,8 +151,8 @@ class Archive(object):
                 ToString.
             :return: (str)
             """
-            return '{i}:{t}:{v}'.format(i=self.get_identifier(), t=self.time,
-                                        v=[Archive.Record.stringify(v) for v in self.get_values()])
+            return '{i}:{v}'.format(i=self.get_identifier(),
+                                    v=[Archive.Record.stringify(v) for v in self.values])
 
         @abstractmethod
         def __eq__(self, other):
@@ -211,8 +216,8 @@ class Archive(object):
             An anonymous record, identified by the python built-in id.
         """
 
-        def __init__(self, id, frame, value, line_no, time=0):
-            super().__init__(frame, value, line_no, time)
+        def __init__(self, id, frame, value_type):
+            super().__init__(frame, value_type)
 
             # Set the id.
             self.__id = id
@@ -242,9 +247,9 @@ class Archive(object):
             A Named record tracks an object with a given variable name.
         """
 
-        def __init__(self, name, frame, value, line_no, time=0):
+        def __init__(self, name, frame, value_type):
             # Initialize parent.
-            super().__init__(frame, value, line_no, time)
+            super().__init__(frame, value_type)
 
             # Set the name.
             self.__name = name
@@ -305,6 +310,18 @@ class Archive(object):
         # Initialize the commitments dict.
         self._commitments = {}
 
+        # Initialize the global time counter.
+        self._global_time_counter = 0
+
+    @property
+    def last_time_counter(self):
+        return self._global_time_counter
+
+    def _advance_time_counter(self) -> Archive:
+        self._global_time_counter += 1
+
+        return self
+
     def history(self, var) -> list:
         """
             Extract all history of a variable.
@@ -333,7 +350,7 @@ class Archive(object):
 
         return self.vars_dict
 
-    def all_records(self) -> dict:
+    def all_records(self)  -> dict:
         all_records = {}
         all_records.update(self.__named_records)
         all_records.update(self.__anonymous_records)
@@ -391,9 +408,9 @@ class Archive(object):
         CREATE_IF_MISSING = 1,
         THROW_IF_MISSING = 2
 
-    def __search_by_full_name_and_create_missing(self, full_name: str, vars_dict: dict,
-                                                 mode_of_search: Archive.__ModeOfSearch, frame: dict = None,
-                                                 line_no: int = -1, time_of_search: int = -1, value=None) -> Record:
+    def __search_record_and_store_value(self, full_name: str, vars_dict: dict,
+                                        mode_of_search: Archive.__ModeOfSearch, frame: dict = None,
+                                        line_no: int = -1, time_of_search: int = -1, value=None) -> Record:
         """
             Searches for an object in the archive by a full name.
             A 'Full Name' contains a series of references leading to the searched object.
@@ -420,7 +437,7 @@ class Archive(object):
         record = self.__search_or_create_named_record(frame, full_name, mode_of_search, name, line_no, vars_dict)
 
         # Fetch all components values.
-        component_values = record.get_values()
+        component_values = record.values
 
         # Fetch the component's value.
         if time_of_search == -1:
@@ -441,7 +458,10 @@ class Archive(object):
                 record = self.__anonymous_records[next_component_id]
             except KeyError:
                 # There is no suitable anonymous record for this component, create one.
-                record = Archive.AnonymousRecord(next_component_id, frame, next_component_value, line_no)
+                record = Archive.AnonymousRecord(next_component_id, frame, type(next_component_value))
+
+                # Store the value.
+                record.store_value(next_component_value, line_no, self.last_time_counter)
 
                 # Store it in the anonymous records table.
                 self.__anonymous_records[next_component_id] = record
@@ -453,7 +473,7 @@ class Archive(object):
                 value_to_record = next_component_value
 
             # Update the record's value.
-            record.store_value(value_to_record, line_no)
+            record.store_value(value_to_record, line_no, self.last_time_counter)
 
         # Return the value of the last component found.
         return record
@@ -472,9 +492,7 @@ class Archive(object):
                     named_record_key = key
 
         # Search for the named record.
-        if named_record_key in self.__named_records:
-            named_record = self.__named_records[named_record_key]
-        else:
+        if named_record_key not in self.__named_records:
             # If the value is none, we're in retrieve mode, therefore leave empty handed.
             if mode_of_search is Archive.__ModeOfSearch.THROW_IF_MISSING:
                 raise Archive.VariableNeverRecordedException(full_name)
@@ -491,12 +509,15 @@ class Archive(object):
         value = self.__find_symbol_in_vars_dict(vars_dict, name)
 
         # Create a named record.
-        named_record = Archive.NamedRecord(name, frame, value, line_no)
+        named_record = Archive.NamedRecord(name, frame, type(value))
+
+        # Store the first value.
+        named_record.store_value(value, line_no, self.last_time_counter)
 
         # Store it in the named records map.
         self.__named_records[named_record.key] = named_record
 
-    def retrieve(self, full_name: str, vars_dict: dict = None) -> list:
+    def retrieve(self, full_name: str, vars_dict: dict = None) -> Archive.Record:
         """
             Searches for an object in the archive by a full name.
             A 'Full Name' contains a series of references leading to the searched object.
@@ -510,19 +531,17 @@ class Archive(object):
             vars_dict = Archive.__retrieve_callee_locals_and_globals()
 
         # Search for the record.
-        record = self.__search_by_full_name_and_create_missing(full_name, vars_dict,
-                                                               Archive.__ModeOfSearch.THROW_IF_MISSING)
-        if record is None:
-            return None
+        return self.__search_record_and_store_value(full_name, vars_dict, Archive.__ModeOfSearch.THROW_IF_MISSING)
 
-        return record.get_values()
-
-    def store(self, full_name: str, value: object, frame: dict, line_no: int, vars_dict: dict = None, slice=None) -> Archive:
+    def store(self, full_name: str, value: object, frame: dict, line_no: int, vars_dict: dict = None,
+              slice=None) -> Archive:
         """
             Stores a new object in the archive.
-        :param full_name: (str) The full name fo the object to store.
-        :param value: (object) A new value to store.
-        :param vars_dict: (dict) The dict containing the named variables.
+        :param full_name: The full name fo the object to store.
+        :param value: A new value to store.
+        :param line_no: The line number that triggered the store in the archive.
+        :param frame: The frame of the code section that trigger the store in the archive.
+        :param vars_dict: The dict containing the named variables.
         :return: self.
         """
 
@@ -530,12 +549,15 @@ class Archive(object):
             vars_dict = Archive.__retrieve_callee_locals_and_globals()
 
         # Search for the record and store.
-        record = self.__search_by_full_name_and_create_missing(full_name, vars_dict,
-                                                               Archive.__ModeOfSearch.CREATE_IF_MISSING, frame, line_no,
-                                                               value=value)
+        record = self.__search_record_and_store_value(full_name, vars_dict,
+                                                      Archive.__ModeOfSearch.CREATE_IF_MISSING, frame, line_no,
+                                                      value=value)
+
+        # Advance the time.
+        self._advance_time_counter()
 
         # Validate commitments.
-        #if record.frame is frame:
+        # if record.frame is frame:
         self._validate_commitments(record, line_no)
 
         return self
@@ -585,8 +607,8 @@ class Archive(object):
         :return: self
         """
         # Find the record.
-        record = self.__search_by_full_name_and_create_missing(name, vars_dict,
-                                                               Archive.__ModeOfSearch.CREATE_IF_MISSING, frame)
+        record = self.__search_record_and_store_value(name, vars_dict,
+                                                      Archive.__ModeOfSearch.CREATE_IF_MISSING, frame)
         # Create key.
         record_key = record.key
 
@@ -610,13 +632,13 @@ class Archive(object):
             return
 
         def try_to_locate_object_in_frame(object_id, frame):
-            for local in frame.f_locals.values():
+            for local in frame.f_locals.values:
                 # Look for the local itself.
                 if id(local) is object_id:
                     return local
 
                 # Go over the attributes of the local.
-                for attr in local.__dict__.values():
+                for attr in local.__dict__.values:
                     if id(attr) == object_id:
                         return attr
 
@@ -635,9 +657,7 @@ class Archive(object):
             #     return len(matching_identifiers) > 0 and matching_types
 
             return record.key.identifier == commitment_record_key.identifier
-            #return try_to_locate_object_in_frame(record.key.identifier, commitment_record_key.frame) is not None
-
-
+            # return try_to_locate_object_in_frame(record.key.identifier, commitment_record_key.frame) is not None
 
         # Filter the commitments by the record's type.
         # TODO: This is a patch and should be rethought in the future.

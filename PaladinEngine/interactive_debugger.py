@@ -1,6 +1,6 @@
 from cmd import Cmd
 
-from archive import archive
+from archive.archive import Archive
 from source_provider import SourceProvider
 
 
@@ -19,7 +19,9 @@ class TerminalColor:
 
 
 class InteractiveDebugger(Cmd):
-    def __init__(self, archive: archive.Archive, error_line: str, line_no: int) -> None:
+    CODE_WINDOW_SIZE = 10
+
+    def __init__(self, archive: Archive, error_line: str, line_no: int) -> None:
         # Call Super constructor.
         super().__init__(completekey='tab')
 
@@ -32,6 +34,8 @@ class InteractiveDebugger(Cmd):
         # Init intro message.
         InteractiveDebugger.intro = InteractiveDebugger._intro_format(line_no, error_line,
                                                                       SourceProvider.get_line(line_no).lstrip())
+        # Initiate the time of search in the archive.
+        self._archive_time_of_search = archive.last_time_counter
 
     @property
     def archive(self):
@@ -57,27 +61,53 @@ class InteractiveDebugger(Cmd):
 
     prompt = f'{TerminalColor.OKGREEN}(PaLaDiN {__name__}) >>{TerminalColor.ENDC} '
 
+    def _create_code_window(self, expr_to_search: str):
+        # Retrieve the record from the archive.
+        record = self.archive.retrieve(expr_to_search)
+
+        # Get the last recorded values from time.
+        value, line_no, time = record.get_last_value_from_time(self._archive_time_of_search)
+
+        # Set the archive time of search to start from the time of the last value searched.
+        self._archive_time_of_search = time
+
+        # Create code window.
+        code_window, bold_line_no = SourceProvider.get_window(line_no, before=InteractiveDebugger.CODE_WINDOW_SIZE,
+                                                              after=InteractiveDebugger.CODE_WINDOW_SIZE)
+
+        return value, zip(code_window, range(1, len(code_window))), bold_line_no
+
     def do_why(self, arg):
-        print(f'{TerminalColor.OKBLUE}...{TerminalColor.ENDC}')
-        line_nos = []
-        # Search for arg in the archive.
-        #for value, line_no in ((self.archive.retrieve(arg)[::-1])[0]):
-            # if line_no in line_nos:
-            #     continue
-            # line_nos.append(line_no)
-            # Fetch a code_window.
-        all_values_of_arg = reversed(self.archive.retrieve(arg))
-        value, line_no = all_values_of_arg.__next__()
-        code_window, bold_line_no = SourceProvider.get_window(line_no, before=10, after=10)
-        for line, no in zip(code_window, range(1, len(code_window))):
-            if no == bold_line_no:
-                print(f'{TerminalColor.OKBLUE}{line} {TerminalColor.OKCYAN}>>> {arg} = {str(value)}{TerminalColor.ENDC}')
-            else:
-                print(line)
-        print(f'{TerminalColor.OKBLUE}...{TerminalColor.ENDC}')
+        strings_to_print = []
+        try:
+            strings_to_print.append(f'{TerminalColor.OKBLUE}...{TerminalColor.ENDC}')
+            # Create a code window.
+            value, code_window, bold_line_no = self._create_code_window(arg)
+
+            for line, no in code_window:
+                if no == bold_line_no:
+                    strings_to_print.append(
+                        f'{TerminalColor.OKBLUE}{line} {TerminalColor.OKCYAN}>>> {arg} = {str(value)}{TerminalColor.ENDC}')
+                else:
+                    strings_to_print.append(line)
+
+            strings_to_print.append(f'{TerminalColor.OKBLUE}...{TerminalColor.ENDC}')
+
+        except BaseException:
+            strings_to_print = [f'{TerminalColor.FAIL}Can\'t find {TerminalColor.UNDERLINE}{arg}'
+                                f'{TerminalColor.ENDC}{TerminalColor.FAIL} in archive.']
+
+        for s in strings_to_print:
+            print(s)
 
     def do_print_line(self, line_no):
         print(f'{SourceProvider.get_line(int(line_no)).strip()}')
+
+    def postcmd(self, stop, line):
+        return stop
+
+    def do_exit(self, _):
+        return True
 
     def help_print_line(self):
         print('Print a line from the code.')
@@ -87,4 +117,5 @@ class InteractiveDebugger(Cmd):
 
 
 if __name__ == '__main__':
-    InteractiveDebugger().cmdloop()
+    archive = Archive()
+    InteractiveDebugger(archive, '', 0).cmdloop()
