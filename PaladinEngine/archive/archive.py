@@ -333,7 +333,7 @@ class Archive(object):
 
         return self.vars_dict
 
-    def __all_records(self) -> dict:
+    def all_records(self) -> dict:
         all_records = {}
         all_records.update(self.__named_records)
         all_records.update(self.__anonymous_records)
@@ -353,7 +353,7 @@ class Archive(object):
         table.align = 'l'
         table.max_width = ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
 
-        all_records = self.__all_records()
+        all_records = self.all_records()
 
         # Add rows from the archive.
 
@@ -391,18 +391,15 @@ class Archive(object):
         CREATE_IF_MISSING = 1,
         THROW_IF_MISSING = 2
 
-    def __search_by_full_name_and_create_missing(self,
-                                                 full_name: str,
-                                                 vars_dict: dict,
-                                                 mode_of_search: Archive.__ModeOfSearch,
-                                                 frame: dict = None,
-                                                 line_no: int = -1,
-                                                 time_of_search: int = -1) -> Record:
+    def __search_by_full_name_and_create_missing(self, full_name: str, vars_dict: dict,
+                                                 mode_of_search: Archive.__ModeOfSearch, frame: dict = None,
+                                                 line_no: int = -1, time_of_search: int = -1, value=None) -> Record:
         """
             Searches for an object in the archive by a full name.
             A 'Full Name' contains a series of references leading to the searched object.
             e.g.: 'x.y.z'
 
+        :param value:
         :param full_name: (str) A 'Full Name'
         :param vars_dict: (dict) A dictionary with all vars to look in.
         :param time_of_search: (int) The time of the value to search.
@@ -450,8 +447,13 @@ class Archive(object):
                 self.__anonymous_records[next_component_id] = record
 
         if mode_of_search is Archive.__ModeOfSearch.CREATE_IF_MISSING:
+            if len(components) == 1:
+                value_to_record = value
+            else:
+                value_to_record = next_component_value
+
             # Update the record's value.
-            record.store_value(next_component_value, line_no)
+            record.store_value(value_to_record, line_no)
 
         # Return the value of the last component found.
         return record
@@ -508,8 +510,7 @@ class Archive(object):
             vars_dict = Archive.__retrieve_callee_locals_and_globals()
 
         # Search for the record.
-        record = self.__search_by_full_name_and_create_missing(full_name,
-                                                               vars_dict,
+        record = self.__search_by_full_name_and_create_missing(full_name, vars_dict,
                                                                Archive.__ModeOfSearch.THROW_IF_MISSING)
         if record is None:
             return None
@@ -525,18 +526,13 @@ class Archive(object):
         :return: self.
         """
 
-        if slice is not None:
-             x = 1 + 1
-
         if vars_dict is None:
             vars_dict = Archive.__retrieve_callee_locals_and_globals()
 
         # Search for the record and store.
-        record = self.__search_by_full_name_and_create_missing(full_name,
-                                                               vars_dict,
-                                                               Archive.__ModeOfSearch.CREATE_IF_MISSING,
-                                                               frame,
-                                                               line_no)
+        record = self.__search_by_full_name_and_create_missing(full_name, vars_dict,
+                                                               Archive.__ModeOfSearch.CREATE_IF_MISSING, frame, line_no,
+                                                               value=value)
 
         # Validate commitments.
         #if record.frame is frame:

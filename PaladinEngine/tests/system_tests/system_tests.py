@@ -4,6 +4,7 @@ import traceback
 import pytest
 import threading
 from engine.engine import PaLaDiNEngine
+from interactive_debugger import InteractiveDebugger
 from stubs import archive
 from pycallgraph import PyCallGraph, GlobbingFilter, Config
 from pycallgraph.output import GraphvizOutput
@@ -61,6 +62,7 @@ class TestEngine:
 
     @staticmethod
     def _basic_test(test_file_path: str, verbose: bool, valid_exceptions: list):
+
         # Read source file.
         with open(test_file_path) as f:
             # Read the source file.
@@ -92,8 +94,6 @@ class TestEngine:
 
     # @pytest.mark.skip(reason="")
     def test_0(self):
-        import os
-        print('$%%%%%%%%%%*(&&$%(*&(*&$(*#&%(*$@&%(*$@&%(*$@&' + os.getcwd())
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'test_module.py'
         ),
@@ -110,7 +110,7 @@ class TestEngine:
     def test_2(self):
         self.basic_test(self.test_0, with_call_graph=True)
 
-    # @pytest.mark.skip(reason="")
+    #@pytest.mark.skip(reason="")
     def test3(self):
         class TestThread(threading.Thread):
             def run(self) -> None:

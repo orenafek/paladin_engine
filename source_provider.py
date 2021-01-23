@@ -35,4 +35,4 @@ class SourceProvider(object):
         line_no_in_window = before
 
         # Return the window.
-        return SourceProvider._source_code[first_line: last_line], line_no_in_window + 1
+        return SourceProvider._source_code[first_line: last_line], line_no_in_window - 1

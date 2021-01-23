@@ -19,30 +19,23 @@ class TerminalColor:
 
 
 class InteractiveDebugger(Cmd):
-    def __init__(self, archive: archive.Archive, broken_commitment: str, line_no: int):
+    def __init__(self, archive: archive.Archive, error_line: str, line_no: int) -> None:
         # Call Super constructor.
         super().__init__(completekey='tab')
 
         # Init archive.
         self._archive = archive
 
-        # Init broken_commitment.
-        self._broken_commitment = broken_commitment
-
         # Init line number.
         self._line_no = line_no
 
         # Init intro message.
-        InteractiveDebugger.intro = InteractiveDebugger._intro_format(broken_commitment, line_no,
+        InteractiveDebugger.intro = InteractiveDebugger._intro_format(line_no, error_line,
                                                                       SourceProvider.get_line(line_no).lstrip())
 
     @property
     def archive(self):
         return self._archive
-
-    @property
-    def broken_commitment(self):
-        return self._broken_commitment
 
     @property
     def line_no(self):
@@ -55,9 +48,9 @@ class InteractiveDebugger(Cmd):
         WHY_KEY = 'why'
 
     @staticmethod
-    def _intro_format(broken_commitment, line_no, breaking_line):
+    def _intro_format(line_no, error_line, breaking_line):
         return f'{TerminalColor.OKBLUE}Welcome to {InteractiveDebugger.__name__}!{TerminalColor.ENDC}\n' \
-               f'{TerminalColor.FAIL}Commitment: {broken_commitment} has been broken.{TerminalColor.ENDC}\n' \
+               f'{TerminalColor.FAIL}{error_line}{TerminalColor.ENDC}\n' \
                f'{TerminalColor.OKBLUE}Breaking line ({line_no}): ' \
                f'{TerminalColor.OKCYAN}{breaking_line}{TerminalColor.ENDC}\n' \
                f'{TerminalColor.OKBLUE}Press {InteractiveDebugger.Keys.WHY_KEY} to figure out why.{TerminalColor.ENDC}'
@@ -68,17 +61,19 @@ class InteractiveDebugger(Cmd):
         print(f'{TerminalColor.OKBLUE}...{TerminalColor.ENDC}')
         line_nos = []
         # Search for arg in the archive.
-        for value, line_no in self.archive.retrieve(arg):
-            if line_no in line_nos:
-                continue
-            line_nos.append(line_no)
+        #for value, line_no in ((self.archive.retrieve(arg)[::-1])[0]):
+            # if line_no in line_nos:
+            #     continue
+            # line_nos.append(line_no)
             # Fetch a code_window.
-            code_window, bold_line_no = SourceProvider.get_window(line_no, before=10, after=10)
-            for line, no in zip(code_window, range(1, len(code_window))):
-                if no == bold_line_no:
-                    print(f'{TerminalColor.OKBLUE}{line} {TerminalColor.OKCYAN}>>> {arg} = {str(value)}{TerminalColor.ENDC}')
-                else:
-                    print(line)
+        all_values_of_arg = reversed(self.archive.retrieve(arg))
+        value, line_no = all_values_of_arg.__next__()
+        code_window, bold_line_no = SourceProvider.get_window(line_no, before=10, after=10)
+        for line, no in zip(code_window, range(1, len(code_window))):
+            if no == bold_line_no:
+                print(f'{TerminalColor.OKBLUE}{line} {TerminalColor.OKCYAN}>>> {arg} = {str(value)}{TerminalColor.ENDC}')
+            else:
+                print(line)
         print(f'{TerminalColor.OKBLUE}...{TerminalColor.ENDC}')
 
     def do_print_line(self, line_no):

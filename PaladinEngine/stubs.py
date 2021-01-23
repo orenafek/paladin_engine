@@ -20,18 +20,26 @@ def __FLI__(locals, globals):
     n = all_vars['n']
 
     result = all_vars['result']
-
-    if abs(n) >= 1:
-        assert result >= all(archive.retrieve('result'))
-    else:
-        assert result < all(archive.retrieve('result'))
+    error_line = '''
+        if |n| >= 1:
+            result >= pre(result)
+        else:
+            result < pre(result)'''
+    try:
+        if abs(n) >= 1:
+            assert result >= all(archive.retrieve('result'))
+        else:
+            assert result < all(archive.retrieve('result'))
+    except BaseException:
+        InteractiveDebugger(archive, f'For Loop invariant: {error_line}\nhas been broken.', 21).cmdloop()
 
 
 def handle_broken_commitment(condition, frame, line_no):
     frame_info = inspect.getframeinfo(frame)
 
+    error_line = f'Commitment: {condition} has been broken.'
     # Initialize PaLaDinInteractiveDebugger.
-    interactive_debugger = InteractiveDebugger(archive, condition, line_no)
+    interactive_debugger = InteractiveDebugger(archive, error_line, line_no)
     interactive_debugger.cmdloop()
 
 

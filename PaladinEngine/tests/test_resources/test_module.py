@@ -1,13 +1,3 @@
-# @Paladin.postcond('n', 'n > 0')
-# def square(n):
-#     return n * n
-import abc
-
-from PaladinEngine.api.api import Paladinize
-from pycallgraph import PyCallGraph, GlobbingFilter, Config
-from pycallgraph.output import  GraphvizOutput
-
-
 def power(n, p):
     """
 
