@@ -4,6 +4,7 @@ from typing import Union
 
 from PaladinEngine.conf.engine_conf import *
 from api.api import PaladinPostCondition
+from stubs import StubArgumentType
 
 
 class StubEntry(object):
@@ -11,7 +12,7 @@ class StubEntry(object):
         A triple of an element to stub, its container and the attr name in which it is held.
     """
 
-    def __init__(self, node, attr_name, container, extra):
+    def __init__(self, node, attr_name, container, extra=None):
         self._node = node
         self._attr_name = attr_name
         self._container = container
@@ -32,6 +33,23 @@ class StubEntry(object):
     @property
     def extra(self):
         return self._extra
+
+    def __str__(self):
+        return f'node = {self.node}\n' \
+               f'attr_name = {self.attr_name}\n' \
+               f'container = {self.container}\n' \
+               f'extra = {self.extra}\n'
+
+
+class SliceStubEntry(StubEntry):
+
+    def __init__(self, node, attr_name, container, indices):
+        super().__init__(node, attr_name, container)
+        self._indices = indices
+
+    @property
+    def indices(self):
+        return self._indices
 
 
 class GenericFinder(ABC, ast.NodeVisitor):
@@ -238,7 +256,7 @@ class DecoratorFinder(GenericFinder):
             return self._params
 
 
-class PaladinLoopInvariantsFinder(GenericFinder):
+class PaladinForLoopFinder(GenericFinder):
     """
     A finder for While & For loops invariants.
     """
@@ -251,6 +269,40 @@ class PaladinLoopInvariantsFinder(GenericFinder):
         super().__init__()
 
         # Initialize a dict of loops and their inline definitions.
+        self.for_loops = []
+
+    def visit_For(self, node) -> None:
+        """
+            A visitor for For Loops.
+        :param node: (ast.AST) An AST node.
+        :return: None.
+        """
+        self.for_loops.append(node)
+        return True
+
+    def _extract_extra(self, node: ast.AST):
+        if node in self.for_loops:
+            return self.for_loops[node]
+
+        return None
+
+    def types_to_find(self) -> Union:
+        return [ast.For]
+
+
+class PaladinForLoopInvariantsFinder(GenericFinder):
+    """
+    A finder for While & For loops invariants.
+    """
+
+    def __init__(self) -> None:
+        """
+            Constructor.
+        """
+        # Call the super's constructor.
+        super().__init__()
+
+        # Initialize the loop map.
         self.loop_map = {}
 
     def visit_For(self, node) -> None:
@@ -285,7 +337,7 @@ class PaladinLoopInvariantsFinder(GenericFinder):
         """
 
         # If not a loop invariant, leave.
-        if not PaladinLoopInvariantsFinder.__is_loop_invariant(node):
+        if not PaladinForLoopInvariantsFinder.__is_loop_invariant(node):
             return
 
         # If no loops have been visited before, leave.
@@ -294,7 +346,7 @@ class PaladinLoopInvariantsFinder(GenericFinder):
 
         # Find the matching loop.
         matching_loop = [loop for loop in self.loop_map.keys() if
-                         PaladinLoopInvariantsFinder.__is_first_or_only_stmt_of_body(node, loop)][0]
+                         PaladinForLoopInvariantsFinder.__is_first_or_only_stmt_of_body(node, loop)][0]
 
         # Fill in the map.
         self.loop_map[matching_loop] = node
@@ -324,7 +376,7 @@ class PaladinLoopInvariantsFinder(GenericFinder):
             return False
 
         # Strip.
-        striped_node = PaladinLoopInvariantsFinder.__expr_node_to_str(node).strip()
+        striped_node = PaladinForLoopInvariantsFinder.__expr_node_to_str(node).strip()
 
         return striped_node.startswith(PALADIN_INLINE_DEFINITION_HEADER) \
                and striped_node.endswith(PALADIN_INLINE_DEFINITION_FOOTER)
@@ -338,12 +390,6 @@ class PaladinLoopInvariantsFinder(GenericFinder):
         """
         return node.value.value
 
-    def _extract_extra(self, node: ast.AST):
-        if node in self.loop_map:
-            return self.loop_map[node]
-
-        return None
-
     def types_to_find(self) -> Union:
         return [ast.For, ast.While]
 
@@ -353,11 +399,70 @@ class AssignmentFinder(GenericFinder):
         Finds all assignment statements in the node.
     """
 
+    def __init__(self) -> None:
+        super().__init__()
+
     def types_to_find(self):
         return ast.Assign
 
+    def _add_to_assign(self, name, attr=None):
+        if attr is not None:
+            target_string = name + "." + str(attr)
+        else:
+            target_string = name
+
+        return [(target_string, StubArgumentType.NAME), (target_string, StubArgumentType.PLAIN)]
+
     def visit_Assign(self, node):
-        return self._generic_visit_with_extras(node, True)
+        extras = []
+
+        for target in node.targets:
+            if type(target) is ast.Tuple:
+                extras.extend(self.visit_Tuple(target))
+            else:
+                extras.append(super(GenericFinder, self).visit(target))
+
+        # return extras
+        return self._generic_visit_with_extras(node, extras)
+
+    def visit_Name(self, node):
+        return self._add_to_assign(node.id)
+
+    def visit_Attribute(self, node):
+        # Extract Name.
+        name = node.value.id
+        return self._add_to_assign(name, node.attr)
+
+    def visit_Subscript(self, node):
+        # Visit value (the object being subscripted) to extract extra.
+        value_extra = super(GenericFinder, self).visit(node.value)
+
+        class SliceFinder(ast.NodeVisitor):
+
+            def visit_Tuple(self, node):
+                return [self.visit(elem) for elem in node.elts]
+
+            def visit_Name(self, node):
+                return node.id, StubArgumentType.NAME
+
+            def visit_Attribute(self, node):
+                return node.attr, StubArgumentType.NAME
+
+            def visit_Slice(self, node):
+                return self.visit(node.lower), self.visit(node.upper), self.visit(node.step)
+
+        # Take extra for the slice.
+        slice_extra = SliceFinder().visit(node.slice)
+
+        # Create a subscript tuple.
+        return [value_extra, slice_extra]
+
+    def visit_Tuple(self, node):
+        extras = []
+        for tuple_target in node.elts:
+            extras.append(super(GenericFinder, self).visit(tuple_target))
+
+        return extras
 
 
 class PaladinPostConditionFinder(DecoratorFinder):

@@ -91,6 +91,7 @@ class PaLaDiNEngine(object):
         """
         return ModuleTransformer(module) \
             .transform_loop_invariants() \
+            .transform_for_loops_to_while_loops() \
             .transform_assignments() \
             .transform_paladin_post_condition() \
             .module()
