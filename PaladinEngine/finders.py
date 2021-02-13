@@ -411,7 +411,7 @@ class AssignmentFinder(GenericFinder):
         else:
             target_string = name
 
-        return [(target_string, StubArgumentType.NAME), (target_string, StubArgumentType.PLAIN)]
+        return [(target_string, StubArgumentType.NAME)]
 
     def visit_Assign(self, node):
         extras = []
@@ -476,6 +476,67 @@ class PaladinPostConditionFinder(DecoratorFinder):
     def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
         return DecoratorFinder.Decorator(func, decorator).name == PaladinPostCondition.__name__
 
+class FunctionCallFinder(GenericFinder):
+    """
+        Finds all assignment statements in the node.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def types_to_find(self):
+        return ast.Call
+
+    def visit_Call(self, node):
+        extras = []
+
+        for target in node.targets:
+            if type(target) is ast.Tuple:
+                extras.extend(self.visit_Tuple(target))
+            else:
+                extras.append(super(GenericFinder, self).visit(target))
+
+        # return extras
+        return self._generic_visit_with_extras(node, extras)
+
+    def visit_Name(self, node):
+        return self._add_to_assign(node.id)
+
+    def visit_Attribute(self, node):
+        # Extract Name.
+        name = node.value.id
+        return self._add_to_assign(name, node.attr)
+
+    def visit_Subscript(self, node):
+        # Visit value (the object being subscripted) to extract extra.
+        value_extra = super(GenericFinder, self).visit(node.value)
+
+        class SliceFinder(ast.NodeVisitor):
+
+            def visit_Tuple(self, node):
+                return [self.visit(elem) for elem in node.elts]
+
+            def visit_Name(self, node):
+                return node.id, StubArgumentType.NAME
+
+            def visit_Attribute(self, node):
+                return node.attr, StubArgumentType.NAME
+
+            def visit_Slice(self, node):
+                return self.visit(node.lower), self.visit(node.upper), self.visit(node.step)
+
+        # Take extra for the slice.
+        slice_extra = SliceFinder().visit(node.slice)
+
+        # Create a subscript tuple.
+        return [value_extra, slice_extra]
+
+    def visit_Tuple(self, node):
+        extras = []
+        for tuple_target in node.elts:
+            extras.append(super(GenericFinder, self).visit(tuple_target))
+
+        return extras
 
 class DanglingPaLaDiNDefinition(Exception):
     """

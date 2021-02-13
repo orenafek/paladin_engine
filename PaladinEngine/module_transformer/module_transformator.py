@@ -9,7 +9,7 @@ import ast
 import astor
 
 from PaladinEngine.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, StubEntry
+    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, StubEntry, FunctionCallFinder
 from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber
 from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__
 from api.api import PaladinPostCondition
@@ -108,6 +108,15 @@ class ModuleTransformer(object):
 
         return self
 
+    def transform_function_calls(self) -> ModuleTransformer:
+        # Find all function calls.
+        function_call_finder = FunctionCallFinder()
+        function_call_finder.visit(self.__module)
+        function_calls = function_call_finder.find()
+
+        for stub_entry in function_calls:
+            # Create a stub.
+            function_call_stub = create_ast_stub(__FCS__)
     def to_code(self) -> str:
         """
             Convert the module to code.

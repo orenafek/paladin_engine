@@ -26,7 +26,8 @@ def __FLI__(locals, globals):
         else:
             result < pre(result)'''
     try:
-        values = archive.retrieve('result').values
+        values = [rv.value for rv in archive.retrieve('result').values]
+
         if abs(n) >= 1:
             assert result >= all(values)
         else:
@@ -77,6 +78,28 @@ def __AS__(*assignment_pairs, locals, globals, frame, line_no) -> None:
     :return: None
     """
 
+    archive.store(*assignment_pairs, frame=frame, vars_dict={**locals, **globals}, line_no=line_no)
+
+def __FCS__(function_name: str,
+            function_args_kwargs: list,
+            function_call_return_value: object,
+            locals: dict, globals: dict, frame: dict, line_no: int) -> None:
+    """
+        A stub for function calls.
+        :param function_name:               The name of the function.
+        :param function_args_kwargs:        A list of the args and kwargs of the function.
+        :param function_call_return_value   The return value of the call to this function.
+        :param locals                       A dict of the local variables of the context in which this stub was called.
+        :param globals                      A dict of the global variables of the context in which this stub was called.
+        :param frame                        The frame of the context in which this stub was called.
+        :param line_no                      The line number in the original source code that triggered the creation of this
+                                            stub.
+
+    :return: None
+    """
+
+    # Create a function call record.
+    Archive.FunctionCallRecord(function_name, func)
     # Iterate over the targets of the assignment.
     for assignment_triplet in assignment_pairs:
         # Record the value.
