@@ -1,10 +1,9 @@
-import re
 from abc import ABC, abstractmethod
 from typing import Union
 
 from PaladinEngine.conf.engine_conf import *
-from api.api import PaladinPostCondition
-from stubs import StubArgumentType
+from PaladinEngine.api.api import PaladinPostCondition
+from PaladinEngine.stubs import StubArgumentType
 
 
 class StubEntry(object):

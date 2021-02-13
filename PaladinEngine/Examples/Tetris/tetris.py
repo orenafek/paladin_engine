@@ -1,7 +1,7 @@
 
 import random
 
-from Examples.Tetris.graphics import Window, Point, Rectangle, CanvasFrame, Text
+from PaladinEngine.Examples.Tetris.graphics import Window, Point, Rectangle, CanvasFrame, Text
 
 
 ############################################################

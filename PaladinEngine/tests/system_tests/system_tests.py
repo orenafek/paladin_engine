@@ -1,14 +1,13 @@
 import os
+import threading
 import traceback
 
 import pytest
-import threading
-from engine.engine import PaLaDiNEngine
-from interactive_debugger import InteractiveDebugger
-from stubs import archive
 from pycallgraph import PyCallGraph, GlobbingFilter, Config
 from pycallgraph.output import GraphvizOutput
-from pynput.keyboard import Key, Controller
+
+from PaladinEngine.engine.engine import PaLaDiNEngine
+from PaladinEngine.stubs import archive
 
 
 class CallGraphCreator:

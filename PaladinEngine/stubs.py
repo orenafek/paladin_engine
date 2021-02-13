@@ -2,10 +2,10 @@ import ast
 import inspect
 
 from PaladinEngine.archive.archive import Archive
-from interactive_debugger import InteractiveDebugger
+from PaladinEngine.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
-from Examples.Tetris.tetris import Board, Block
+from PaladinEngine.Examples.Tetris.tetris import Board, Block
 
 
 def __FLI__(locals, globals):

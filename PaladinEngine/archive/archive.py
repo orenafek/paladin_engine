@@ -350,7 +350,7 @@ class Archive(object):
 
         return self.vars_dict
 
-    def all_records(self)  -> dict:
+    def all_records(self) -> dict:
         all_records = {}
         all_records.update(self.__named_records)
         all_records.update(self.__anonymous_records)
@@ -516,6 +516,13 @@ class Archive(object):
 
         # Store it in the named records map.
         self.__named_records[named_record.key] = named_record
+
+    def search(self, expression: str):
+
+
+
+
+
 
     def retrieve(self, full_name: str, vars_dict: dict = None) -> Archive.Record:
         """

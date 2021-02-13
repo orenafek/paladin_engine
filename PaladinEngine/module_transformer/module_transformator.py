@@ -12,7 +12,7 @@ from PaladinEngine.finders import PaladinForLoopInvariantsFinder, AssignmentFind
     PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, StubEntry
 from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber
 from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__
-from api.api import PaladinPostCondition
+from PaladinEngine.api.api import PaladinPostCondition
 
 
 class ModuleTransformer(object):
