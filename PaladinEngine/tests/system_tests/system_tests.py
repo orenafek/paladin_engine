@@ -91,7 +91,7 @@ class TestEngine:
                     # Print the archive.
                     print(archive)
 
-    # @pytest.mark.skip(reason="")
+    @pytest.mark.skip(reason="")
     def test_0(self):
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'test_module.py'
@@ -101,6 +101,22 @@ class TestEngine:
         )
 
     @pytest.mark.skip(reason="")
+    def test_3(self):
+        TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
+            r'test_module3.py'
+        ),
+            verbose=True,
+            valid_exceptions=[AssertionError]
+        )
+
+    def test_function_call_stub(self):
+        TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
+            r'test_function_call_store.py'
+        ),
+            verbose=True,
+            valid_exceptions=[AssertionError]
+        )
+    @pytest.mark.skip(reason="")
     def test_1(self):
 
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(r'test_module2.py'), verbose=True)
@@ -109,7 +125,7 @@ class TestEngine:
     def test_2(self):
         self.basic_test(self.test_0, with_call_graph=True)
 
-    #@pytest.mark.skip(reason="")
+    @pytest.mark.skip(reason="")
     def test3(self):
         class TestThread(threading.Thread):
             def run(self) -> None:

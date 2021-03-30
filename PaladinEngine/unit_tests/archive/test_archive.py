@@ -37,7 +37,7 @@ class ArchiveUnitTests(unittest.TestCase):
         # Store the field.
         self.archive.store('mock_object.field')
 
-        print(self.archive.retrieve('mock_object'))
+        print(self.archive.search('mock_object'))
 
         # Create a recursive mock field and store once.
         mock_object_2 = MockObject(MockObject(MockObject(MockObject())))

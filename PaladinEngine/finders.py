@@ -3,8 +3,8 @@ from typing import Union
 
 from PaladinEngine.conf.engine_conf import *
 from PaladinEngine.api.api import PaladinPostCondition
-from PaladinEngine.stubs import StubArgumentType
-
+from PaladinEngine.stubs import StubArgumentType, all_stubs
+import astor
 
 class StubEntry(object):
     """
@@ -69,6 +69,8 @@ class GenericFinder(ABC, ast.NodeVisitor):
         # A list for keeping track of the nodes being visited by this visitor.
         self.__visited_notes = []
 
+        self._containers = []
+
     def visit(self, node) -> None:
         """
             General visit.
@@ -82,8 +84,12 @@ class GenericFinder(ABC, ast.NodeVisitor):
         # Add to visits list.
         self.__visited_notes.append(node)
 
+        # Store container of container.
+        self._containers.insert(0, node)
+
         # Search in direct children nodes.
         for attr_name, child_node in GenericFinder.__iter_child_nodes(node):
+
             # Check if this node should be visited.
             if self._should_visit(child_node):
                 # Visit and keep the extra information created by the visit in this node.
@@ -97,6 +103,9 @@ class GenericFinder(ABC, ast.NodeVisitor):
 
         # Visit by super's visitor.
         super().generic_visit(node)
+
+        # Pop from the containers stack.
+        self._containers.pop(0)
 
     def _should_visit(self, child_node: ast.AST) -> bool:
         """
@@ -128,6 +137,16 @@ class GenericFinder(ABC, ast.NodeVisitor):
                 for item in field:
                     if isinstance(item, ast.AST):
                         yield name, item
+
+    @staticmethod
+    def get_node_attr_name(node: ast.AST, child_node: ast.AST) -> str:
+        for name, field in ast.iter_fields(node):
+            if isinstance(field, ast.AST) and field is child_node:
+                return name
+            elif isinstance(field, list):
+                for item in field:
+                    if isinstance(item, ast.AST) and item is child_node:
+                        return name
 
     def find(self) -> list:
         """
@@ -410,7 +429,7 @@ class AssignmentFinder(GenericFinder):
         else:
             target_string = name
 
-        return [(target_string, StubArgumentType.NAME), (target_string, StubArgumentType.PLAIN)]
+        return [(target_string, StubArgumentType.NAME)]
 
     def visit_Assign(self, node):
         extras = []
@@ -475,6 +494,120 @@ class PaladinPostConditionFinder(DecoratorFinder):
     def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
         return DecoratorFinder.Decorator(func, decorator).name == PaladinPostCondition.__name__
 
+
+class FunctionCallFinder(GenericFinder):
+    """
+        Finds all function calls statements in the node.
+    """
+
+    class FunctionCallExtra(object):
+
+        def __init__(self):
+            self.__args = []
+            self.__kwargs = {}
+            self.__func_name = None
+            self.__return_value = None
+            self.__container_of_container = None
+
+        @property
+        def function_name(self):
+            return self.__func_name
+
+        @function_name.setter
+        def function_name(self, value):
+            self.__func_name = value
+
+        @property
+        def args(self):
+            return self.__args
+
+        @property
+        def kwargs(self):
+            return self.__kwargs
+
+        def add_arg(self, arg):
+            self.args.append(arg)
+
+        def add_kwarg(self, k, v):
+            self.kwargs[k] = v
+
+        @property
+        def return_value(self):
+            return self.__return_value
+
+        @property
+        def container_of_container(self):
+            return self.__container_of_container
+
+        @container_of_container.setter
+        def container_of_container(self, value):
+            self.__container_of_container = value
+
+    def __init__(self) -> None:
+        super().__init__()
+
+
+    def types_to_find(self):
+        return ast.Call
+
+    def visit_Call(self, node: ast.Call):
+        extra = FunctionCallFinder.FunctionCallExtra()
+        extra.function_name = super(GenericFinder, self).visit(node.func)
+
+        if extra.function_name is None:
+            return None
+
+        # Set container of container.
+        extra.container_of_container = self._containers[1]
+
+        # Extract args.
+        for arg in node.args:
+            if type(arg) is ast.Tuple:
+                extra.add_arg(self.visit_Tuple(arg))
+            else:
+                # TODO: Change to this:
+                # extra.add_arg(super(GenericFinder, self).visit(arg))
+                extra.add_arg(astor.to_source(arg).strip())
+
+        # Extract kwargs.
+        for key, value_node in [(kw.arg, kw.value) for kw in node.keywords]:
+            if type(value_node) is ast.Tuple:
+                extra.add_kwarg(key, (self.visit_Tuple(value_node)))
+            else:
+                # TODO: Change to this:
+                # extra.add_kwarg(key, super(GenericFinder, self).visit(value_node))
+                extra.add_kwarg(key, astor.to_source(value_node).strip())
+
+        # return extras
+        return self._generic_visit_with_extras(node, extra)
+
+    def visit_Name(self, node):
+        # Extract name.
+        name = node.id
+
+        # Make sure its not a PaLaDiNInnerCall.
+        if name in [stub.__name__ for stub in all_stubs]:
+            return None
+
+        return node.id
+
+    def visit_Attribute(self, node):
+        try:
+            # Extract Name.
+            name = node.value
+            if type(name) is str:
+                return name
+
+            return self.visit(name)
+        except BaseException:
+            print('')
+
+    def visit_Tuple(self, node):
+        extras = []
+        for tuple_target in node.elts:
+            extras.append(super(GenericFinder, self).visit(tuple_target))
+
+        return extras
 
 class DanglingPaLaDiNDefinition(Exception):
     """

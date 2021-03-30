@@ -15,7 +15,7 @@ from PaladinEngine.module_transformer.module_transformator import ModuleTransfor
 from PaladinEngine.stubbers import *
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive
+from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__
 from source_provider import SourceProvider
 
 
@@ -32,7 +32,7 @@ class PaLaDiNEngine(object):
     __INSTANCE = PaLaDiNEngine()
 
     # List of stubs that can be added to the PaLaDiNized code
-    __PALADIN_STUBS_LIST = [__AS__, __FLI__, __POST_CONDITION__]
+    __PALADIN_STUBS_LIST = [__AS__, __FLI__, __POST_CONDITION__, __FCS__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -94,6 +94,7 @@ class PaLaDiNEngine(object):
             .transform_for_loops_to_while_loops() \
             .transform_assignments() \
             .transform_paladin_post_condition() \
+            .transform_function_calls() \
             .module()
 
     @staticmethod
@@ -113,7 +114,9 @@ class PaLaDiNEngine(object):
         :return: (str) The PaLaDiNized code.
         """
         SourceProvider.set_code(code)
-        return astor.to_source(PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
+        return astor.to_source(
+            PaLaDiNEngine.process_module(
+                PaLaDiNEngine.create_module(code)))
 
 
 def main():

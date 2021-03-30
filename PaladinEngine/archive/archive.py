@@ -4,10 +4,12 @@
     :author: Oren Afek
     :since: 05/04/2019
 """
+import ast
 import inspect
+import re
 from abc import abstractmethod, ABC
 from enum import Enum
-from typing import Union
+from typing import Optional, Iterator
 
 import prettytable
 
@@ -22,6 +24,12 @@ class Archive(object):
         ...
 
     class AnonymousRecord(Record):
+        ...
+
+    class FunctionCallRecord(Record):
+        ...
+
+    class SubscriptRecord(Record):
         ...
 
     class __ModeOfSearch(Enum):
@@ -50,15 +58,93 @@ class Archive(object):
             :param name: (str) The searched name.
             """
             super().__init__(name)
+    class Flavor(object):
+
+        @classmethod
+        def expression_matches(cls, expression: str) -> bool:
+            raise NotImplementedError()
+
+        @classmethod
+        def get_flavor(cls, expression: str) -> Optional[type]:
+             return [flavor for flavor in cls.__subclasses__() if flavor.expression_matches(expression)][0]
+
+        @abstractmethod
+        def find_in_archive(self, expression: str, archive: Archive):
+            raise NotImplementedError()
+
+    class SubscriptFlavor(Flavor):
+        @classmethod
+        def expression_matches(cls, expression: str) -> bool:
+            return re.match('[A-Za-z$_]+[A-Za-z$_0-9\-]*\[[A-Za-z$_0-9,:\-]*\]', expression) is not None
+
+        def find_in_archive(self, expression: str, archive: Archive):
+             raise NotImplementedError('Not Implemented yet.')
+
+    class FunctionCallFlavor(Flavor):
+        @classmethod
+        def expression_matches(cls, expression: str) -> bool:
+            # The string has a ().
+            class FunctionVisitor(ast.NodeVisitor):
+                def __init__(self):
+                    self.counter = 0
+
+                def visit_Call(self, node):
+                    self.counter += 1
+
+            visitor = FunctionVisitor()
+            visitor.visit(ast.parse(expression))
+            return visitor.counter > 0
+
+        def find_in_archive(self, expression: str, archive: Archive):
+            pass
+
+    class PlainFlavor(Flavor):
+        @classmethod
+        def expression_matches(cls, expression: str) -> bool:
+            return re.match(r'[a-zA-Z_]+[a-zA-Z_$0-9]*', expression) is not None
 
     class Record(ABC):
         """
             A record of a variable's value in a point in history.
         """
 
-        def __init__(self, frame, value_type):
+        class RecordValue(object):
+            def __init__(self, value: object, line_no: int, time: int = -1):
+                self._value = value
+                self._line_no = line_no
+                self._time = time
+
+            @property
+            def value(self):
+                return self._value
+
+            @value.setter
+            def value(self, v):
+                self._value = v
+
+            @property
+            def line_no(self):
+                return self._line_no
+
+            @line_no.setter
+            def line_no(self, l_n):
+                self._line_no = l_n
+
+            @property
+            def time(self):
+                return self._time
+
+            @time.setter
+            def time(self, t):
+                self._time = t
+
+            def __repr__(self) -> str:
+                return f'time: {self.time}  line_no: {self.line_no}  value: {self.value}'
+
+        def __init__(self, frame, value_type, expression):
             """
                 Constructor.
+            :param flavor:
             :param time (int): The time of the record.
             :param value (object): The value of the variable.
             """
@@ -72,6 +158,9 @@ class Archive(object):
             # Set the type.
             self.__type = value_type
 
+            # Figure out the flavors.
+            self.__flavors = self._figure_out_flavors(expression)
+
         @property
         def frame(self):
             return self.__frame
@@ -83,6 +172,10 @@ class Archive(object):
         @property
         def key(self):
             return Archive.Record.RecordKey(self.get_identifier(), self.frame)
+
+        @property
+        def flavor(self):
+            return self.__flavors
 
         def __getitem__(self, time: int):
             """
@@ -121,7 +214,7 @@ class Archive(object):
             :param time: The time to filter from.
             :return:
             """
-            return [(v, l_no, t) for v, l_no, t in self.values if t <= time]
+            return [record_value for record_value in self.values if record_value.time < time]
 
         def get_last_value_from_time(self, time: int) -> tuple:
             """
@@ -134,7 +227,7 @@ class Archive(object):
         def get_values_string(self):
             return Archive.Record.stringify(self.values)
 
-        def store_value(self, value: object, line_no: int, time: int) -> Archive.Record:
+        def store_value(self, record_value: RecordValue) -> Archive.Record:
             """
             Appends a value to the list of values of this record.
             :param value: A new value to store.
@@ -142,7 +235,7 @@ class Archive(object):
             :param time: The time to store the value.
             :return:
             """
-            self.__values.append((value, line_no, time))
+            self.__values.append(record_value)
 
             return self
 
@@ -211,13 +304,23 @@ class Archive(object):
             def __hash__(self):
                 return hash(hash(self.identifier) + hash(self.frame))
 
+            def __repr__(self) -> str:
+                return f"({self.identifier}, {self.frame})"
+
+        @classmethod
+        def expression_matches(cls, expression: str) -> bool:
+            return True
+
+        def _figure_out_flavors(self, expression: str) -> list:
+            return [flavor for flavor in Archive.Flavor.__subclasses__() if flavor.expression_matches(expression)]
+
     class AnonymousRecord(Record):
         """
             An anonymous record, identified by the python built-in id.
         """
 
-        def __init__(self, id, frame, value_type):
-            super().__init__(frame, value_type)
+        def __init__(self, id, frame, value_type, expression: str):
+            super().__init__(frame, value_type, expression)
 
             # Set the id.
             self.__id = id
@@ -242,14 +345,18 @@ class Archive(object):
         def get_identifier(self):
             return self.__id
 
+        @classmethod
+        def expression_matches(cls, expression: str) -> bool:
+            return re.match(f'(((\s*[A-Za-z_]\w*\s*)(.)+)(\s*[A-Za-z_]\w*\s*))', expression) is not None
+
     class NamedRecord(Record):
         """
             A Named record tracks an object with a given variable name.
         """
 
-        def __init__(self, name, frame, value_type):
+        def __init__(self, name, frame, value_type, expression: str):
             # Initialize parent.
-            super().__init__(frame, value_type)
+            super().__init__(frame, value_type, expression)
 
             # Set the name.
             self.__name = name
@@ -276,10 +383,23 @@ class Archive(object):
         def get_identifier(self):
             return self.__name
 
+        @classmethod
+        def expression_matches(cls, expression: str) -> bool:
+            return re.match('^[^.]+$', expression) is not None
+
+    def create_or_retrieve_record_key(self, identifier, frame=None):
+        if frame is not None:
+            return Archive.Record.RecordKey(identifier, frame)
+
+        try:
+            return [r for r in self.__named_records if r.identifier == identifier][0]
+        except IndexError:
+            return None
+
     class SubscriptRecord(NamedRecord):
 
-        def __init__(self, name, frame, value, _slice, line_no, time=0):
-            super().__init__(name, frame, value, line_no, time)
+        def __init__(self, name, frame, value, _slice, time=0):
+            super().__init__(name, frame, type(value))
 
             # Set slice.
             self.__slice = _slice
@@ -408,9 +528,63 @@ class Archive(object):
         CREATE_IF_MISSING = 1,
         THROW_IF_MISSING = 2
 
+    class _ExpressionIterator(Iterator):
+        COMPONENT_SEPARATOR = '.'
+
+        def __init__(self, expression: str):
+            self._full_name = expression
+            self.components = expression.split(Archive._ExpressionIterator.COMPONENT_SEPARATOR)
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            next_component = self.components.pop()
+            next_component_flavor = Archive.Flavor.get_flavor(next_component)
+            return next_component, next_component_flavor
+
+        def _split_to_components(self, full_name: str):
+            # Split to components.
+            all_components = full_name.split(Archive.AnonymousRecordsIterator.COMPONENT_SEPARATOR)
+
+            # Store the named component.
+            self.named_component = all_components[0]
+
+            # Store the fields.
+            self.other_components = all_components[1::]
+
+    def search(self, expression: str, vars_dict: dict = None, frame=None) -> Optional[Archive.Record]:
+
+        if vars_dict is None:
+            vars_dict = Archive.__retrieve_callee_locals_and_globals()
+
+        try:
+            # Split expression to the var and the rest.
+            regex_groups = re.match(r'(?P<var>[a-zA-Z_][a-zA-Z0-9$_]*)(.(?P<rest>.*))?', expression).groups()
+
+            # Extract from regex.
+            var = regex_groups[0]
+            rest = regex_groups[1]
+
+            # Extract named record.
+            named_record = self.__named_records[self.create_or_retrieve_record_key(var, frame)]
+
+            if rest is None:
+                return named_record
+
+            # Search in the Anonymous Records.
+            for anon_value in Archive.AnonymousRecordsIterator(expression, self.__find_symbol_in_vars_dict(vars_dict, var)):
+                record = self.__anonymous_records[id(anon_value)]
+
+        except IndexError or KeyError:
+            return None
+
+        return record
+
     def __search_record_and_store_value(self, full_name: str, vars_dict: dict,
-                                        mode_of_search: Archive.__ModeOfSearch, frame: dict = None,
-                                        line_no: int = -1, time_of_search: int = -1, value=None) -> Record:
+                                        mode_of_search: Archive.__ModeOfSearch, record_value: Record.RecordValue = None,
+                                        frame: dict = None,
+                                        line_no: int = -1) -> Record:
         """
             Searches for an object in the archive by a full name.
             A 'Full Name' contains a series of references leading to the searched object.
@@ -428,57 +602,73 @@ class Archive(object):
         if full_name == '':
             raise Archive.EmptyFullNameException()
 
-        # Split the full name to its components.
-        components = full_name.split('.')
+        record = self.__search_or_create_named_record(frame, mode_of_search, full_name, line_no, vars_dict,
+                                                      record_value)
 
-        # Extract the name.
-        name = components[0]
+        if len(full_name.split('.')) > 1:
+            for anonymous_value in Archive.AnonymousRecordsIterator(full_name, record.get_last_value()):
+                anonymous_id = id(anonymous_value)
 
-        record = self.__search_or_create_named_record(frame, full_name, mode_of_search, name, line_no, vars_dict)
+                # Retrieve the record from the archive.
+                try:
+                    record = self.__anonymous_records[anonymous_id]
+                except KeyError:
+                    # There is no suitable anonymous record for this component, create one.
+                    record = Archive.AnonymousRecord(anonymous_id, frame, type(anonymous_value))
 
-        # Fetch all components values.
-        component_values = record.values
+                    # Create a new record value object.
+                    record_value_class = type(record_value)
+                    new_record_value = record_value_class(anonymous_value, line_no, self.last_time_counter)
+                    record.store_value(new_record_value)
 
-        # Fetch the component's value.
-        if time_of_search == -1:
-            component_value = component_values[::-1][0][0]
-        else:
-            component_value = component_values[time_of_search][0][0]
-
-        next_component_value = component_value
-
-        for component in components[1::]:
-            # Search for the next component's id.
-            next_component_value = component_value.__getattribute__(component)
-
-            next_component_id = id(next_component_value)
-
-            # Retrieve the record from the archive.
-            try:
-                record = self.__anonymous_records[next_component_id]
-            except KeyError:
-                # There is no suitable anonymous record for this component, create one.
-                record = Archive.AnonymousRecord(next_component_id, frame, type(next_component_value))
-
-                # Store the value.
-                record.store_value(next_component_value, line_no, self.last_time_counter)
-
-                # Store it in the anonymous records table.
-                self.__anonymous_records[next_component_id] = record
-
-        if mode_of_search is Archive.__ModeOfSearch.CREATE_IF_MISSING:
-            if len(components) == 1:
-                value_to_record = value
-            else:
-                value_to_record = next_component_value
-
-            # Update the record's value.
-            record.store_value(value_to_record, line_no, self.last_time_counter)
+                    # Store it in the anonymous records table.
+                    self.__anonymous_records[anonymous_id] = record
 
         # Return the value of the last component found.
         return record
 
-    def __search_or_create_named_record(self, frame, full_name, mode_of_search, name, line_no, vars_dict):
+    class AnonymousRecordsIterator(object):
+        COMPONENT_SEPARATOR = '.'
+
+        def __init__(self, full_name: str, named_component_value: object):
+            self._full_name = full_name
+            self._named_component_value = named_component_value
+            self._current_component_value = None
+
+        def __iter__(self):
+            try:
+                self._split_to_components(self._full_name)
+                self._current_component_value = self._named_component_value
+            except IndexError:
+                raise StopIteration()
+
+            return self
+
+        def __next__(self):
+            try:
+                self._current_component_value = self._current_component_value.__getattribute__(
+                    self.other_components.pop(0))
+            except IndexError:
+                raise StopIteration
+
+            return self._current_component_value
+
+        def _split_to_components(self, full_name: str):
+            # Split to components.
+            all_components = full_name.split(Archive.AnonymousRecordsIterator.COMPONENT_SEPARATOR)
+
+            # Store the named component.
+            self.named_component = all_components[0]
+
+            # Store the fields.
+            self.other_components = all_components[1::]
+
+    def __search_or_create_named_record(self, frame: dict, mode_of_search, full_name: str, line_no: int,
+                                        vars_dict: dict, record_value: Record.RecordValue):
+
+        # Split the full name to its components.
+        name = full_name.split('.')[0]
+
         # Initiate.
         named_record_key = None
 
@@ -491,57 +681,41 @@ class Archive(object):
                 if key.identifier == name:
                     named_record_key = key
 
+        # Create a named record
+        # Fetch the value of the name from the vars dict.
+        value = self.__find_symbol_in_vars_dict(vars_dict, name)
+
         # Search for the named record.
         if named_record_key not in self.__named_records:
             # If the value is none, we're in retrieve mode, therefore leave empty handed.
             if mode_of_search is Archive.__ModeOfSearch.THROW_IF_MISSING:
-                raise Archive.VariableNeverRecordedException(full_name)
+                raise Archive.VariableNeverRecordedException(name)
 
-            # Create a named record
-            self.__create_named_record(name, line_no, frame, vars_dict)
+            # Create a named record.
+            named_record = Archive.NamedRecord(name, frame, type(value), full_name)
+
+            # Store it in the named records map.
+            self.__named_records[named_record.key] = named_record
+
+            named_record_key = named_record.key
+
+        # Store the named record's value.
+        if record_value is None:
+            record_value = Archive.Record.RecordValue(value, line_no, self.last_time_counter)
+        else:
+            record_value.value = value
+            record_value.line_no = line_no,
+            record_value.time = self.last_time_counter
 
         # Initiate a pointer to the record.
         record = self.__named_records[named_record_key]
+
+        record.store_value(record_value)
+
         return record
 
-    def __create_named_record(self, name, line_no, frame, vars_dict):
-        # Fetch the value of the name from the vars dict.
-        value = self.__find_symbol_in_vars_dict(vars_dict, name)
-
-        # Create a named record.
-        named_record = Archive.NamedRecord(name, frame, type(value))
-
-        # Store the first value.
-        named_record.store_value(value, line_no, self.last_time_counter)
-
-        # Store it in the named records map.
-        self.__named_records[named_record.key] = named_record
-
-    def search(self, expression: str):
-
-
-
-
-
-
-    def retrieve(self, full_name: str, vars_dict: dict = None) -> Archive.Record:
-        """
-            Searches for an object in the archive by a full name.
-            A 'Full Name' contains a series of references leading to the searched object.
-            e.g.: 'x.y.z'
-
-        :param full_name: (str) A 'Full Name'
-        :param vars_dict: (dict) The dict containing the named variables.
-        :return: The searched record or None if such doesn't exist.
-        """
-        if vars_dict is None:
-            vars_dict = Archive.__retrieve_callee_locals_and_globals()
-
-        # Search for the record.
-        return self.__search_record_and_store_value(full_name, vars_dict, Archive.__ModeOfSearch.THROW_IF_MISSING)
-
-    def store(self, full_name: str, value: object, frame: dict, line_no: int, vars_dict: dict = None,
-              slice=None) -> Archive:
+    def store(self, full_name: str, frame: dict, line_no: int, record_value: Record.RecordValue = None,
+              vars_dict: dict = None) -> Archive:
         """
             Stores a new object in the archive.
         :param full_name: The full name fo the object to store.
@@ -556,9 +730,8 @@ class Archive(object):
             vars_dict = Archive.__retrieve_callee_locals_and_globals()
 
         # Search for the record and store.
-        record = self.__search_record_and_store_value(full_name, vars_dict,
-                                                      Archive.__ModeOfSearch.CREATE_IF_MISSING, frame, line_no,
-                                                      value=value)
+        record = self.__search_record_and_store_value(full_name, vars_dict, Archive.__ModeOfSearch.CREATE_IF_MISSING,
+                                                      record_value, frame, line_no)
 
         # Advance the time.
         self._advance_time_counter()

@@ -9,9 +9,10 @@ import ast
 import astor
 
 from PaladinEngine.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, StubEntry
-from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber
-from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__
+    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, StubEntry, FunctionCallFinder, GenericFinder
+from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber, \
+    FunctionCallStubber
+from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__, __FCS__
 from PaladinEngine.api.api import PaladinPostCondition
 
 
@@ -105,6 +106,51 @@ class ModuleTransformer(object):
                                                               stub_entry.container,
                                                               stub_entry.attr_name,
                                                               post_cond_stub)
+
+        return self
+
+    def transform_function_calls(self) -> ModuleTransformer:
+        # Find all function calls.
+        function_call_finder = FunctionCallFinder()
+        function_call_finder.visit(self.__module)
+        function_calls = function_call_finder.find()
+
+        for stub_entry in function_calls:
+            # Create a temp var to hold the return value of the function call.
+            temp_return_value_var = '__PALADIN_temp'
+
+            # Convert function name to a string.
+            function_name_string = f'\'{stub_entry.extra.function_name}\''
+
+
+            # Convert args to a string.
+            args_string = '[' + ', '.join([f'\'{a}\'' for a in stub_entry.extra.args]) + ']'
+
+            # Converto kwargs to a string.
+            kwargs_string = '[' + ', '.join([str(t) for t in stub_entry.extra.kwargs.items()]) + ']'
+
+            # Create a stub.
+            function_call_stub = create_ast_stub(__FCS__,
+                                                 name=function_name_string,
+                                                 args=args_string,
+                                                 kwargs=kwargs_string,
+                                                 return_value=temp_return_value_var,
+                                                 frame='sys._getframe(0)',
+                                                 locals='locals()',
+                                                 globals='globals()',
+                                                 line_no=f'{stub_entry.node.lineno}')
+
+            function_call_stubber = FunctionCallStubber(self.__module, temp_return_value_var, stub_entry.node)
+
+            container_attr_name_in_container_of_container = GenericFinder.get_node_attr_name(
+                stub_entry.extra.container_of_container, stub_entry.container)
+
+            self.__module = function_call_stubber.stub_function_call(stub_entry.node,
+                                                     stub_entry.container,
+                                                     stub_entry.extra.container_of_container,
+                                                     container_attr_name_in_container_of_container,
+                                                     stub_entry.attr_name,
+                                                     function_call_stub)
 
         return self
 

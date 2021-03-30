@@ -425,3 +425,60 @@ class AssignmentStubber(Stubber):
         # Create a stub record.
         stub_record = Stubber._AfterStubRecord(assignment_node, container, attr_name, stub)
         return self._stub(stub_record)
+
+
+class FunctionCallStubber(Stubber):
+    RETURN_VALUE_STORING_TEMPLATE = '{var} = {func_call}'
+    REPLACEMENT_TEMPLATE = '{temp_store}\n{stub}\n{original_statement_with_temp}'
+
+    def __init__(self, module: ast.AST, return_value_temp_var: str, function_call_node: ast.AST):
+        super().__init__(module)
+
+        self._return_value_temp_var = return_value_temp_var
+        self._function_call_str = astor.to_source(function_call_node)
+
+    def _create_temp_store_str(self) -> str:
+        return FunctionCallStubber.RETURN_VALUE_STORING_TEMPLATE \
+            .format(var=self._return_value_temp_var, func_call=self._function_call_str)
+
+    def _create_original_statement_with_temp_str(self, container: ast.AST, temp_var_name: str) -> str:
+        return astor.to_source(container).replace(self._function_call_str, temp_var_name)
+
+    def _create_replacement_node(self, container: ast.AST, stub: ast.AST) -> ast.AST:
+        '''
+            Create the replacement AST node for a function call.
+            E.g.:
+            for a statement:
+                x = f(a1,...,an, k1=v1,...kt=vt)
+            the replacement should be:
+                $$_<temp_var_name> = f(a1,...,an, k1=v1,...kt=vt)
+                __FCS__(..., $$_<temp_var_name>, ...)
+                x = $$_<temp_var_name>
+        :return:
+        '''
+
+        return ast.parse(FunctionCallStubber.REPLACEMENT_TEMPLATE.format(
+            temp_store=self._create_temp_store_str(),
+            stub=astor.to_source(stub),
+            original_statement_with_temp=self._create_original_statement_with_temp_str(container,
+                                                                                       self._return_value_temp_var)
+        ))
+
+    def stub_function_call(self, function_call_node: ast.AST, container: ast.AST, container_of_container: ast.AST,
+                           attr_name: str,
+                           container_attr_name: str,
+                           stub: Union[AST, list]) -> Module:
+        """
+            Stub a function call.
+        :param function_call_node:
+        :param container:
+        :param attr_name:
+        :param stub:
+        :return:
+        """
+        # Create the code to replace the function call.
+        replacee = self._create_replacement_node(container, stub).body
+
+        # Create a stub record.
+        stub_record = Stubber._ReplacingStubRecord(container, container_of_container, attr_name, replacee)
+        return self._stub(stub_record)
