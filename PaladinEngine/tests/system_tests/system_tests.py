@@ -91,7 +91,7 @@ class TestEngine:
                     # Print the archive.
                     print(archive)
 
-    @pytest.mark.skip(reason="")
+    #@pytest.mark.skip(reason="")
     def test_0(self):
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'test_module.py'
@@ -109,6 +109,7 @@ class TestEngine:
             valid_exceptions=[AssertionError]
         )
 
+    @pytest.mark.skip(reason="")
     def test_function_call_stub(self):
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'test_function_call_store.py'

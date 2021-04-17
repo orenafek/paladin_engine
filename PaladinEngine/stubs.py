@@ -99,24 +99,15 @@ def __FCS__(name: str,
     :return: None
     """
 
-    # Create a function call record.
-    Archive.FunctionCallRecord(function_name, func)
-    # Iterate over the targets of the assignment.
-    for assignment_triplet in assignment_pairs:
-        # Record the value.
-        try:
-            if len(assignment_triplet) > 2:
-                object_and_value_to_store = assignment_triplet[0:2]
-                sl = assignment_triplet[2::]
-            else:
-                object_and_value_to_store = assignment_triplet
-                sl = None
+    # Create a function call record value.
+    function_call_record_value = archive.Record.FunctionCallRecordValue(
+        return_value,
+        line_no,
+        args,
+        kwargs)
 
-            archive.store(*object_and_value_to_store, frame=frame, vars_dict={**locals, **globals}, line_no=line_no,
-                          slice=sl)
-
-        except BaseException as e:
-            print(e)
+    # Store the function call.
+    archive.store(name, frame, line_no, function_call_record_value, vars_dict={**locals, **globals})
 
 
 def create_ast_stub(stub, *args, **kwargs):

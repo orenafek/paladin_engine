@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, Optional
 
 from PaladinEngine.conf.engine_conf import *
 from PaladinEngine.api.api import PaladinPostCondition
 from PaladinEngine.stubs import StubArgumentType, all_stubs
 import astor
+
 
 class StubEntry(object):
     """
@@ -71,6 +72,14 @@ class GenericFinder(ABC, ast.NodeVisitor):
 
         self._containers = []
 
+    def _should_store_entry(self, extra: Union[None, object]) -> bool:
+        """
+            Should store the entry after a visit.
+        :param extra: An extra information object that has been created in a visit.
+        :return: True if the entry should be stored and False otherwise.
+        """
+        return extra is not None
+
     def visit(self, node) -> None:
         """
             General visit.
@@ -79,6 +88,9 @@ class GenericFinder(ABC, ast.NodeVisitor):
         """
         # Check if visited before.
         if node in self.__visited_notes:
+            return
+
+        if self._should_filter(node):
             return
 
         # Add to visits list.
@@ -91,11 +103,11 @@ class GenericFinder(ABC, ast.NodeVisitor):
         for attr_name, child_node in GenericFinder.__iter_child_nodes(node):
 
             # Check if this node should be visited.
-            if self._should_visit(child_node):
+            if self._should_visit(node, child_node):
                 # Visit and keep the extra information created by the visit in this node.
                 extra = super().visit(child_node)
                 # If there is an extra information, this child node should be stored for later reference.
-                if extra:
+                if self._should_store_entry(extra):
                     self._store_entry(StubEntry(child_node, attr_name, node, extra))
                 else:
                     # This child_entry is not interesting for storing, but continue searching in its descendants.
@@ -107,10 +119,12 @@ class GenericFinder(ABC, ast.NodeVisitor):
         # Pop from the containers stack.
         self._containers.pop(0)
 
-    def _should_visit(self, child_node: ast.AST) -> bool:
+    def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
         """
             Should the child_node be visited or not.
-        :param child_node: An ast.AST node.
+
+        :param node: An ast.AST node.
+        :param child_node: One of node's direct node children.
         :return: bool
         """
         # Get the types that this visitor is searching for.
@@ -198,6 +212,53 @@ class GenericFinder(ABC, ast.NodeVisitor):
         else:
             return [extra, rest_of_extras]
 
+    def _should_filter(self, node: ast.AST) -> bool:
+        is_stub_call = isinstance(node, ast.Call) and ast.unparse(node.func).startswith('__')
+        is_stub_assign = isinstance(node, ast.Assign) and ast.unparse(node).startswith('____')
+        return is_stub_call or is_stub_assign
+
+
+class FinderByString(GenericFinder):
+    """
+        A Finder for a node by a string.
+    """
+
+    TYPES_TO_EXCLUDE = [ast.Expr, ast.Expression, ast.FormattedValue,
+                        ast.JoinedStr]
+
+    def __init__(self, s):
+        self.should_visit_counter = 0
+        self.s = s
+        super().__init__()
+
+    def types_to_find(self) -> Union:
+        return ast.AST
+
+    def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
+        # If the string to find is included in the node.
+        string_included = self.s in ast.unparse(child_node).strip()
+
+        # If the node has a field that can be extended (is a list).
+        can_node_be_extended = [f for f in node._fields if type(node.__getattribute__(f)) == list] != []
+
+        # If the node should be excluded because of its type.
+        should_node_be_excluded_by_type = node in FinderByString.TYPES_TO_EXCLUDE
+
+        return string_included and can_node_be_extended and not should_node_be_excluded_by_type
+
+    def _should_store_entry(self, extra: Union[None, object]) -> bool:
+        return True
+
+    @staticmethod
+    def find_first_occurrence(s: str, node: ast.AST) -> Optional[ast.AST]:
+        finder = FinderByString(s)
+        finder.visit(node)
+        candidates = finder.find()
+        if not candidates:
+            return None
+
+        return candidates[0].node
+
 
 class DecoratorFinder(GenericFinder):
     """
@@ -221,6 +282,9 @@ class DecoratorFinder(GenericFinder):
             if self._decorator_predicate(node, decorator):
                 decorators.append(DecoratorFinder.Decorator(node, decorator))
         return self._generic_visit_with_extras(node, decorators)
+
+    def _should_store_entry(self, extra: Union[None, object]) -> bool:
+        return extra is not None and extra != []
 
     # noinspection PyUnusedLocal, PyMethodMayBeStatic
     def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
@@ -272,6 +336,7 @@ class DecoratorFinder(GenericFinder):
         @property
         def params(self):
             return self._params
+
 
 
 class PaladinForLoopFinder(GenericFinder):
@@ -499,7 +564,8 @@ class FunctionCallFinder(GenericFinder):
     """
         Finds all function calls statements in the node.
     """
-
+    TYPES_TO_EXCLUDE = [ast.FormattedValue,
+                        ast.JoinedStr]
     class FunctionCallExtra(object):
 
         def __init__(self):
@@ -546,15 +612,22 @@ class FunctionCallFinder(GenericFinder):
     def __init__(self) -> None:
         super().__init__()
 
-
     def types_to_find(self):
         return ast.Call
+
+    def _is_match_paladin_stub_call(self, function_name: str) -> bool:
+        return function_name.startswith('__') or function_name == 'locals' or \
+               function_name == 'globals'
 
     def visit_Call(self, node: ast.Call):
         extra = FunctionCallFinder.FunctionCallExtra()
         extra.function_name = super(GenericFinder, self).visit(node.func)
 
         if extra.function_name is None:
+            return None
+
+        # Filter PaLaDiN stub calls.
+        if self._is_match_paladin_stub_call(extra.function_name):
             return None
 
         # Set container of container.
@@ -567,7 +640,7 @@ class FunctionCallFinder(GenericFinder):
             else:
                 # TODO: Change to this:
                 # extra.add_arg(super(GenericFinder, self).visit(arg))
-                extra.add_arg(astor.to_source(arg).strip())
+                extra.add_arg(ast.unparse(arg).strip())
 
         # Extract kwargs.
         for key, value_node in [(kw.arg, kw.value) for kw in node.keywords]:
@@ -576,7 +649,7 @@ class FunctionCallFinder(GenericFinder):
             else:
                 # TODO: Change to this:
                 # extra.add_kwarg(key, super(GenericFinder, self).visit(value_node))
-                extra.add_kwarg(key, astor.to_source(value_node).strip())
+                extra.add_kwarg(key, ast.unparse(value_node).strip())
 
         # return extras
         return self._generic_visit_with_extras(node, extra)
@@ -608,6 +681,17 @@ class FunctionCallFinder(GenericFinder):
             extras.append(super(GenericFinder, self).visit(tuple_target))
 
         return extras
+
+    def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
+        # If the node has a field that can be extended (is a list).
+        can_node_be_extended = [f for f in node._fields if type(node.__getattribute__(f)) == list] != []
+
+        # If the node should be excluded because of its type.
+        should_node_be_excluded_by_type = type(node) in FunctionCallFinder.TYPES_TO_EXCLUDE
+
+        return super()._should_visit(node, child_node) \
+               and can_node_be_extended and not should_node_be_excluded_by_type
+
 
 class DanglingPaLaDiNDefinition(Exception):
     """

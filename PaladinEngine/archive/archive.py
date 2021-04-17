@@ -58,6 +58,7 @@ class Archive(object):
             :param name: (str) The searched name.
             """
             super().__init__(name)
+
     class Flavor(object):
 
         @classmethod
@@ -66,7 +67,7 @@ class Archive(object):
 
         @classmethod
         def get_flavor(cls, expression: str) -> Optional[type]:
-             return [flavor for flavor in cls.__subclasses__() if flavor.expression_matches(expression)][0]
+            return [flavor for flavor in cls.__subclasses__() if flavor.expression_matches(expression)][0]
 
         @abstractmethod
         def find_in_archive(self, expression: str, archive: Archive):
@@ -78,7 +79,7 @@ class Archive(object):
             return re.match('[A-Za-z$_]+[A-Za-z$_0-9\-]*\[[A-Za-z$_0-9,:\-]*\]', expression) is not None
 
         def find_in_archive(self, expression: str, archive: Archive):
-             raise NotImplementedError('Not Implemented yet.')
+            raise NotImplementedError('Not Implemented yet.')
 
     class FunctionCallFlavor(Flavor):
         @classmethod
@@ -140,6 +141,25 @@ class Archive(object):
 
             def __repr__(self) -> str:
                 return f'time: {self.time}  line_no: {self.line_no}  value: {self.value}'
+
+        class FunctionCallRecordValue(RecordValue):
+            def __init__(self, return_value: object, line_no: int, args: list, kwargs: list, time: int = -1):
+                super().__init__(return_value, line_no, time)
+                self.__args = args
+                self.__kwargs = kwargs
+                self.__return_value = return_value
+
+            @property
+            def args(self):
+                return self.__args
+
+            @property
+            def kwargs(self):
+                return self.__kwargs
+
+            @property
+            def return_value(self):
+                return self.__return_value
 
         def __init__(self, frame, value_type, expression):
             """
@@ -573,7 +593,8 @@ class Archive(object):
                 return named_record
 
             # Search in the Anonymous Records.
-            for anon_value in Archive.AnonymousRecordsIterator(expression, self.__find_symbol_in_vars_dict(vars_dict, var)):
+            for anon_value in Archive.AnonymousRecordsIterator(expression,
+                                                               self.__find_symbol_in_vars_dict(vars_dict, var)):
                 record = self.__anonymous_records[id(anon_value)]
 
         except IndexError or KeyError:
@@ -703,9 +724,10 @@ class Archive(object):
         if record_value is None:
             record_value = Archive.Record.RecordValue(value, line_no, self.last_time_counter)
         else:
-            record_value.value = value
-            record_value.line_no = line_no,
-            record_value.time = self.last_time_counter
+            pass
+            #record_value.value = value
+            #record_value.line_no = line_no,
+            #record_value.time = self.last_time_counter
 
         # Initiate a pointer to the record.
         record = self.__named_records[named_record_key]

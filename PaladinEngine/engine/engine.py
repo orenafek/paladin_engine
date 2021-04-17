@@ -81,7 +81,6 @@ class PaLaDiNEngine(object):
     def __collect_imports_to_execution():
         return {module.__name__: module for module in [sys, inspect]}
 
-
     @staticmethod
     def process_module(module: ast.AST) -> ast.AST:
         """
@@ -91,11 +90,12 @@ class PaLaDiNEngine(object):
         """
         return ModuleTransformer(module) \
             .transform_loop_invariants() \
-            .transform_for_loops_to_while_loops() \
             .transform_assignments() \
-            .transform_paladin_post_condition() \
             .transform_function_calls() \
+            .transform_for_loops_to_while_loops() \
+            .transform_paladin_post_condition() \
             .module()
+
 
     @staticmethod
     def create_module(src_file) -> ast.AST:
@@ -106,6 +106,7 @@ class PaLaDiNEngine(object):
         """
         return ast.parse(src_file)
 
+
     @staticmethod
     def transform(code: str) -> str:
         """
@@ -114,7 +115,7 @@ class PaLaDiNEngine(object):
         :return: (str) The PaLaDiNized code.
         """
         SourceProvider.set_code(code)
-        return astor.to_source(
+        return ast.unparse(
             PaLaDiNEngine.process_module(
                 PaLaDiNEngine.create_module(code)))
 
