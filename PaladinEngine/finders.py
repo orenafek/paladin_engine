@@ -338,7 +338,6 @@ class DecoratorFinder(GenericFinder):
             return self._params
 
 
-
 class PaladinForLoopFinder(GenericFinder):
     """
     A finder for While & For loops invariants.
@@ -566,6 +565,7 @@ class FunctionCallFinder(GenericFinder):
     """
     TYPES_TO_EXCLUDE = [ast.FormattedValue,
                         ast.JoinedStr]
+
     class FunctionCallExtra(object):
 
         def __init__(self):
@@ -671,6 +671,7 @@ class FunctionCallFinder(GenericFinder):
             if type(name) is str:
                 return name
 
+            #return super(GenericFinder, self).visit(name)
             return self.visit(name)
         except BaseException:
             print('')
