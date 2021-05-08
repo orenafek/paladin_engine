@@ -412,7 +412,7 @@ class Archive(object):
             return Archive.Record.RecordKey(identifier, frame)
 
         try:
-            return [r for r in self.__named_records if r.identifier == identifier][0]
+            return [r for r in self._named_records if r.identifier == identifier][0]
         except IndexError:
             return None
 
@@ -442,10 +442,10 @@ class Archive(object):
         self.records = {}
 
         # Initialize the variables dict.
-        self.__named_records = {}
+        self._named_records = {}
 
         # Initialize the anonymous dict.
-        self.__anonymous_records = {}
+        self._anonymous_records = {}
 
         # Initialize the commitments dict.
         self._commitments = {}
@@ -469,10 +469,10 @@ class Archive(object):
         :return: (list[Record]) The history of the variable.
         """
         # Check if the var has been recorded yet:
-        if var not in self.__named_records:
+        if var not in self._named_records:
             raise Archive.VariableNeverRecordedException(var)
 
-        return self.__named_records[var]
+        return self._named_records[var]
 
     def values(self, var) -> list:
         """
@@ -492,8 +492,8 @@ class Archive(object):
 
     def all_records(self) -> dict:
         all_records = {}
-        all_records.update(self.__named_records)
-        all_records.update(self.__anonymous_records)
+        all_records.update(self._named_records)
+        all_records.update(self._anonymous_records)
         return all_records
 
     def __str__(self):
@@ -534,10 +534,10 @@ class Archive(object):
         """
         # Search in anonymous records.
         try:
-            return self.__anonymous_records[_id]
+            return self._anonymous_records[_id]
         except KeyError:
             # The id is not in the anonymous records, therefore search for it in the named records.
-            for record in self.__named_records:
+            for record in self._named_records:
                 if record.id == _id:
                     return record
 
@@ -587,7 +587,7 @@ class Archive(object):
             rest = regex_groups[1]
 
             # Extract named record.
-            named_record = self.__named_records[self.create_or_retrieve_record_key(var, frame)]
+            named_record = self._named_records[self.create_or_retrieve_record_key(var, frame)]
 
             if rest is None:
                 return named_record
@@ -595,7 +595,7 @@ class Archive(object):
             # Search in the Anonymous Records.
             for anon_value in Archive.AnonymousRecordsIterator(expression,
                                                                self.__find_symbol_in_vars_dict(vars_dict, var)):
-                record = self.__anonymous_records[id(anon_value)]
+                record = self._anonymous_records[id(anon_value)]
 
         except IndexError or KeyError:
             return None
@@ -632,18 +632,19 @@ class Archive(object):
 
                 # Retrieve the record from the archive.
                 try:
-                    record = self.__anonymous_records[anonymous_id]
+                    record = self._anonymous_records[anonymous_id]
                 except KeyError:
                     # There is no suitable anonymous record for this component, create one.
-                    record = Archive.AnonymousRecord(anonymous_id, frame, type(anonymous_value))
+                    record = Archive.AnonymousRecord(anonymous_id, frame, type(anonymous_value), full_name)
 
                     # Create a new record value object.
-                    record_value_class = type(record_value)
-                    new_record_value = record_value_class(anonymous_value, line_no, self.last_time_counter)
+                    new_record_value = Archive.Record.RecordValue(anonymous_value, line_no, self.last_time_counter)
+                    #record_value_class = type(record_value)
+                    #new_record_value = record_value_class(anonymous_value, line_no, self.last_time_counter)
                     record.store_value(new_record_value)
 
                     # Store it in the anonymous records table.
-                    self.__anonymous_records[anonymous_id] = record
+                    self._anonymous_records[anonymous_id] = record
 
         # Return the value of the last component found.
         return record
@@ -659,7 +660,7 @@ class Archive(object):
         def __iter__(self):
             try:
                 self._split_to_components(self._full_name)
-                self._current_component_value = self._named_component_value
+                self._current_component_value = self._named_component_value.value
             except IndexError:
                 raise StopIteration()
 
@@ -698,7 +699,7 @@ class Archive(object):
             # Create a NamedRecordKey.
             named_record_key = Archive.NamedRecord.RecordKey(name, frame)
         else:
-            for key in self.__named_records:
+            for key in self._named_records:
                 if key.identifier == name:
                     named_record_key = key
 
@@ -707,7 +708,7 @@ class Archive(object):
         value = self.__find_symbol_in_vars_dict(vars_dict, name)
 
         # Search for the named record.
-        if named_record_key not in self.__named_records:
+        if named_record_key not in self._named_records:
             # If the value is none, we're in retrieve mode, therefore leave empty handed.
             if mode_of_search is Archive.__ModeOfSearch.THROW_IF_MISSING:
                 raise Archive.VariableNeverRecordedException(name)
@@ -716,7 +717,7 @@ class Archive(object):
             named_record = Archive.NamedRecord(name, frame, type(value), full_name)
 
             # Store it in the named records map.
-            self.__named_records[named_record.key] = named_record
+            self._named_records[named_record.key] = named_record
 
             named_record_key = named_record.key
 
@@ -730,7 +731,7 @@ class Archive(object):
             #record_value.time = self.last_time_counter
 
         # Initiate a pointer to the record.
-        record = self.__named_records[named_record_key]
+        record = self._named_records[named_record_key]
 
         record.store_value(record_value)
 
@@ -796,10 +797,10 @@ class Archive(object):
 
     def clear(self):
         # Clear named records.
-        self.__named_records.clear()
+        self._named_records.clear()
 
         # Clear anonymous records.
-        self.__anonymous_records.clear()
+        self._anonymous_records.clear()
 
     def make_commitment(self, name: str, frame: dict, commitment, vars_dict: dict = None) -> Archive:
         """

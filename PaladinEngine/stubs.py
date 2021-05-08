@@ -77,8 +77,8 @@ def __AS__(*assignment_pairs, locals, globals, frame, line_no) -> None:
                                                (target, value)
     :return: None
     """
-
-    archive.store(*assignment_pairs, frame=frame, vars_dict={**locals, **globals}, line_no=line_no)
+    for ass_pair in assignment_pairs:
+        archive.store(ass_pair, frame=frame, vars_dict={**locals, **globals}, line_no=line_no)
 
 def __FCS__(name: str,
             args: list,

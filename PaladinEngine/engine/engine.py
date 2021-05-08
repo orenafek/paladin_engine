@@ -8,8 +8,6 @@ import inspect
 import traceback
 from types import CodeType
 
-import astor
-
 from PaladinEngine.finders import *
 from PaladinEngine.module_transformer.module_transformator import ModuleTransformer
 from PaladinEngine.stubbers import *
@@ -88,14 +86,24 @@ class PaLaDiNEngine(object):
         :param module:
         :return:
         """
-        return ModuleTransformer(module) \
-            .transform_loop_invariants() \
-            .transform_assignments() \
-            .transform_function_calls() \
-            .transform_for_loops_to_while_loops() \
-            .transform_paladin_post_condition() \
-            .module()
 
+        t = ModuleTransformer(module)
+        m = module
+        try:
+            t = t.transform_loop_invariants()
+            m = t.module()
+            t = t.transform_assignments()
+            m = t.module()
+            t = t.transform_function_calls()
+            m = t.module()
+            t = t.transform_for_loops_to_while_loops()
+            m = t.module()
+            t = t.transform_paladin_post_condition()
+            m = t.module()
+
+        except BaseException as e:
+            print(ast.unparse(m))
+        return t.module()
 
     @staticmethod
     def create_module(src_file) -> ast.AST:
@@ -105,7 +113,6 @@ class PaLaDiNEngine(object):
         :return: (Node) An AST node.
         """
         return ast.parse(src_file)
-
 
     @staticmethod
     def transform(code: str) -> str:

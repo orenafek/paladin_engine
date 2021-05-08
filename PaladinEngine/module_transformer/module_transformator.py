@@ -64,31 +64,34 @@ class ModuleTransformer(object):
         return self
 
     def transform_assignments(self) -> ModuleTransformer:
-        # Find all assignments.
-        assignments_finder = AssignmentFinder()
-        assignments_finder.visit(self._module)
-        assignments = assignments_finder.find()
+        try:
+            # Find all assignments.
+            assignments_finder = AssignmentFinder()
+            assignments_finder.visit(self._module)
+            assignments = assignments_finder.find()
 
-        for stub_entry in assignments:
-            # Create a list for the assignment targets.
-            container = stub_entry.container
-            attr_name = stub_entry.attr_name
-            ass = stub_entry.node
-            targets = stub_entry.extra
+            for stub_entry in assignments:
+                # Create a list for the assignment targets.
+                container = stub_entry.container
+                attr_name = stub_entry.attr_name
+                ass = stub_entry.node
+                targets = stub_entry.extra
 
-            # Create a stub.
-            ass_stub = create_ast_stub(__AS__, *targets, locals='locals()', globals='globals()',
-                                       frame='sys._getframe(0)',
-                                       line_no=f'{ass.lineno}')
+                # Create a stub.
+                ass_stub = create_ast_stub(__AS__, *targets, locals='locals()', globals='globals()',
+                                           frame='sys._getframe(0)',
+                                           line_no=f'{ass.lineno}')
 
-            # Create a stubber.
-            ass_stubber = AssignmentStubber(self._module)
+                # Create a stubber.
+                ass_stubber = AssignmentStubber(self._module)
 
-            # Stub.
-            self._module = \
-                ass_stubber.stub_after_assignment(ass, container, attr_name, ass_stub)
+                # Stub.
+                self._module = \
+                    ass_stubber.stub_after_assignment(ass, container, attr_name, ass_stub)
 
-        return self
+            return self
+        except BaseException as e:
+            print(e)
 
     def transform_paladin_post_condition(self) -> ModuleTransformer:
         # Find all PaLaDiN post conditions.

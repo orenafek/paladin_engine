@@ -73,6 +73,10 @@ class TestEngine:
             # Print the code.
             if verbose:
                 print(str(paladinized_source_code))
+                with open(test_file_path.replace('.py', '_output.py'), 'w+') as f:
+                    f.write('import sys\n')
+                    f.writelines('from PaladinEngine.stubs import __AS__, __FLI__, __FCS__, __POST_CONDITION__\n')
+                    f.write(paladinized_source_code)
 
             # Compile it.
             complied_code = PaLaDiNEngine.compile(paladinized_source_code)
@@ -91,7 +95,7 @@ class TestEngine:
                     # Print the archive.
                     print(archive)
 
-    #@pytest.mark.skip(reason="")
+    @pytest.mark.skip(reason="")
     def test_0(self):
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'test_module.py'
@@ -117,6 +121,7 @@ class TestEngine:
             verbose=True,
             valid_exceptions=[AssertionError]
         )
+
     @pytest.mark.skip(reason="")
     def test_1(self):
 
@@ -146,4 +151,7 @@ class TestEngine:
         # KeyboardThread().start()
         TestThread().run()
 
-
+    def testLib1(self):
+        TestEngine.basic_test(
+            '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/lab1/src/lambda_calc'
+            '/syntax.py', verbose=True)

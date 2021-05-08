@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Union, Optional
+from typing import Union, Optional, Iterable
 
 from PaladinEngine.conf.engine_conf import *
 from PaladinEngine.api.api import PaladinPostCondition
 from PaladinEngine.stubs import StubArgumentType, all_stubs
 import astor
-
+from typing import Tuple
 
 class StubEntry(object):
     """
@@ -81,43 +81,47 @@ class GenericFinder(ABC, ast.NodeVisitor):
         return extra is not None
 
     def visit(self, node) -> None:
-        """
-            General visit.
-        :param node: (ast.AST) An AST node.
-        :return: None.
-        """
-        # Check if visited before.
-        if node in self.__visited_notes:
-            return
+        try:
+            """
+                General visit.
+            :param node: (ast.AST) An AST node.
+            :return: None.
+            """
+            # Check if visited before.
+            if node in self.__visited_notes:
+                return
 
-        if self._should_filter(node):
-            return
+            if self._should_filter(node):
+                return
 
-        # Add to visits list.
-        self.__visited_notes.append(node)
+            # Add to visits list.
+            self.__visited_notes.append(node)
 
-        # Store container of container.
-        self._containers.insert(0, node)
+            # Store container of container.
+            self._containers.insert(0, node)
 
-        # Search in direct children nodes.
-        for attr_name, child_node in GenericFinder.__iter_child_nodes(node):
+            # Search in direct children nodes.
+            for attr_name, child_node in GenericFinder.__iter_child_nodes(node):
 
-            # Check if this node should be visited.
-            if self._should_visit(node, child_node):
-                # Visit and keep the extra information created by the visit in this node.
-                extra = super().visit(child_node)
-                # If there is an extra information, this child node should be stored for later reference.
-                if self._should_store_entry(extra):
-                    self._store_entry(StubEntry(child_node, attr_name, node, extra))
-                else:
-                    # This child_entry is not interesting for storing, but continue searching in its descendants.
-                    self.generic_visit(child_node)
+                # Check if this node should be visited.
+                if self._should_visit(node, child_node):
+                    # Visit and keep the extra information created by the visit in this node.
+                    extra = super().visit(child_node)
+                    # If there is an extra information, this child node should be stored for later reference.
+                    if self._should_store_entry(extra):
+                        self._store_entry(StubEntry(child_node, attr_name, node, extra))
+                    else:
+                        # This child_entry is not interesting for storing, but continue searching in its descendants.
+                        self.generic_visit(child_node)
 
-        # Visit by super's visitor.
-        super().generic_visit(node)
+            # Visit by super's visitor.
+            super().generic_visit(node)
 
-        # Pop from the containers stack.
-        self._containers.pop(0)
+            # Pop from the containers stack.
+            self._containers.pop(0)
+
+        except BaseException as e:
+            print(e)
 
     def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
         """
@@ -217,6 +221,11 @@ class GenericFinder(ABC, ast.NodeVisitor):
         is_stub_assign = isinstance(node, ast.Assign) and ast.unparse(node).startswith('____')
         return is_stub_call or is_stub_assign
 
+    def _safe_visit(self, node):
+        if not node:
+            return None
+
+        return self.visit(node)
 
 class FinderByString(GenericFinder):
     """
@@ -531,10 +540,16 @@ class AssignmentFinder(GenericFinder):
                 return node.attr, StubArgumentType.NAME
 
             def visit_Slice(self, node):
-                return self.visit(node.lower), self.visit(node.upper), self.visit(node.step)
+                def safe_visit(node):
+                    if not node:
+                        return None
+                    return self.visit(node)
+                return safe_visit(node.lower), safe_visit(node.upper), safe_visit(node.step)
 
         # Take extra for the slice.
         slice_extra = SliceFinder().visit(node.slice)
+        if slice_extra is None or all(x is None for x in slice_extra):
+            return [value_extra]
 
         # Create a subscript tuple.
         return [value_extra, slice_extra]
@@ -621,10 +636,15 @@ class FunctionCallFinder(GenericFinder):
 
     def visit_Call(self, node: ast.Call):
         extra = FunctionCallFinder.FunctionCallExtra()
-        extra.function_name = super(GenericFinder, self).visit(node.func)
+        function_name_visit = super(GenericFinder, self).visit(node.func)
 
-        if extra.function_name is None:
+        if function_name_visit is None:
             return None
+
+        if type(function_name_visit) is FunctionCallFinder.FunctionCallExtra:
+            extra.function_name = function_name_visit.function_name
+        else:
+            extra.function_name = function_name_visit
 
         # Filter PaLaDiN stub calls.
         if self._is_match_paladin_stub_call(extra.function_name):
