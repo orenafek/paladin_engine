@@ -1,11 +1,34 @@
 import ast
 import inspect
+import json
+import re
+from dataclasses import dataclass
+from typing import Optional, Union
 
-from PaladinEngine.archive.archive import Archive
+from PaladinEngine.archive.archive import Archive, SimpleArchive
 from PaladinEngine.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
+simple_archive = SimpleArchive()
+
 from PaladinEngine.Examples.Tetris.tetris import Board, Block
+
+
+# TODO: Export tagging class.
+@dataclass
+class SubscriptVisitResult(object):
+    collection: list
+    slice: list
+
+    def deflate(self) -> str:
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
+
+    def __str__(self) -> str:
+        return self.deflate()
+
+    @staticmethod
+    def inflate(s: dict):
+        return SubscriptVisitResult(collection=s['collection'], slice=s['slice'])
 
 
 def __FLI__(locals, globals):
@@ -33,7 +56,8 @@ def __FLI__(locals, globals):
         else:
             assert result < all(values)
     except BaseException:
-        InteractiveDebugger(archive, f'For Loop invariant: {error_line}\nhas been broken.', 21).cmdloop()
+        pass
+        # InteractiveDebugger(simple_archive, f'For Loop invariant: {error_line}\nhas been broken.', 21).cmdloop()
 
 
 def handle_broken_commitment(condition, frame, line_no):
@@ -70,6 +94,78 @@ def __POST_CONDITION__(condition: str, frame: dict, locals, globals):
     archive.make_commitment('self.grid', frame, commitment, all_vars)
 
 
+import sys
+
+sys._getframe(0)
+
+
+def _search_in_vars_dict(symbol: Union[str, SubscriptVisitResult], vars: dict) -> Optional[object]:
+    if type(symbol) is dict:
+        symbol = SubscriptVisitResult.inflate(symbol)
+        # Look for the collection of the subscript in the variable dictionary.
+        col = symbol.collection[0][0]
+        # TODO: COMPLETE ME!
+        return None
+        col_value = vars[col]
+
+        subscript_key = [x[0] for x in symbol.slice]
+
+        symbol_value = col_value.__getitem__(subscript_key)
+        return symbol_value
+
+    if symbol in vars:
+        return vars[symbol]
+
+    # The symbol is not in the variables dictionary.
+    if symbol.startswith('__'):
+        # The symbol is a protected member of a class.
+        protected_var_with_qualifier = f'_{vars["__qualname__"]}{symbol}'
+
+        if protected_var_with_qualifier in vars:
+            return vars[protected_var_with_qualifier]
+
+    return None
+
+
+def __SIMPLE_AS__(expression: str, locals: dict, globals: dict, frame, line_no: int) -> None:
+    # Create variable dict.
+    vars_dict = {**locals, **globals}
+
+    # TODO: Add support of indexing ([], (), ...
+    expr = expression
+    container_id = id(frame)
+    field = expression
+
+    value = _search_in_vars_dict(field, vars_dict)
+
+    while "." in expr:
+        # obj_and_field = re.match('(?P<obj>[a-zA-Z][a-zA-Z*_$0-9]*)\\.(!?P<field>[a-zA-Z]([a-zA-Z*_$0-9]*))', expr) \
+        #     .groupdict()
+        parts = expr.split('.')
+        obj_name = parts[0]
+        rest = '.'.join(parts[1::])
+        obj = vars_dict[obj_name]
+        #obj = vars_dict[obj_and_field['obj']]
+        #field = obj_and_field['field']
+        container_id = id(obj)
+        #expr = field
+        expr = rest
+        #value = obj.__getattribute__(field)
+        value = obj.__getattribute__(rest)
+
+    if value is None:
+        # TODO: handle?
+        return
+
+    # Create Record key.
+    record_key = SimpleArchive.Record.RecordKey(container_id, field)
+
+    # Create Record value.
+    record_value = SimpleArchive.Record.RecordValue(type(value), value, expression, line_no)
+
+    simple_archive.store(record_key, record_value)
+
+
 def __AS__(*assignment_pairs, locals, globals, frame, line_no) -> None:
     """
         A stub for assignment statement.
@@ -79,6 +175,7 @@ def __AS__(*assignment_pairs, locals, globals, frame, line_no) -> None:
     """
     for ass_pair in assignment_pairs:
         archive.store(ass_pair, frame=frame, vars_dict={**locals, **globals}, line_no=line_no)
+
 
 def __FCS__(name: str,
             args: list,
@@ -140,6 +237,9 @@ def create_ast_stub(stub, *args, **kwargs):
     arg_list = []
 
     for arg_tuple_list in args:
+        if type(arg_tuple_list) is SubscriptVisitResult:
+            arg_list.append(str(arg_tuple_list))
+            continue
         # Initialize the inner tuple string.
         inner_tuple_strings = []
         for arg_tuple in arg_tuple_list:
@@ -175,6 +275,7 @@ def create_ast_stub(stub, *args, **kwargs):
 
 
 all_stubs = [__FLI__, __AS__, __FCS__]
+
 
 class StubArgumentType(enumerate):
     """

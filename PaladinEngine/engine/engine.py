@@ -5,6 +5,7 @@
     :since: 05/04/19
 """
 import inspect
+import sys
 import traceback
 from types import CodeType
 
@@ -13,7 +14,7 @@ from PaladinEngine.module_transformer.module_transformator import ModuleTransfor
 from PaladinEngine.stubbers import *
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__
+from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __SIMPLE_AS__
 from source_provider import SourceProvider
 
 
@@ -30,7 +31,7 @@ class PaLaDiNEngine(object):
     __INSTANCE = PaLaDiNEngine()
 
     # List of stubs that can be added to the PaLaDiNized code
-    __PALADIN_STUBS_LIST = [__AS__, __FLI__, __POST_CONDITION__, __FCS__]
+    __PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FCS__, __SIMPLE_AS__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -73,6 +74,10 @@ class PaLaDiNEngine(object):
         # Collect imports.
         variables.update(PaLaDiNEngine.__collect_imports_to_execution())
 
+        # Set program name.
+        sys.argv[0] = original_file_name
+        # Clear args.
+        sys.argv[1:] = []
         return exec(source_code, variables)
 
     @staticmethod

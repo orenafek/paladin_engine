@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Union, Optional, Iterable
 
 from PaladinEngine.conf.engine_conf import *
 from PaladinEngine.api.api import PaladinPostCondition
-from PaladinEngine.stubs import StubArgumentType, all_stubs
+from PaladinEngine.stubs import StubArgumentType, all_stubs, SubscriptVisitResult
 import astor
 from typing import Tuple
 
@@ -484,7 +485,6 @@ class PaladinForLoopInvariantsFinder(GenericFinder):
     def types_to_find(self) -> Union:
         return [ast.For, ast.While]
 
-
 class AssignmentFinder(GenericFinder):
     """
         Finds all assignment statements in the node.
@@ -552,7 +552,7 @@ class AssignmentFinder(GenericFinder):
             return [value_extra]
 
         # Create a subscript tuple.
-        return [value_extra, slice_extra]
+        return SubscriptVisitResult(value_extra, slice_extra)
 
     def visit_Tuple(self, node):
         extras = []

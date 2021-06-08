@@ -13,7 +13,8 @@ from PaladinEngine.finders import PaladinForLoopInvariantsFinder, AssignmentFind
     PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, StubEntry, FunctionCallFinder, GenericFinder
 from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber, \
     FunctionCallStubber
-from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__, __FCS__
+from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__, __FCS__, \
+    __SIMPLE_AS__
 from PaladinEngine.api.api import PaladinPostCondition
 
 
@@ -78,16 +79,20 @@ class ModuleTransformer(object):
                 targets = stub_entry.extra
 
                 # Create a stub.
-                ass_stub = create_ast_stub(__AS__, *targets, locals='locals()', globals='globals()',
-                                           frame='sys._getframe(0)',
-                                           line_no=f'{ass.lineno}')
+                for target in targets:
+                    ass_stub = create_ast_stub(__SIMPLE_AS__,
+                                               target,
+                                               locals='locals()',
+                                               globals='globals()',
+                                               frame='sys._getframe(0)',
+                                               line_no=f'{ass.lineno}')
 
-                # Create a stubber.
-                ass_stubber = AssignmentStubber(self._module)
+                    # Create a stubber.
+                    ass_stubber = AssignmentStubber(self._module)
 
-                # Stub.
-                self._module = \
-                    ass_stubber.stub_after_assignment(ass, container, attr_name, ass_stub)
+                    # Stub.
+                    self._module = \
+                        ass_stubber.stub_after_assignment(ass, container, attr_name, ass_stub)
 
             return self
         except BaseException as e:
