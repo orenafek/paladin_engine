@@ -132,12 +132,18 @@ class SimpleArchive(object):
             header_row = list(SimpleArchive.Record.RecordKey.__dataclass_fields__) + \
                          list(SimpleArchive.Record.RecordValue.__dataclass_fields__)
 
+            def represent(o: object) -> str:
+                if type(o) in [str, int, float, bool, complex]:
+                    return str(o)
+
+                return f'{id(o)}'
+
             flat_records = [
                 (
                     k.container_id,
                     k.field,
                     str(v.rtype.__name__),
-                    '"{}"'.format(str(id(v.value)).replace('\n', ' ')),
+                    represent(v.value).replace('\n', ' '),
                     v.expression,
                     v.line_no,
                     v.time
