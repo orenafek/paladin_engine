@@ -33,6 +33,9 @@ class Block(Rectangle):
         self.setWidth(Block.OUTLINE_WIDTH)
         self.setFill(color)
 
+    def __repr__(self):
+        return f'(x, y) = ({self.x},{self.y}), color = {self.color}'
+
     def can_move(self, board, dx, dy):
         ''' Parameters: dx - type: int
                         dy - type: int
