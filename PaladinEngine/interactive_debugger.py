@@ -1,6 +1,6 @@
 from cmd import Cmd
 
-from PaladinEngine.archive.archive import Archive
+from PaladinEngine.archive.archive import Archive, SimpleArchive
 from source_provider import SourceProvider
 
 
@@ -21,7 +21,7 @@ class TerminalColor:
 class InteractiveDebugger(Cmd):
     CODE_WINDOW_SIZE = 10
 
-    def __init__(self, archive: Archive, error_line: str, line_no: int) -> None:
+    def __init__(self, archive: SimpleArchive, error_line: str, line_no: int) -> None:
         # Call Super constructor.
         super().__init__(completekey='tab')
 
@@ -35,7 +35,7 @@ class InteractiveDebugger(Cmd):
         InteractiveDebugger.intro = InteractiveDebugger._intro_format(line_no, error_line,
                                                                       SourceProvider.get_line(line_no).lstrip())
         # Initiate the time of search in the archive.
-        self._archive_time_of_search = archive.last_time_counter
+        self._archive_time_of_search = archive.time
 
     @property
     def archive(self):
@@ -63,6 +63,7 @@ class InteractiveDebugger(Cmd):
 
     def _create_code_window(self, expr_to_search: str):
         # Retrieve the record from the archive.
+
         record = self.archive.search(expr_to_search)
 
         # Get the last recorded values from time.
