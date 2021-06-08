@@ -8,6 +8,7 @@ import ast
 import inspect
 import re
 from abc import abstractmethod, ABC
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Iterator
 
@@ -36,6 +37,148 @@ class Archive(object):
         ...
 
     ...
+
+
+class SimpleArchive(object):
+    ...
+
+
+class SimpleArchive(object):
+    class Record(object):
+        @dataclass
+        class RecordKey(object):
+            container_id: int
+            field: str
+
+            def __hash__(self) -> int:
+                return hash(hash(self.container_id) + hash(self.field))
+
+            def __eq__(self, o: object) -> bool:
+                return isinstance(o, SimpleArchive.Record.RecordKey) \
+                       and o.field == self.field \
+                       and o.container_id == self.container_id
+
+            def __str__(self) -> str:
+                return f'{self.field}(c:{self.container_id})'
+
+            def to_json(self):
+                return self.container_id, self.field
+
+        @dataclass
+        class RecordValue(object):
+            rtype: type
+            value: object
+            expression: str
+            line_no: int
+            time: int = -1
+
+            def __str__(self) -> str:
+                return f'({self.time}): {self.expression}({self.rtype.__name__}) = {self._stringify_value(self.value)} ' \
+                       f'[line {self.line_no}] '
+
+            def _stringify_value(self, value):
+                if type(value) == list:
+                    return str([self._stringify_value(i) for i in value])
+
+                if type(value) == tuple:
+                    return str((self._stringify_value(i) for i in value))
+
+                return str(value)
+
+            def __repr__(self):
+                return self.__str__()
+
+            def to_json(self):
+                return (self.rtype.__name__,
+                        self.value,
+                        self.expression,
+                        self.line_no,
+                        self.time)
+
+    def __init__(self) -> None:
+        self.records = {}
+        self._time = -1
+
+    @property
+    def time(self):
+        self._time += 1
+        return self._time
+
+    @property
+    def current_time(self):
+        self.time += 1
+        return self.time
+
+    def store(self, record_key: Record.RecordKey, record_value: Record.RecordValue) -> SimpleArchive:
+        if record_key not in self.records:
+            self.records[record_key] = []
+
+        # Set time.
+        record_value.time = self.time
+
+        # Add to records.
+        self.records[record_key].append(record_value)
+
+        return self
+
+    def retrieve(self, record_key: Record.RecordKey) -> Optional[Record]:
+        return self.records[record_key]
+
+    def reset(self):
+        self.records.clear()
+
+    def to_csv(self):
+        try:
+            header_row = list(SimpleArchive.Record.RecordKey.__dataclass_fields__) + \
+                         list(SimpleArchive.Record.RecordValue.__dataclass_fields__)
+
+            flat_records = [
+                (
+                    k.container_id,
+                    k.field,
+                    str(v.rtype.__name__),
+                    '"{}"'.format(str(id(v.value)).replace('\n', ' ')),
+                    v.expression,
+                    v.line_no,
+                    v.time
+                )
+                for k, vv in list(self.records.items()) for v in vv
+            ]
+
+            return header_row, flat_records
+
+        except RuntimeError as e:
+            print(e)
+
+    def to_pickle(self):
+        import pickle
+        return pickle.dumps(self.records)
+
+    def search(self, expression: str):
+        pass
+
+    def __str__(self):
+        # Create a pretty table.
+        table = prettytable.PrettyTable(border=prettytable.ALL,
+                                        hrules=1,
+                                        field_names=['variable', 'values'])
+        table.align = 'l'
+        table.max_width = ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
+
+        # Add rows from the archive.
+
+        for record_key, record_value in list(self.records.items()):
+            table.add_row([record_key, '\n'.join(str(s) for s in record_value)])
+            print(len(self.records))
+            print(list(self.records.items())[len(self.records) - 1])
+
+        return table.get_string()
+
+    # def to_csv(self, output_file_path: str):
+    #     with open(output_file_path, 'w+') as f:
+    #         writer = csvwriter.CsvWriter(f)
+    #         for record in self.all_records():
+    #             writer.append_row
 
 
 class Archive(object):
@@ -639,8 +782,8 @@ class Archive(object):
 
                     # Create a new record value object.
                     new_record_value = Archive.Record.RecordValue(anonymous_value, line_no, self.last_time_counter)
-                    #record_value_class = type(record_value)
-                    #new_record_value = record_value_class(anonymous_value, line_no, self.last_time_counter)
+                    # record_value_class = type(record_value)
+                    # new_record_value = record_value_class(anonymous_value, line_no, self.last_time_counter)
                     record.store_value(new_record_value)
 
                     # Store it in the anonymous records table.
@@ -726,9 +869,9 @@ class Archive(object):
             record_value = Archive.Record.RecordValue(value, line_no, self.last_time_counter)
         else:
             pass
-            #record_value.value = value
-            #record_value.line_no = line_no,
-            #record_value.time = self.last_time_counter
+            # record_value.value = value
+            # record_value.line_no = line_no,
+            # record_value.time = self.last_time_counter
 
         # Initiate a pointer to the record.
         record = self._named_records[named_record_key]
