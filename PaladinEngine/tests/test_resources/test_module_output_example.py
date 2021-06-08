@@ -1,5 +1,11 @@
-from stubs import __AS__, __FCS__, __FLI__, __POST_CONDITION__
 import sys
+
+from source_provider import SourceProvider
+from stubs import __FCS__, __FLI__, __SIMPLE_AS__, simple_archive
+
+with open(
+        '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/test_module.py') as f:
+    SourceProvider.set_code(f.read())
 
 
 def power(n, p):
@@ -10,7 +16,7 @@ def power(n, p):
     :return:
     """
     result = 1
-    __AS__('result', locals=locals(), globals=globals(), frame=sys._getframe(0), line_no=8)
+    __SIMPLE_AS__('result', locals=locals(), globals=globals(), frame=sys._getframe(0), line_no=8)
     ____0 = range(p)
     __FCS__(name='range', args=[p], kwargs=[], return_value=____0, frame=sys._getframe(0), locals=locals(),
             globals=globals(), line_no=9)
@@ -21,13 +27,12 @@ def power(n, p):
         except StopIteration:
             break
     __FLI__(locals=locals(), globals=globals())
-    '\n        @@@\n           loop-invariant:\n               if |n| >= 1:\n                   result >= pre(' \
-    'result)\n               else:\n                   result < pre(result)\n        @@@\n '
+    ' \n        @@@\n           loop-invariant:\n               if |n| >= 1:\n                   result >= pre(result)\n               else:\n                   result < pre(result)\n        @@@\n        '
     result = result * n
-    __AS__('result', locals=locals(), globals=globals(), frame=sys._getframe(0), line_no=10)
+    __SIMPLE_AS__('result', locals=locals(), globals=globals(), frame=sys._getframe(0), line_no=10)
     if i == 2:
         result = -1
-        __AS__('result', locals=locals(), globals=globals(), frame=sys._getframe(0), line_no=21)
+        __SIMPLE_AS__('result', locals=locals(), globals=globals(), frame=sys._getframe(0), line_no=21)
     return result
 
 
@@ -35,3 +40,5 @@ ____1 = power(2, 5)
 __FCS__(name='power', args=[2, 5], kwargs=[], return_value=____1, frame=sys._getframe(0), locals=locals(),
         globals=globals(), line_no=26)
 print(____1)
+
+print(simple_archive.to_json())
