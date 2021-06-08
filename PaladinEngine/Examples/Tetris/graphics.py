@@ -438,6 +438,8 @@ class Point(GraphicsObject):
     def __str__(self) -> str:
         return f'({self.x}, {self.y})'
 
+    def __repr__(self):
+        return str(self)
 
 class _BBox(GraphicsObject):
     # Internal base class for objects represented by bounding box
@@ -629,6 +631,8 @@ class Text(GraphicsObject):
         # self.config['fg'] = color;
         self.setFill(color)
 
+    def __repr__(self):
+        return self.getText()
 
 class Entry(GraphicsObject):
 
