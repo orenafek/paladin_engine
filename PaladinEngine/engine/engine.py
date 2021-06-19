@@ -5,6 +5,7 @@
     :since: 05/04/19
 """
 import inspect
+import pickle
 import sys
 import traceback
 from types import CodeType
@@ -14,7 +15,7 @@ from PaladinEngine.module_transformer.module_transformator import ModuleTransfor
 from PaladinEngine.stubbers import *
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __SIMPLE_AS__
+from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __AS_FC__
 from source_provider import SourceProvider
 
 
@@ -31,7 +32,7 @@ class PaLaDiNEngine(object):
     __INSTANCE = PaLaDiNEngine()
 
     # List of stubs that can be added to the PaLaDiNized code
-    __PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FCS__, __SIMPLE_AS__]
+    __PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __AS_FC__, __AS__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -96,19 +97,19 @@ class PaLaDiNEngine(object):
         m = module
         try:
             t = t.transform_loop_invariants()
-            m = t.module()
+            m = t.module
             t = t.transform_assignments()
-            m = t.module()
+            m = t.module
             t = t.transform_function_calls()
-            m = t.module()
+            m = t.module
             t = t.transform_for_loops_to_while_loops()
-            m = t.module()
+            m = t.module
             t = t.transform_paladin_post_condition()
-            m = t.module()
+            m = t.module
 
         except BaseException as e:
-            print(ast.unparse(m))
-        return t.module()
+            print(ast2str(m))
+        return t.module
 
     @staticmethod
     def create_module(src_file) -> ast.AST:
@@ -127,10 +128,13 @@ class PaLaDiNEngine(object):
         :return: (str) The PaLaDiNized code.
         """
         SourceProvider.set_code(code)
-        return ast.unparse(
+        return ast2str(
             PaLaDiNEngine.process_module(
                 PaLaDiNEngine.create_module(code)))
 
+    @staticmethod
+    def transform_and_pickle(code: str) -> bytes:
+        return pickle.dumps(PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
 
 def main():
     # Read source file.
