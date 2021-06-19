@@ -14,8 +14,9 @@ from PaladinEngine.finders import PaladinForLoopInvariantsFinder, AssignmentFind
 from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber, \
     FunctionCallStubber
 from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__, __FCS__, \
-    __SIMPLE_AS__
+    __AS__, __AS_FC__
 from PaladinEngine.api.api import PaladinPostCondition
+from ast_common.ast_common import ast2str, str2ast
 
 
 class ModuleTransformer(object):
@@ -80,7 +81,7 @@ class ModuleTransformer(object):
 
                 # Create a stub.
                 for target in targets:
-                    ass_stub = create_ast_stub(__SIMPLE_AS__,
+                    ass_stub = create_ast_stub(__AS__,
                                                target,
                                                locals='locals()',
                                                globals='globals()',
@@ -121,79 +122,71 @@ class ModuleTransformer(object):
         return self
 
     def transform_function_calls(self) -> ModuleTransformer:
-        i = 0
         try:
             # Find all function calls.
             function_call_finder = FunctionCallFinder()
             function_call_finder.visit(self._module)
             function_calls = function_call_finder.find()
-            while function_calls:
-                stub_entry = function_calls[0]
-                # Create a temp var to hold the return value of the function call.
-                temp_return_value_var = f'____{i}'
 
-                # Convert function name to a string.
-                function_name_string = f'\'{stub_entry.extra.function_name}\''
+            # Create a stubber.
+            function_call_stubber = FunctionCallStubber(self._module)
 
+            for stub_entry in function_calls:
                 # Convert args to a string.
-                args_string = '[' + ', '.join([f'\'{a}\'' for a in stub_entry.extra.args if not isinstance(a, str)] +
-                                              [f'{a}' for a in stub_entry.extra.args if isinstance(a, str)]) + ']'
+                args_string = ", ".join(stub_entry.extra.args)
 
-                # Converto kwargs to a string.
-                kwargs_string = '[' + ', '.join([str(t) for t in stub_entry.extra.kwargs.items()]) + ']'
+                # Convert kwargs to a string.
+                kwargs_string = ', '.join([f'{t[0]}={t[1]}' for t in stub_entry.extra.kwargs.items()])
+
+                all_args_string = args_string
+
+                if kwargs_string != '':
+                    all_args_string += ', ' + kwargs_string
+
+                s = f'{__AS_FC__.__name__}(' + ', '.join([
+                    f'\'{ast2str(stub_entry.node)}\'',
+                    f'{ast2str(stub_entry.node.func)}',
+                    'locals()',
+                    'globals()',
+                    'sys._getframe(0)',
+                    f'{stub_entry.node.lineno}',
+                    f'{all_args_string}' if args_string else '']) + \
+                    ')'
 
                 # Create a stub.
-                function_call_stub = create_ast_stub(__FCS__,
-                                                     name=function_name_string,
-                                                     args=args_string,
-                                                     kwargs=kwargs_string,
-                                                     return_value=temp_return_value_var,
-                                                     frame='sys._getframe(0)',
-                                                     locals='locals()',
-                                                     globals='globals()',
-                                                     line_no=f'{stub_entry.node.lineno}')
+                stubbed_call = str2ast(s).value
 
-                function_call_stubber = FunctionCallStubber(self._module, temp_return_value_var, stub_entry.node)
+                # func_stub = create_ast_stub(__AS_FC__,
+                #                             ast2str(stub_entry.node),
+                #                             stub_entry.node.func,
+                #                             stub_entry.container,
+                #                             locals='locals()',
+                #                             globals='globals()',
+                #                             frame='sys._getframe(0)',
+                #                             line_no=stub_entry.node.lineno,
+                #                             args=args_string,
+                #                             kwargs=kwargs_string)
 
-                container_attr_name_in_container_of_container = GenericFinder.get_node_attr_name(
-                    stub_entry.extra.container_of_container, stub_entry.container)
-
-                self._module = function_call_stubber.stub_function_call(stub_entry.node,
-                                                                        stub_entry.container,
-                                                                        stub_entry.extra.container_of_container,
-                                                                        stub_entry.attr_name,
-                                                                        container_attr_name_in_container_of_container,
-                                                                        function_call_stub)
-                path = f'output.py'
-                if os.path.exists(path):
-                    os.remove(path)
-                with open(path, 'w+') as f:
-                    s = ast.unparse(self._module)
-                    f.write(s)
-                    f.close()
-                i += 1
-
-                function_call_finder = FunctionCallFinder()
-                function_call_finder.visit(self._module)
-                function_calls = function_call_finder.find()
+                self.module = function_call_stubber.stub_func(stub_entry.node, stub_entry.container,
+                                                              stub_entry.attr_name, stubbed_call)
 
         except BaseException as e:
-            print(f'i = {i} {e}')
-        return self
+            print(e)
 
-    def to_code(self) -> str:
-        """
-            Convert the module to code.
-        :return:
-        """
-        return ast.unparse(self._module).strip()
+        finally:
+            return self
 
+    @property
     def module(self) -> ast.AST:
         """
             Getter.
         :return: self#module
         """
         return self._module
+
+    @module.setter
+    def module(self, value):
+        self._module = value
 
 
 class PaladinPostConditionTransformer(ast.NodeTransformer):
