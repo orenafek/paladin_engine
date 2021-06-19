@@ -1,15 +1,13 @@
 import ast
 import inspect
 import json
-import re
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from PaladinEngine.archive.archive import Archive, SimpleArchive
+from PaladinEngine.archive.archive import Archive, Archive
 from PaladinEngine.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
-simple_archive = SimpleArchive()
 
 from PaladinEngine.Examples.Tetris.tetris import Board, Block
 
@@ -126,56 +124,102 @@ def _search_in_vars_dict(symbol: Union[str, SubscriptVisitResult], vars: dict) -
 
     return None
 
+def _separate_to_container_and_field(expression:str, frame, vars_dict: dict) -> tuple[int, str]:
 
-def __SIMPLE_AS__(expression: str, locals: dict, globals: dict, frame, line_no: int) -> None:
-    # Create variable dict.
-    vars_dict = {**locals, **globals}
+    dot_separator = '.'
 
-    # TODO: Add support of indexing ([], (), ...
     expr = expression
     container_id = id(frame)
     field = expression
 
     value = _search_in_vars_dict(field, vars_dict)
 
-    while "." in expr:
-        # obj_and_field = re.match('(?P<obj>[a-zA-Z][a-zA-Z*_$0-9]*)\\.(!?P<field>[a-zA-Z]([a-zA-Z*_$0-9]*))', expr) \
-        #     .groupdict()
-        parts = expr.split('.')
+    while dot_separator in expr:
+        parts = expr.split(dot_separator)
         obj_name = parts[0]
-        rest = '.'.join(parts[1::])
+        rest = dot_separator.join(parts[1::])
         obj = vars_dict[obj_name]
-        #obj = vars_dict[obj_and_field['obj']]
-        #field = obj_and_field['field']
+        # obj = vars_dict[obj_and_field['obj']]
+        # field = obj_and_field['field']
         container_id = id(obj)
-        #expr = field
+        # expr = field
         expr = rest
-        #value = obj.__getattribute__(field)
+        # value = obj.__getattribute__(field)
         value = obj.__getattribute__(rest)
+
+    return container_id, field
+
+def __AS__(expression: str, locals: dict, globals: dict, frame, line_no: int) -> None:
+    # Create variable dict.
+    vars_dict = {**locals, **globals}
+
+    container_id, field = _separate_to_container_and_field(expression,frame, vars_dict)
+
+    value = _search_in_vars_dict(field, vars_dict)
 
     if value is None:
         # TODO: handle?
         return
 
     # Create Record key.
-    record_key = SimpleArchive.Record.RecordKey(container_id, field)
+    record_key = Archive.Record.RecordKey(container_id, field)
 
     # Create Record value.
-    record_value = SimpleArchive.Record.RecordValue(type(value), value, expression, line_no)
+    record_value = Archive.Record.RecordValue(type(value), value, expression, line_no)
 
-    simple_archive.store(record_key, record_value)
+    archive.store(record_key, record_value)
 
 
-def __AS__(*assignment_pairs, locals, globals, frame, line_no) -> None:
+def __AS_FC__(expression: str, func,
+              locals: dict, globals: dict, frame, line_no: int,
+              *args: Optional[list[object]], **kwargs: Optional[dict[object]]):
     """
-        A stub for assignment statement.
-    :param assignment_pairs: (list[(str, str]) A list of pairs of assignment pairs of:
-                                               (target, value)
-    :return: None
+        Store function call stub.
+    :param func: The function that was called.
+    :param locals: Dictionary with the local variables of the calling context.
+    :param globals: Dictionary with the global variables of the calling context.
+    :param frame: The stack frame of the calling context
+    :param line_no: The line no of the function call.
+    :param args: The arguments passed to the function.
+    :param kwargs: The keyword arguments passed to the function.
+    :return: None.
     """
-    for ass_pair in assignment_pairs:
-        archive.store(ass_pair, frame=frame, vars_dict={**locals, **globals}, line_no=line_no)
 
+    vars_dict = {**locals, **globals}
+
+    # Function type.
+    func_type = type(lambda _:_)
+
+    # Call the function.
+    ret_value = func(*args, **kwargs)
+
+
+    # Find container.
+    container_id, field = _separate_to_container_and_field(expression,frame, vars_dict)
+
+    args_string = ', '.join([str(a) for a in args])
+    kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
+
+    # args_string = ' , '.join([f'\'{a}\'' for a in args if not isinstance(a, str)] +
+    #                          [f'{a}' for a in args if isinstance(a, str)])
+
+    # Convert kwargs to a string.
+    # kwargs_string = ', '.join([str(t) for t in kwargs.items()])
+
+    # Create an extra with the args and keywords.
+    extra = f'args = {args_string}, kwargs = {kwargs_string}'
+
+    # Create a Record key.
+    record_key = Archive.Record.RecordKey(container_id, func.__name__)
+
+    # Create Record value.
+    record_value = Archive.Record.RecordValue(func_type, ret_value, expression, line_no, extra)
+
+    # Store.
+    archive.store(record_key, record_value)
+
+    # Return ret value.
+    return ret_value
 
 def __FCS__(name: str,
             args: list,
