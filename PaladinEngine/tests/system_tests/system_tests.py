@@ -7,7 +7,7 @@ from pycallgraph import PyCallGraph, GlobbingFilter, Config
 from pycallgraph.output import GraphvizOutput
 
 from PaladinEngine.engine.engine import PaLaDiNEngine
-from PaladinEngine.stubs import archive
+from PaladinEngine.stubs import simple_archive
 
 
 class CallGraphCreator:
@@ -62,39 +62,71 @@ class TestEngine:
     @staticmethod
     def _basic_test(test_file_path: str, verbose: bool, valid_exceptions: list):
 
-        # Read source file.
-        with open(test_file_path) as f:
-            # Read the source file.
-            source_code = f.read()
+        # Execute the code.
+        try:
+            # Read source file.
+            with open(test_file_path) as f:
+                # Read the source file.
+                source_code = f.read()
 
-            # Transform into a PaLaDiN form.
-            paladinized_source_code = PaLaDiNEngine.transform(source_code)
+                # Transform into a PaLaDiN form.
+                paladinized_source_code = PaLaDiNEngine.transform(source_code)
 
-            # Print the code.
-            if verbose:
-                print(str(paladinized_source_code))
+                # Print the code.
+                if verbose:
+                    print(str(paladinized_source_code))
+                    with open(test_file_path.replace('.py', '_output.py'), 'w+') as f:
+                        f.write('import sys\n')
+                        f.writelines('from PaladinEngine.stubs import __AS__, __FLI__, __FCS__, __POST_CONDITION__\n')
+                        f.write(paladinized_source_code)
 
-            # Compile it.
-            complied_code = PaLaDiNEngine.compile(paladinized_source_code)
+                # Compile it.
+                complied_code = PaLaDiNEngine.compile(paladinized_source_code)
 
-            # Execute the code.
-            try:
+                # Reset the archive.
+                simple_archive.reset()
+
+                # Execute it.
                 PaLaDiNEngine.execute_with_paladin(complied_code, test_file_path)
 
-            except Exception as e:
-                traceback.print_exc()
-                if type(e) not in valid_exceptions:
-                    raise e
+        except BaseException as e:
+            traceback.print_exc()
+            if type(e) not in valid_exceptions:
+                raise e
 
-            finally:
-                if verbose:
-                    # Print the archive.
-                    print(archive)
+        finally:
+            if verbose:
+                # Print the archive.
+                # print(simple_archive)
+                with open(test_file_path.removesuffix('.py') + '.csv', 'w+') as f:
+                    import csv
+                    writer = csv.writer(f)
+                    header, rows = simple_archive.to_csv()
+                    writer.writerow(header)
+                    writer.writerows(rows)
 
-    # @pytest.mark.skip(reason="")
+    @pytest.mark.skip(reason="")
     def test_0(self):
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'test_module.py'
+        ),
+            verbose=True,
+            valid_exceptions=[AssertionError]
+        )
+
+    @pytest.mark.skip(reason="")
+    def test_custom_range(self):
+        TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
+            r'test_module_with_custom_range.py'
+        ),
+            verbose=True,
+            valid_exceptions=[AssertionError]
+        )
+
+    @pytest.mark.skip(reason="")
+    def test_function_call_stub(self):
+        TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
+            r'test_function_call_store.py'
         ),
             verbose=True,
             valid_exceptions=[AssertionError]
@@ -106,11 +138,7 @@ class TestEngine:
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(r'test_module2.py'), verbose=True)
 
     @pytest.mark.skip(reason="")
-    def test_2(self):
-        self.basic_test(self.test_0, with_call_graph=True)
-
-    #@pytest.mark.skip(reason="")
-    def test3(self):
+    def test_tetris(self):
         class TestThread(threading.Thread):
             def run(self) -> None:
                 TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
@@ -129,4 +157,23 @@ class TestEngine:
         # KeyboardThread().start()
         TestThread().run()
 
+    @pytest.mark.skip(reason="")
+    def test_lib1_syntax(self):
+        TestEngine.basic_test(
+            '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/lab1/src/lambda_calc'
+            '/syntax.py', verbose=True)
 
+    # @pytest.mark.skip(reason="")
+    def test_lib1_semantics(self):
+        TestEngine.basic_test(
+            '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/lab1/src/lambda_calc'
+            '/semantics.py', verbose=True)
+
+    @pytest.mark.skip(reason="")
+    def test_2(self):
+        TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
+            r'test_module2.py'
+        ),
+            verbose=True,
+            valid_exceptions=[AssertionError]
+        )

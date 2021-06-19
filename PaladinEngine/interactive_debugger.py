@@ -1,6 +1,6 @@
 from cmd import Cmd
 
-from PaladinEngine.archive.archive import Archive
+from PaladinEngine.archive.archive import Archive, Archive
 from source_provider import SourceProvider
 
 
@@ -35,7 +35,7 @@ class InteractiveDebugger(Cmd):
         InteractiveDebugger.intro = InteractiveDebugger._intro_format(line_no, error_line,
                                                                       SourceProvider.get_line(line_no).lstrip())
         # Initiate the time of search in the archive.
-        self._archive_time_of_search = archive.last_time_counter
+        self._archive_time_of_search = archive.time
 
     @property
     def archive(self):
@@ -63,19 +63,20 @@ class InteractiveDebugger(Cmd):
 
     def _create_code_window(self, expr_to_search: str):
         # Retrieve the record from the archive.
-        record = self.archive.retrieve(expr_to_search)
+
+        record = self.archive.search(expr_to_search)
 
         # Get the last recorded values from time.
-        value, line_no, time = record.get_last_value_from_time(self._archive_time_of_search)
+        record_value = record.get_last_value_from_time(self._archive_time_of_search)
 
         # Set the archive time of search to start from the time of the last value searched.
-        self._archive_time_of_search = time
+        self._archive_time_of_search = record_value.time
 
         # Create code window.
-        code_window, bold_line_no = SourceProvider.get_window(line_no, before=InteractiveDebugger.CODE_WINDOW_SIZE,
+        code_window, bold_line_no = SourceProvider.get_window(record_value.line_no, before=InteractiveDebugger.CODE_WINDOW_SIZE,
                                                               after=InteractiveDebugger.CODE_WINDOW_SIZE)
 
-        return value, zip(code_window, range(1, len(code_window))), bold_line_no
+        return record_value.value, zip(code_window, range(1, len(code_window))), bold_line_no
 
     def do_why(self, arg):
         strings_to_print = []

@@ -1,10 +1,9 @@
 # @Paladin.postcond('n', 'n > 0')
 # def square(n):
 #     return n * n
-from PaladinEngine.api.api import Paladin
 
 
-@Paladin
+# @Paladin
 class Point(object):
     def __init__(self):
         self._x = 0
@@ -30,5 +29,10 @@ def main():
     p0 = Point()
     p0.setX(1)
     p0.setY(2)
+    p0._y = 4
 
     print(p0)
+
+
+if __name__ == '__main__':
+    main()

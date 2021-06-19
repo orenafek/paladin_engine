@@ -1,9 +1,11 @@
 import ast
 from abc import ABC, abstractmethod
 from ast import *
-from typing import Union
+from typing import Union, Any
 
-import astor
+from ast_common.ast_common import str2ast, ast2str
+from finders import FinderByString
+from utils.utils import assert_not_raise
 
 
 class Stubber(ABC, ast.NodeTransformer):
@@ -31,7 +33,7 @@ class Stubber(ABC, ast.NodeTransformer):
             self.original = original
             self.container = container
             self.attr_name = attr_name
-            self.replace = replace
+            self._set_replace_list(replace)
 
         @abstractmethod
         def create_stub(self) -> Union[AST, list]:
@@ -50,6 +52,11 @@ class Stubber(ABC, ast.NodeTransformer):
             # Extract nodes in container.
             nodes = self.container.__dict__[self.attr_name]
 
+            if type(nodes) is not list:
+                ast.copy_location(nodes, self.original)
+                ast.fix_missing_locations(nodes)
+                return
+
             # Extract the first element.
             first_element = nodes[0]
 
@@ -65,6 +72,12 @@ class Stubber(ABC, ast.NodeTransformer):
 
                 # Fix missing locations.
                 ast.fix_missing_locations(node)
+
+        def _set_replace_list(self, replace: Union[AST, list]) -> None:
+            if type(replace) is list:
+                self.replace = replace
+            else:
+                self.replace = [replace]
 
     class _AfterStubRecord(_StubRecord):
         def __init__(self,
@@ -96,11 +109,11 @@ class Stubber(ABC, ast.NodeTransformer):
 
                 if node is self.original:
                     # Add the stub.
-                    container_with_stub.append(self.replace)
+                    container_with_stub.extend(self.replace)
 
             return container_with_stub
 
-    class _BeginningStubRecord(_StubRecord):
+    class _BeforeStubRecord(_StubRecord):
         """
             A stub record for stubbing at the beginning of the container.
         """
@@ -124,19 +137,16 @@ class Stubber(ABC, ast.NodeTransformer):
                 Creates a stub with the replacement at the end.
             :return:
             """
+            containing_field = self.container.__dict__[self.attr_name]
 
-            # Initialize a new container.
-            container_with_stub = []
-
-            # Find the original node in the container.
-            for node in self.container.__dict__[self.attr_name]:
-                if node is self.original:
-                    # Add the stub.
-                    container_with_stub.append(self.replace)
-
-                container_with_stub.append(node)
-
-            return container_with_stub
+            if type(containing_field) is ast.List:
+                containing_field.elts = self.replace + containing_field.elts
+                return containing_field
+            elif type(containing_field) is list:
+                i = containing_field.index(self.original)
+                return containing_field[:i] + self.replace + containing_field[i:]
+            else:
+                return self.replace
 
     class _ReplacingStubRecord(_StubRecord):
         """
@@ -159,27 +169,38 @@ class Stubber(ABC, ast.NodeTransformer):
 
         def create_stub(self) -> Union[AST, list]:
             """
-                Creates a stub with the replacement at the end.
+                Create a stub with the replacement of original.
             :return:
             """
+            try:
+                containing_field = self.container.__dict__[self.attr_name]
+                if type(containing_field) is ast.List:
+                    containing_field.elts = self.replace[0].elts
+                    return containing_field
 
-            # Initialize a new container.
-            container_with_stub = []
+                if type(containing_field) is list:
+                    # Initialize a new container.
+                    container_with_stub = []
 
-            if type(self.replace) is list:
-                replacee = self.replace
-            else:
-                replacee = [self.replace]
-
-            # Find the original node in the container.
-            for node in self.container.__dict__[self.attr_name]:
-                if node is self.original:
-                    # Add the stub.
-                    container_with_stub.extend(replacee)
+                    for node in containing_field:
+                        if node is self.original:
+                            # Add the stub.
+                            container_with_stub += self.replace
+                        else:
+                            container_with_stub.append(node)
+                    return container_with_stub
                 else:
-                    container_with_stub.append(node)
+                    # The containing field is not a list.
+                    # TODO: Should self.container be copied before updates with stub?
+                    # TODO: What if replace is more than one field?
+                    return self.replace[0]
+                    # assert type(self.replace) is list and len(self.replace) == 1
+                    # ast.copy_location(self.replace[0], self.original)
+                    # self.container.__setattr__(self.attr_name, self.replace)
+                    # return self.container
 
-            return container_with_stub
+            except BaseException as e:
+                print(e)
 
     def __init__(self, root_module) -> None:
         """
@@ -202,33 +223,37 @@ class Stubber(ABC, ast.NodeTransformer):
         # Add to changes list.
         self.change_map.append(stub_record)
 
-    def visit(self, node) -> None:
+    def visit(self, node):
         """
             A visitor.
         :param node: (AST) The node that is currently visited.
         :return: None.
         """
-        for stub_record in self.change_map:
-            if stub_record.original is node:
-                # Replace the original with the stub.
-                stub_record.container.__dict__[stub_record.attr_name] = stub_record.create_stub()
+        try:
+            for stub_record in self.change_map:
+                if stub_record.original is node:
+                    # Replace the original with the stub.
+                    stub_record.container.__dict__[stub_record.attr_name] = stub_record.create_stub()
 
-                # Stub.
-                stubbed = stub_record.container.__dict__[stub_record.attr_name]
+                    # Stub.
+                    stubbed = stub_record.container.__dict__[stub_record.attr_name]
 
-                # Fix the locations of the nodes in the ast after the stubbing.
-                stub_record.fix_locations()
+                    # Fix the locations of the nodes in the ast after the stubbing.
+                    stub_record.fix_locations()
 
-                ast.fix_missing_locations(self.root_module)
+                    ast.fix_missing_locations(self.root_module)
 
-                # Remove changes from list.
-                self.change_map.remove(stub_record)
+                    # Remove changes from list.
+                    self.change_map.remove(stub_record)
 
-                self.generic_visit(node)
-                return stubbed
+                    self.generic_visit(node)
+                    return stubbed
 
-        self.generic_visit(node)
-        return node
+            self.generic_visit(node)
+            return node
+
+        except BaseException as e:
+            print(e)
 
     def _stub(self, stub_record: _StubRecord) -> ast.Module:
         """
@@ -277,7 +302,7 @@ class LoopStubber(Stubber):
         :return: (ast.Module) The module containing the loop.
         """
         # Create a stub record.
-        stub_record = Stubber._BeginningStubRecord(loop_node, container, attr_name, stub)
+        stub_record = Stubber._BeforeStubRecord(loop_node, container, attr_name, stub)
 
         # Stub.
         self._stub(stub_record)
@@ -307,24 +332,25 @@ class ForToWhilerLoopStubber(LoopStubber):
         """
 
         # Extract the loop index from the for loop.
-        loop_index = astor.to_source(for_loop_node.target).strip()
+        loop_index = ast2str(for_loop_node.target)
 
         # Extract the collection from the for loop.
-        iterator = astor.to_source(for_loop_node.iter).strip()
+        iterator = ast2str(for_loop_node.iter)
 
         SPACE = ' '
 
         # Extract the body from the for loop.
         for_loop_body = []
+        try:
+            for for_loop_body_node in for_loop_node.body:
+                spaces_to_add = for_loop_body_node.col_offset - for_loop_node.col_offset
+                source_lines = [f'{SPACE * spaces_to_add}{line}\n'
+                                for line in ast2str(for_loop_body_node, rstrip=False).split('\n')]
+                for_loop_body.append(''.join(source_lines))
 
-        for for_loop_body_node in for_loop_node.body:
-            spaces_to_add = for_loop_body_node.col_offset - for_loop_node.col_offset
-            source_lines = [f'{SPACE * spaces_to_add}{line}\n'
-                            for line in astor.to_source(for_loop_body_node).lstrip().split('\n')]
-            for_loop_body.append(''.join(source_lines))
-
-        for_loop_body = ''.join(for_loop_body)
-
+            for_loop_body = ''.join(for_loop_body)
+        except BaseException as e:
+            print(e)
         # Fill the while loop template.
         return ForToWhilerLoopStubber.WHILE_LOOP_TEMPLATE.format(iterator=iterator, loop_index=loop_index,
                                                                  body=for_loop_body)
@@ -368,7 +394,7 @@ class MethodStubber(Stubber):
         """
 
         # Create a stub record.
-        stub_record = Stubber._BeginningStubRecord(method_node, container, attr_name, stub)
+        stub_record = Stubber._BeforeStubRecord(method_node, container, attr_name, stub)
         return self._stub(stub_record)
 
     def stub_postcondition(self, method_node: ast.FunctionDef, _, __, stub: AST) -> Module:
@@ -425,3 +451,64 @@ class AssignmentStubber(Stubber):
         # Create a stub record.
         stub_record = Stubber._AfterStubRecord(assignment_node, container, attr_name, stub)
         return self._stub(stub_record)
+
+
+class FunctionCallStubber(Stubber):
+    def stub_func(self, node, container, attr_name, stubbed_call):
+        try:
+            # Create a stub record.
+            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, stubbed_call)
+
+            # Stub.
+            self.root_module = self._stub(stub_record)
+            assert_not_raise(ast2str, self.root_module)
+
+            # Create a stub record.
+            return self.root_module
+
+        except BaseException as e:
+            print(e)
+            raise e
+
+    def stub_function_call(self, node: ast.Call, container: ast.AST,
+                           attr_name: str,
+                           function_name:str,
+                           args: str,
+                           kwargs: str,
+                           stub_function_name: str) -> Module:
+        """
+            Stub a function call.
+        :param node:
+        :param container:
+        :param attr_name:
+        :param stub:
+        :return:
+        """
+        # Create the code to replace the function call itself.
+        try:
+            # Create a call node.
+            if args != '':
+                args_string = ', ' + args
+            else:
+                args_string = ''
+
+            if kwargs != '':
+                kwargs_string = ', ' + kwargs
+            else:
+                kwargs_string = ''
+
+            stubbed_call = str2ast(f'{stub_function_name}(\'{function_name}\'{args_string}{kwargs_string})').value
+
+            # Create a stub record.
+            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, stubbed_call)
+
+            # Stub.
+            self.root_module = self._stub(stub_record)
+            assert_not_raise(ast2str, self.root_module)
+
+            # Create a stub record.
+            return self.root_module
+
+        except BaseException as e:
+            print(e)
+            raise e

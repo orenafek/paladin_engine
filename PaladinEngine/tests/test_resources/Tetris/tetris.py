@@ -33,6 +33,9 @@ class Block(Rectangle):
         self.setWidth(Block.OUTLINE_WIDTH)
         self.setFill(color)
 
+    def __repr__(self):
+        return f'(x, y) = ({self.x},{self.y}), color = {self.color}'
+
     def can_move(self, board, dx, dy):
         ''' Parameters: dx - type: int
                         dy - type: int
@@ -135,8 +138,13 @@ class Shape(object):
             Returns True if all of them can, and False otherwise
 
         '''
+        blocks = self.get_blocks()
+        for block in blocks:
+            if not block.can_move(board, dx, dy):
+                return False
+        return True
 
-        return all(block.can_move(board, dx, dy) for block in self.get_blocks())
+        # return all(block.can_move(board, dx, dy) for block in self.get_blocks())
 
     def get_rotation_dir(self):
         ''' Return value: type: int
@@ -373,8 +381,8 @@ class Board(object):
             get the list of blocks
 
         '''
-
-        for block in shape.get_blocks():
+        blocks = shape.get_blocks()
+        for block in blocks:
             self.grid[(block.x, block.y)] = block
 
     def row(self, y):
@@ -402,7 +410,8 @@ class Board(object):
         """
 
         # Remove the blocks in the row from the grid.
-        for _x, _y in filter(lambda k: k[1] == y, self.grid.copy().keys()):
+        grid_blocks_keys = self.grid.copy().keys()
+        for _x, _y in filter(lambda k: k[1] == y, grid_blocks_keys):
             # Undraw from screen.
             self.grid[_x, _y].undraw()
 
@@ -422,7 +431,8 @@ class Board(object):
             otherwise return True
 
         '''
-        return all((x, y) in self.grid for x in range(0, self.width))
+        r = range(0, self.width)
+        return all((x, y) in self.grid for x in r)
 
     def move_down_rows(self, y_start):
         ''' Parameters: y_start - type:int
@@ -435,14 +445,15 @@ class Board(object):
                     and then place it back in the grid in the new position
 
         '''
-        for k in range(0, y_start):
+        r = range(0, y_start)
+        for k in r:
             y = y_start - k
             for x in [_x for (_x, _y) in self.grid if _y == y]:
                 # Remove it from the grid.
                 block = self.grid.pop((x, y))
                 block.move(0, 1)
                 # Replace it in the grid.
-                #self.grid[(x, y + 1)] = block
+                # self.grid[(x, y + 1)] = block
 
     def remove_complete_rows(self):
         """ removes all the complete rows
@@ -469,7 +480,11 @@ class Board(object):
         ''' display "Game Over !!!" message in the center of the board
             HINT: use the Text class from the graphics library
         '''
-        Text(Point(int(self.width / 2), int(self.height / 2)), "Game Over !!!").draw(self.canvas)
+        w = int(self.width / 2)
+        h = int(self.height / 2)
+        p = Point(w, h)
+        text = Text(p, "Game Over !!!")
+        text.draw(self.canvas)
         win.destroy()
 
     def __str__(self):
@@ -531,9 +546,9 @@ class Tetris(object):
             return the shape
         '''
 
-        #shape_class = random.choice(Shape.__subclasses__())
-        #return shape_class(Point(x=int(self.BOARD_WIDTH / 2), y=0))
-        return O_shape(Point(self.BOARD_WIDTH/2, y=0  ))
+        # shape_class = random.choice(Shape.__subclasses__())
+        # return shape_class(Point(x=int(self.BOARD_WIDTH / 2), y=0))
+        return O_shape(Point(self.BOARD_WIDTH / 2, y=0))
 
     def animate_shape(self):
         ''' animate the shape - move down at equal intervals

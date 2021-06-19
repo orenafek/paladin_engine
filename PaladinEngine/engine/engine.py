@@ -5,17 +5,17 @@
     :since: 05/04/19
 """
 import inspect
+import pickle
+import sys
 import traceback
 from types import CodeType
-
-import astor
 
 from PaladinEngine.finders import *
 from PaladinEngine.module_transformer.module_transformator import ModuleTransformer
 from PaladinEngine.stubbers import *
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive
+from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __AS_FC__
 from source_provider import SourceProvider
 
 
@@ -32,7 +32,7 @@ class PaLaDiNEngine(object):
     __INSTANCE = PaLaDiNEngine()
 
     # List of stubs that can be added to the PaLaDiNized code
-    __PALADIN_STUBS_LIST = [__AS__, __FLI__, __POST_CONDITION__]
+    __PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __AS_FC__, __AS__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -75,12 +75,15 @@ class PaLaDiNEngine(object):
         # Collect imports.
         variables.update(PaLaDiNEngine.__collect_imports_to_execution())
 
+        # Set program name.
+        sys.argv[0] = original_file_name
+        # Clear args.
+        sys.argv[1:] = []
         return exec(source_code, variables)
 
     @staticmethod
     def __collect_imports_to_execution():
         return {module.__name__: module for module in [sys, inspect]}
-
 
     @staticmethod
     def process_module(module: ast.AST) -> ast.AST:
@@ -89,12 +92,24 @@ class PaLaDiNEngine(object):
         :param module:
         :return:
         """
-        return ModuleTransformer(module) \
-            .transform_loop_invariants() \
-            .transform_for_loops_to_while_loops() \
-            .transform_assignments() \
-            .transform_paladin_post_condition() \
-            .module()
+
+        t = ModuleTransformer(module)
+        m = module
+        try:
+            t = t.transform_loop_invariants()
+            m = t.module
+            t = t.transform_assignments()
+            m = t.module
+            t = t.transform_function_calls()
+            m = t.module
+            t = t.transform_for_loops_to_while_loops()
+            m = t.module
+            t = t.transform_paladin_post_condition()
+            m = t.module
+
+        except BaseException as e:
+            print(ast2str(m))
+        return t.module
 
     @staticmethod
     def create_module(src_file) -> ast.AST:
@@ -113,8 +128,13 @@ class PaLaDiNEngine(object):
         :return: (str) The PaLaDiNized code.
         """
         SourceProvider.set_code(code)
-        return astor.to_source(PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
+        return ast2str(
+            PaLaDiNEngine.process_module(
+                PaLaDiNEngine.create_module(code)))
 
+    @staticmethod
+    def transform_and_pickle(code: str) -> bytes:
+        return pickle.dumps(PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
 
 def main():
     # Read source file.
