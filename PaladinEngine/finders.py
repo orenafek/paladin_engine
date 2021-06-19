@@ -8,6 +8,9 @@ from PaladinEngine.stubs import StubArgumentType, all_stubs, SubscriptVisitResul
 import astor
 from typing import Tuple
 
+from ast_common.ast_common import ast2str
+
+
 class StubEntry(object):
     """
         A triple of an element to stub, its container and the attr name in which it is held.
@@ -218,8 +221,8 @@ class GenericFinder(ABC, ast.NodeVisitor):
             return [extra, rest_of_extras]
 
     def _should_filter(self, node: ast.AST) -> bool:
-        is_stub_call = isinstance(node, ast.Call) and ast.unparse(node.func).startswith('__')
-        is_stub_assign = isinstance(node, ast.Assign) and ast.unparse(node).startswith('____')
+        is_stub_call = isinstance(node, ast.Call) and ast2str(node.func).startswith('__')
+        is_stub_assign = isinstance(node, ast.Assign) and ast2str(node).startswith('____')
         return is_stub_call or is_stub_assign
 
     def _safe_visit(self, node):
@@ -227,6 +230,7 @@ class GenericFinder(ABC, ast.NodeVisitor):
             return None
 
         return self.visit(node)
+
 
 class FinderByString(GenericFinder):
     """
@@ -246,7 +250,7 @@ class FinderByString(GenericFinder):
 
     def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
         # If the string to find is included in the node.
-        string_included = self.s in ast.unparse(child_node).strip()
+        string_included = self.s in ast2str(child_node)
 
         # If the node has a field that can be extended (is a list).
         can_node_be_extended = [f for f in node._fields if type(node.__getattribute__(f)) == list] != []
@@ -485,6 +489,7 @@ class PaladinForLoopInvariantsFinder(GenericFinder):
     def types_to_find(self) -> Union:
         return [ast.For, ast.While]
 
+
 class AssignmentFinder(GenericFinder):
     """
         Finds all assignment statements in the node.
@@ -544,6 +549,7 @@ class AssignmentFinder(GenericFinder):
                     if not node:
                         return None
                     return self.visit(node)
+
                 return safe_visit(node.lower), safe_visit(node.upper), safe_visit(node.step)
 
         # Take extra for the slice.
@@ -581,48 +587,21 @@ class FunctionCallFinder(GenericFinder):
     TYPES_TO_EXCLUDE = [ast.FormattedValue,
                         ast.JoinedStr]
 
+    @dataclass
     class FunctionCallExtra(object):
+        func_name = ''
+        args = []
+        kwargs = {}
 
         def __init__(self):
-            self.__args = []
-            self.__kwargs = {}
-            self.__func_name = None
-            self.__return_value = None
-            self.__container_of_container = None
-
-        @property
-        def function_name(self):
-            return self.__func_name
-
-        @function_name.setter
-        def function_name(self, value):
-            self.__func_name = value
-
-        @property
-        def args(self):
-            return self.__args
-
-        @property
-        def kwargs(self):
-            return self.__kwargs
+            self.args = []
+            self.kwargs = {}
 
         def add_arg(self, arg):
             self.args.append(arg)
 
         def add_kwarg(self, k, v):
             self.kwargs[k] = v
-
-        @property
-        def return_value(self):
-            return self.__return_value
-
-        @property
-        def container_of_container(self):
-            return self.__container_of_container
-
-        @container_of_container.setter
-        def container_of_container(self, value):
-            self.__container_of_container = value
 
     def __init__(self) -> None:
         super().__init__()
@@ -650,9 +629,6 @@ class FunctionCallFinder(GenericFinder):
         if self._is_match_paladin_stub_call(extra.function_name):
             return None
 
-        # Set container of container.
-        extra.container_of_container = self._containers[1]
-
         # Extract args.
         for arg in node.args:
             if type(arg) is ast.Tuple:
@@ -660,7 +636,7 @@ class FunctionCallFinder(GenericFinder):
             else:
                 # TODO: Change to this:
                 # extra.add_arg(super(GenericFinder, self).visit(arg))
-                extra.add_arg(ast.unparse(arg).strip())
+                extra.add_arg(ast2str(arg))
 
         # Extract kwargs.
         for key, value_node in [(kw.arg, kw.value) for kw in node.keywords]:
@@ -669,7 +645,7 @@ class FunctionCallFinder(GenericFinder):
             else:
                 # TODO: Change to this:
                 # extra.add_kwarg(key, super(GenericFinder, self).visit(value_node))
-                extra.add_kwarg(key, ast.unparse(value_node).strip())
+                extra.add_kwarg(key, ast2str(value_node))
 
         # return extras
         return self._generic_visit_with_extras(node, extra)
@@ -691,7 +667,7 @@ class FunctionCallFinder(GenericFinder):
             if type(name) is str:
                 return name
 
-            #return super(GenericFinder, self).visit(name)
+            # return super(GenericFinder, self).visit(name)
             return self.visit(name)
         except BaseException:
             print('')
