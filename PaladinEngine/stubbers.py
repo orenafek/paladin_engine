@@ -3,8 +3,7 @@ from abc import ABC, abstractmethod
 from ast import *
 from typing import Union, Any
 
-import astor
-
+from ast_common.ast_common import str2ast, ast2str
 from finders import FinderByString
 from utils.utils import assert_not_raise
 
@@ -175,7 +174,6 @@ class Stubber(ABC, ast.NodeTransformer):
             """
             try:
                 containing_field = self.container.__dict__[self.attr_name]
-
                 if type(containing_field) is ast.List:
                     containing_field.elts = self.replace[0].elts
                     return containing_field
@@ -225,33 +223,37 @@ class Stubber(ABC, ast.NodeTransformer):
         # Add to changes list.
         self.change_map.append(stub_record)
 
-    def visit(self, node) -> None:
+    def visit(self, node):
         """
             A visitor.
         :param node: (AST) The node that is currently visited.
         :return: None.
         """
-        for stub_record in self.change_map:
-            if stub_record.original is node:
-                # Replace the original with the stub.
-                stub_record.container.__dict__[stub_record.attr_name] = stub_record.create_stub()
+        try:
+            for stub_record in self.change_map:
+                if stub_record.original is node:
+                    # Replace the original with the stub.
+                    stub_record.container.__dict__[stub_record.attr_name] = stub_record.create_stub()
 
-                # Stub.
-                stubbed = stub_record.container.__dict__[stub_record.attr_name]
+                    # Stub.
+                    stubbed = stub_record.container.__dict__[stub_record.attr_name]
 
-                # Fix the locations of the nodes in the ast after the stubbing.
-                stub_record.fix_locations()
+                    # Fix the locations of the nodes in the ast after the stubbing.
+                    stub_record.fix_locations()
 
-                ast.fix_missing_locations(self.root_module)
+                    ast.fix_missing_locations(self.root_module)
 
-                # Remove changes from list.
-                self.change_map.remove(stub_record)
+                    # Remove changes from list.
+                    self.change_map.remove(stub_record)
 
-                self.generic_visit(node)
-                return stubbed
+                    self.generic_visit(node)
+                    return stubbed
 
-        self.generic_visit(node)
-        return node
+            self.generic_visit(node)
+            return node
+
+        except BaseException as e:
+            print(e)
 
     def _stub(self, stub_record: _StubRecord) -> ast.Module:
         """
@@ -330,10 +332,10 @@ class ForToWhilerLoopStubber(LoopStubber):
         """
 
         # Extract the loop index from the for loop.
-        loop_index = ast.unparse(for_loop_node.target).strip()
+        loop_index = ast2str(for_loop_node.target)
 
         # Extract the collection from the for loop.
-        iterator = ast.unparse(for_loop_node.iter).strip()
+        iterator = ast2str(for_loop_node.iter)
 
         SPACE = ' '
 
@@ -343,7 +345,7 @@ class ForToWhilerLoopStubber(LoopStubber):
             for for_loop_body_node in for_loop_node.body:
                 spaces_to_add = for_loop_body_node.col_offset - for_loop_node.col_offset
                 source_lines = [f'{SPACE * spaces_to_add}{line}\n'
-                                for line in ast.unparse(for_loop_body_node).lstrip().split('\n')]
+                                for line in ast2str(for_loop_body_node, rstrip=False).split('\n')]
                 for_loop_body.append(''.join(source_lines))
 
             for_loop_body = ''.join(for_loop_body)
@@ -452,56 +454,31 @@ class AssignmentStubber(Stubber):
 
 
 class FunctionCallStubber(Stubber):
-    RETURN_VALUE_STORING_TEMPLATE = '{var} = {func_call}'
-    TEMP_STORE_AND_STUB_TEMPLATE = '{temp_store}\n{stub}'
-    REPLACEMENT_TEMPLATE = TEMP_STORE_AND_STUB_TEMPLATE + '\n{original_statement_with_temp}'
+    def stub_func(self, node, container, attr_name, stubbed_call):
+        try:
+            # Create a stub record.
+            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, stubbed_call)
 
-    def __init__(self, module: ast.AST, return_value_temp_var: str, function_call_node: ast.AST):
-        super().__init__(module)
+            # Stub.
+            self.root_module = self._stub(stub_record)
+            assert_not_raise(ast2str, self.root_module)
 
-        self._return_value_temp_var = return_value_temp_var
-        self._function_call_str = ast.unparse(function_call_node).strip()
+            # Create a stub record.
+            return self.root_module
 
-    def _create_temp_store_str(self) -> str:
-        return FunctionCallStubber.RETURN_VALUE_STORING_TEMPLATE \
-            .format(var=self._return_value_temp_var, func_call=self._function_call_str)
+        except BaseException as e:
+            print(e)
+            raise e
 
-    def _create_original_statement_with_temp_str(self, container: ast.AST, temp_var_name: str) -> str:
-        return ast.unparse(container).strip().replace(self._function_call_str, temp_var_name).strip()
-
-    def _create_temp_store_and_stub_node(self, stub: ast.AST) -> Union[ast.AST, list]:
-        return ast.parse(FunctionCallStubber.TEMP_STORE_AND_STUB_TEMPLATE.format(
-            temp_store=self._create_temp_store_str(),
-            stub=ast.unparse(stub).strip()
-        )).body
-
-    def _create_replacement_node(self, container: ast.AST, stub: ast.AST) -> ast.AST:
-        '''
-            Create the replacement AST node for a function call.
-            E.g.:
-            for a statement:
-                x = f(a1,...,an, k1=v1,...kt=vt)
-            the replacement should be:
-                $$_<temp_var_name> = f(a1,...,an, k1=v1,...kt=vt)
-                __FCS__(..., $$_<temp_var_name>, ...)
-                x = $$_<temp_var_name>
-        :return:
-        '''
-
-        return ast.parse(FunctionCallStubber.REPLACEMENT_TEMPLATE.format(
-            temp_store=self._create_temp_store_str(),
-            stub=ast.unparse(stub).strip(),
-            original_statement_with_temp=self._create_original_statement_with_temp_str(container,
-                                                                                       self._return_value_temp_var)
-        ))
-
-    def stub_function_call(self, function_call_node: ast.AST, container: ast.AST, container_of_container: ast.AST,
+    def stub_function_call(self, node: ast.Call, container: ast.AST,
                            attr_name: str,
-                           container_attr_name: str,
-                           stub: Union[AST, list]) -> Module:
+                           function_name:str,
+                           args: str,
+                           kwargs: str,
+                           stub_function_name: str) -> Module:
         """
             Stub a function call.
-        :param function_call_node:
+        :param node:
         :param container:
         :param attr_name:
         :param stub:
@@ -509,80 +486,29 @@ class FunctionCallStubber(Stubber):
         """
         # Create the code to replace the function call itself.
         try:
-            function_call_temp_var_replacement = \
-                ast.parse(self._create_original_statement_with_temp_str(container, self._return_value_temp_var)).body[0]
+            # Create a call node.
+            if args != '':
+                args_string = ', ' + args
+            else:
+                args_string = ''
 
-            if type(function_call_temp_var_replacement) is not type(container):
-                function_call_temp_var_replacement = function_call_temp_var_replacement.value
-            # Create a stub record for stubbing the temp var.
-            stub_record = Stubber._ReplacingStubRecord(container, container_of_container, container_attr_name,
-                                                       function_call_temp_var_replacement)
+            if kwargs != '':
+                kwargs_string = ', ' + kwargs
+            else:
+                kwargs_string = ''
+
+            stubbed_call = str2ast(f'{stub_function_name}(\'{function_name}\'{args_string}{kwargs_string})').value
+
+            # Create a stub record.
+            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, stubbed_call)
+
             # Stub.
             self.root_module = self._stub(stub_record)
-            assert_not_raise(ast.unparse, self.root_module)
+            assert_not_raise(ast2str, self.root_module)
 
-            # Find the temporary var replacement in the new, just stubbed code.
-            finder_by_string = FinderByString(ast.unparse(function_call_temp_var_replacement).strip())
-            finder_by_string.visit(self.root_module)
-            candidates = finder_by_string.find()
-            if candidates:
-                candidate = self.choose_from_candidates(function_call_temp_var_replacement, candidates)
-                # TODO: Find a better heuristic to choose from candidates (instead of taking the first).
-                # Create a stub record for adding the creation of the temp var and the function call stub.
-                stub_record = Stubber._BeforeStubRecord(candidate.node, candidate.container,
-                                                        candidate.attr_name,
-                                                        self._create_temp_store_and_stub_node(stub))
-
-                self.root_module = self._stub(stub_record)
-
-            else:
-                raise RuntimeError('Couldn\'t stub.')
             # Create a stub record.
             return self.root_module
 
         except BaseException as e:
             print(e)
             raise e
-        # return
-
-    def choose_from_candidates(self, target: ast.AST, candidates: list) -> Stubber._StubRecord:
-        # Calculate target's depth in each candidates.
-        def depth(target: ast.AST, node: ast.AST):
-            
-            class DepthVisitor(ast.NodeVisitor):
-                def __init__(self, target: ast.AST):
-                    self.depth = 0
-                    self.should_stop = False
-                    self.target = target
-                    
-                def generic_visit(self, node: AST) -> Any:
-                    if self.should_stop:
-                        return
-                    self.depth += 1
-                    return super().generic_visit(node)
-                
-                def visit(self, node: AST) -> Any:
-                    if node is self.target:
-                        self.should_stop = True
-                        return None
-                    
-                    return super().visit(node)
-            
-            visitor = DepthVisitor(target)
-            visitor.visit(node)
-            return visitor.depth
-
-        def can_hold_statements(node: ast.AST) -> bool:
-            return type(node) in [
-                ast.FunctionDef,
-                ast.While,
-                ast.For,
-                ast.ClassDef,
-                ast.Module,
-                ast.If
-            ]
-        # Filter candidates by their ability to hold statements.
-        statement_expandable_candidates = list(filter(lambda c: can_hold_statements(c.container),
-                                                      candidates))
-        containers_and_depths = {depth(target, c.container): c for c in statement_expandable_candidates}
-        return containers_and_depths[min(containers_and_depths.keys())]
