@@ -447,11 +447,13 @@ class AssignmentStubber(Stubber):
         :param stub: (AST) The stub to add after the assignment.
         :return: (ast.Module) The module containing the assignment.
         """
+        try:
 
-        # Create a stub record.
-        stub_record = Stubber._AfterStubRecord(assignment_node, container, attr_name, stub)
-        return self._stub(stub_record)
-
+            # Create a stub record.
+            stub_record = Stubber._AfterStubRecord(assignment_node, container, attr_name, stub)
+            return self._stub(stub_record)
+        except BaseException as e:
+            print(e)
 
 class FunctionCallStubber(Stubber):
     def stub_func(self, node, container, attr_name, stubbed_call):

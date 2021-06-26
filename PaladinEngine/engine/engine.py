@@ -15,7 +15,7 @@ from PaladinEngine.module_transformer.module_transformator import ModuleTransfor
 from PaladinEngine.stubbers import *
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __AS_FC__
+from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__
 from source_provider import SourceProvider
 
 
@@ -32,7 +32,7 @@ class PaLaDiNEngine(object):
     __INSTANCE = PaLaDiNEngine()
 
     # List of stubs that can be added to the PaLaDiNized code
-    __PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __AS_FC__, __AS__]
+    PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -66,7 +66,7 @@ class PaLaDiNEngine(object):
         """
         print(source_code)
         # Set the variables for the run.
-        variables = {f.__name__: f for f in PaLaDiNEngine.__PALADIN_STUBS_LIST}
+        variables = {f.__name__: f for f in PaLaDiNEngine.PALADIN_STUBS_LIST}
 
         # Make sure that the script runs as if was alone.
         variables['__name__'] = '__main__'
@@ -108,7 +108,8 @@ class PaLaDiNEngine(object):
             m = t.module
 
         except BaseException as e:
-            print(ast2str(m))
+            pass
+            # print(ast2str(m))
         return t.module
 
     @staticmethod

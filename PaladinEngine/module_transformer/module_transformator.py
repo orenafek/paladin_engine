@@ -5,18 +5,16 @@
     :since: 24/05/19
 """
 import ast
-import os
+import textwrap
+import traceback
 
-import astor
-
+from PaladinEngine.api.api import PaladinPostCondition
 from PaladinEngine.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, StubEntry, FunctionCallFinder, GenericFinder
+    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder
 from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber, \
     FunctionCallStubber
-from PaladinEngine.stubs import __AS__, __FLI__, create_ast_stub, StubArgumentType, __POST_CONDITION__, __FCS__, \
-    __AS__, __AS_FC__
-from PaladinEngine.api.api import PaladinPostCondition
-from ast_common.ast_common import ast2str, str2ast
+from PaladinEngine.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__
+from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 
 
 class ModuleTransformer(object):
@@ -82,10 +80,11 @@ class ModuleTransformer(object):
                 # Create a stub.
                 for target in targets:
                     ass_stub = create_ast_stub(__AS__,
-                                               target,
+                                               wrap_str_param(ast2str(stub_entry.node)),
+                                               wrap_str_param(target),
                                                locals='locals()',
                                                globals='globals()',
-                                               frame='sys._getframe(0)',
+                                               frame=__FRAME__.__name__,
                                                line_no=f'{ass.lineno}')
 
                     # Create a stubber.
@@ -97,6 +96,7 @@ class ModuleTransformer(object):
 
             return self
         except BaseException as e:
+            traceback.print_exception(e)
             print(e)
 
     def transform_paladin_post_condition(self) -> ModuleTransformer:
@@ -108,7 +108,7 @@ class ModuleTransformer(object):
             # Create a stub.
             post_cond_stub = create_ast_stub(__POST_CONDITION__,
                                              condition=f'{stub_entry.extra.name}({", ".join(stub_entry.extra.params)})',
-                                             locals='locals()', globals='globals()', frame='sys._getframe(0)')
+                                             locals='locals()', globals='globals()', frame=__FRAME__.__name__)
 
             # Create a stubber.
             method_stubber = MethodStubber(self._module)
@@ -143,12 +143,12 @@ class ModuleTransformer(object):
                 if kwargs_string != '':
                     all_args_string += ', ' + kwargs_string
 
-                s = f'{__AS_FC__.__name__}(' + ', '.join([
+                s = f'{__FC__.__name__}(' + ', '.join([
                     f'\'{ast2str(stub_entry.node)}\'',
                     f'{ast2str(stub_entry.node.func)}',
                     'locals()',
                     'globals()',
-                    'sys._getframe(0)',
+                    __FRAME__.__name__,
                     f'{stub_entry.node.lineno}',
                     f'{all_args_string}' if args_string else '']) + \
                     ')'
@@ -162,7 +162,7 @@ class ModuleTransformer(object):
                 #                             stub_entry.container,
                 #                             locals='locals()',
                 #                             globals='globals()',
-                #                             frame='sys._getframe(0)',
+                #                             frame=__FRAME__.__name,
                 #                             line_no=stub_entry.node.lineno,
                 #                             args=args_string,
                 #                             kwargs=kwargs_string)

@@ -1,11 +1,13 @@
 import ast
 import inspect
 import json
+import re
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from PaladinEngine.archive.archive import Archive, Archive
+from PaladinEngine.archive.archive import Archive
 from PaladinEngine.interactive_debugger import InteractiveDebugger
+from ast_common.ast_common import str2ast
 
 archive = Archive()
 
@@ -27,6 +29,10 @@ class SubscriptVisitResult(object):
     @staticmethod
     def inflate(s: dict):
         return SubscriptVisitResult(collection=s['collection'], slice=s['slice'])
+
+
+def __FRAME__():
+    return sys._getframe(1)
 
 
 def __FLI__(locals, globals):
@@ -124,8 +130,44 @@ def _search_in_vars_dict(symbol: Union[str, SubscriptVisitResult], vars: dict) -
 
     return None
 
-def _separate_to_container_and_field(expression:str, frame, vars_dict: dict) -> tuple[int, str]:
 
+def _separate_to_container_and_func(function, expression: str, frame, vars_dict: dict) -> int:
+    def _extract_identifier(s: str) -> tuple[str, str]:
+        eager_func = re.match('(?P<id>.*)\\((?P<rest>.*)\\)', s)
+        if eager_func:
+            return eager_func.group('id'), eager_func.group('rest')
+
+        eager_dot = re.match('(?P<id>.*)\\.(?P<rest>.*)', s)
+        if eager_dot:
+            return eager_dot.group('id'), eager_dot.group('rest')
+
+    # If the call was to a __call__ function of an object, the function parameter should be of a class.
+    if type(function) is type:
+        container_id = id(frame)
+    else:
+        # Otherwise, the call was made to a function.
+        # If the function is bounded, aka method, its container is the bounded object, otherwise its the frame
+        # in which the call was made.
+        container_id = id(function.__self__) if '__self__' in function.__dir__() else id(frame)
+
+    return container_id
+
+    # return _separate_to_container_and_field_inner(expression, frame, vars_dict, _extract_identifier)
+
+
+def _separate_to_container_and_field(expression: str, frame, vars_dict: dict) -> tuple[int, str]:
+    def separator(exr: str) -> tuple[str, str]:
+        parts = exr.split('.')
+
+        if len(parts) > 1:
+            return parts[0], '.'.join(parts[1::])
+        else:
+            return parts[0], ''
+
+    return _separate_to_container_and_field_inner(expression, frame, vars_dict, separator)
+
+
+def _separate_to_container_and_field_inner(expression: str, frame, vars_dict: dict, separator_func) -> tuple[int, str]:
     dot_separator = '.'
 
     expr = expression
@@ -135,25 +177,20 @@ def _separate_to_container_and_field(expression:str, frame, vars_dict: dict) -> 
     value = _search_in_vars_dict(field, vars_dict)
 
     while dot_separator in expr:
-        parts = expr.split(dot_separator)
-        obj_name = parts[0]
-        rest = dot_separator.join(parts[1::])
-        obj = vars_dict[obj_name]
-        # obj = vars_dict[obj_and_field['obj']]
-        # field = obj_and_field['field']
+        identifier, rest = separator_func(expr)
+        field = identifier
+        obj = vars_dict[identifier]
         container_id = id(obj)
-        # expr = field
         expr = rest
-        # value = obj.__getattribute__(field)
-        value = obj.__getattribute__(rest)
 
     return container_id, field
 
-def __AS__(expression: str, locals: dict, globals: dict, frame, line_no: int) -> None:
+
+def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
     # Create variable dict.
     vars_dict = {**locals, **globals}
 
-    container_id, field = _separate_to_container_and_field(expression,frame, vars_dict)
+    container_id, field = _separate_to_container_and_field(target, frame, vars_dict)
 
     value = _search_in_vars_dict(field, vars_dict)
 
@@ -170,12 +207,12 @@ def __AS__(expression: str, locals: dict, globals: dict, frame, line_no: int) ->
     archive.store(record_key, record_value)
 
 
-def __AS_FC__(expression: str, func,
-              locals: dict, globals: dict, frame, line_no: int,
-              *args: Optional[list[object]], **kwargs: Optional[dict[object]]):
+def __FC__(expression: str, function,
+           locals: dict, globals: dict, frame, line_no: int,
+           *args: Optional[list[object]], **kwargs: Optional[dict[object]]):
     """
         Store function call stub.
-    :param func: The function that was called.
+    :param function: The function that was called.
     :param locals: Dictionary with the local variables of the calling context.
     :param globals: Dictionary with the global variables of the calling context.
     :param frame: The stack frame of the calling context
@@ -188,29 +225,22 @@ def __AS_FC__(expression: str, func,
     vars_dict = {**locals, **globals}
 
     # Function type.
-    func_type = type(lambda _:_)
+    func_type = type(lambda _: _)
 
     # Call the function.
-    ret_value = func(*args, **kwargs)
-
+    ret_value = function(*args, **kwargs)
 
     # Find container.
-    container_id, field = _separate_to_container_and_field(expression,frame, vars_dict)
+    container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
 
     args_string = ', '.join([str(a) for a in args])
     kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
-
-    # args_string = ' , '.join([f'\'{a}\'' for a in args if not isinstance(a, str)] +
-    #                          [f'{a}' for a in args if isinstance(a, str)])
-
-    # Convert kwargs to a string.
-    # kwargs_string = ', '.join([str(t) for t in kwargs.items()])
 
     # Create an extra with the args and keywords.
     extra = f'args = {args_string}, kwargs = {kwargs_string}'
 
     # Create a Record key.
-    record_key = Archive.Record.RecordKey(container_id, func.__name__)
+    record_key = Archive.Record.RecordKey(container_id, function.__name__)
 
     # Create Record value.
     record_value = Archive.Record.RecordValue(func_type, ret_value, expression, line_no, extra)
@@ -220,6 +250,7 @@ def __AS_FC__(expression: str, func,
 
     # Return ret value.
     return ret_value
+
 
 def __FCS__(name: str,
             args: list,
@@ -257,65 +288,14 @@ def create_ast_stub(stub, *args, **kwargs):
     :param stub: (function) A stub
     :return:
     """
+    args_string = ', '.join(args)
+    kwargs_string = ', '.join([f'{i[0]}={i[1]}' for i in kwargs.items()])
 
-    def convert_arg_tuple_to_str(arg_tuple):
-        # Extract the argument's name.
-        arg_name = arg_tuple[0]
-
-        # Extract the argument's type.
-        arg_type = arg_tuple[1]
-
-        if arg_type is StubArgumentType.PLAIN:
-            arg_str = f"{arg_name}"
-        elif arg_type is StubArgumentType.NAME:
-            arg_str = f"'{arg_name}'"
-        elif arg_type is StubArgumentType.ID:
-            arg_str = f"id({arg_name})"
-
-        else:
-            raise NotImplementedError('arg_type is not of of type: ', StubArgumentType)
-
-        return arg_str
-
-    # Initialize args list.
-    arg_list = []
-
-    for arg_tuple_list in args:
-        if type(arg_tuple_list) is SubscriptVisitResult:
-            arg_list.append(str(arg_tuple_list))
-            continue
-        # Initialize the inner tuple string.
-        inner_tuple_strings = []
-        for arg_tuple in arg_tuple_list:
-            if type(arg_tuple) in [list, tuple] and any([type(arg) in [list, tuple] for arg in arg_tuple]):
-                # Add to the inner tuple strings list.
-                inner_tuple_strings.extend([convert_arg_tuple_to_str(arg) for arg in arg_tuple])
-            else:
-                inner_tuple_strings.append(convert_arg_tuple_to_str(arg_tuple))
-
-        arg_list.append('({})'.format(', '.join(inner_tuple_strings)))
-
-    # Create the args list str.
-    args_str = ', '.join([arg.strip() for arg in arg_list])
-
-    # Create the kwargs list str.
-    kwargs_str = ','.join('{}={}'.format(kw[0].strip(), kw[1].strip()) for kw in kwargs.items())
-
-    # Create the args/kwargs list str.
-    if args_str == '':
-        args_kwargs_str = kwargs_str
-    elif kwargs_str == '':
-        args_kwargs_str = args_str
-    else:
-        args_kwargs_str = ','.join([args_str, kwargs_str])
+    arguments_string = args_string if kwargs_string == '' else \
+        kwargs_string if args_string == '' else f'{args_string}, {kwargs_string}'
 
     # Create the call as a str.
-    call_str = '{func}({args_kwargs})'.format(func=stub.__name__, args_kwargs=args_kwargs_str)
-
-    # parse it.
-    ast_node = ast.parse(call_str).body[0]
-
-    return ast_node
+    return str2ast(f'{stub.__name__}({arguments_string})')
 
 
 all_stubs = [__FLI__, __AS__, __FCS__]

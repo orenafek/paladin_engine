@@ -19,3 +19,15 @@ def ast2str(node: ast.AST, lstrip: bool = True, rstrip: bool = True) -> str:
 
 def str2ast(s: str):
     return ast.parse(s).body[0]
+
+
+def wrap(s: str, w: str, wrap_left: bool = True, wrap_right: bool = True) -> str:
+    return w + s + w if wrap_left and wrap_right \
+        else w + s \
+        if wrap_right == '' \
+        else s + w \
+        if wrap_left == '' \
+        else s
+
+def wrap_str_param(s: str):
+    return wrap(s, '\'')
