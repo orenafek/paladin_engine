@@ -4,15 +4,10 @@
     :author: Oren Afek
     :since: 05/04/2019
 """
-from abc import ABC
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional
-import tabulate
-import pandas as pd
-import prettytable
 
-from PaladinEngine.conf.engine_conf import ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
+import pandas as pd
 
 
 class Archive(object):

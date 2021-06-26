@@ -4,19 +4,21 @@
     :author: Oren Afek
     :since: 05/04/19
 """
+import ast
 import inspect
 import pickle
 import sys
 import traceback
 from types import CodeType
 
-from PaladinEngine.finders import *
-from PaladinEngine.module_transformer.module_transformator import ModuleTransformer
-from PaladinEngine.stubbers import *
+from archive.archive import Archive
+from ast_common.ast_common import ast2str
+from conf.engine_conf import PALADIN_ERROR_FILE_PATH
+from module_transformer.module_transformator import ModuleTransformer
+from source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__
-from source_provider import SourceProvider
+from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__
 
 
 class PaLaDiNEngine(object):
@@ -64,7 +66,6 @@ class PaLaDiNEngine(object):
         :param source_code:
         :return:
         """
-        print(source_code)
         # Set the variables for the run.
         variables = {f.__name__: f for f in PaLaDiNEngine.PALADIN_STUBS_LIST}
 
@@ -79,7 +80,7 @@ class PaLaDiNEngine(object):
         sys.argv[0] = original_file_name
         # Clear args.
         sys.argv[1:] = []
-        return exec(source_code, variables)
+        return exec(source_code, variables), archive
 
     @staticmethod
     def __collect_imports_to_execution():
@@ -136,6 +137,10 @@ class PaLaDiNEngine(object):
     @staticmethod
     def transform_and_pickle(code: str) -> bytes:
         return pickle.dumps(PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code)))
+
+    @staticmethod
+    def import_line(import_path):
+        return f'from {import_path} import {", ".join([stub.__name__ for stub in PaLaDiNEngine.PALADIN_STUBS_LIST])}'
 
 def main():
     # Read source file.

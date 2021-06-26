@@ -1,10 +1,9 @@
 import ast
 from abc import ABC, abstractmethod
 from ast import *
-from typing import Union, Any
+from typing import Union
 
 from ast_common.ast_common import str2ast, ast2str
-from finders import FinderByString
 from utils.utils import assert_not_raise
 
 

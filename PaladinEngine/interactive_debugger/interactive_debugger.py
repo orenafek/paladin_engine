@@ -1,6 +1,6 @@
 from cmd import Cmd
 
-from PaladinEngine.archive.archive import Archive, Archive
+from archive.archive import Archive, Archive
 from source_provider import SourceProvider
 
 

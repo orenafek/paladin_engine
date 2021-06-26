@@ -5,8 +5,8 @@ import traceback
 import pytest
 from pycallgraph import PyCallGraph, GlobbingFilter, Config
 from pycallgraph.output import GraphvizOutput
-from PaladinEngine.engine.engine import PaLaDiNEngine
-from PaladinEngine.stubs import archive
+from engine.engine import PaLaDiNEngine
+from stubs.stubs import archive
 
 
 class CallGraphCreator:
