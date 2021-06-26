@@ -8,12 +8,12 @@ import ast
 import textwrap
 import traceback
 
-from PaladinEngine.api.api import PaladinPostCondition
-from PaladinEngine.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
+from api.api import PaladinPostCondition
+from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder
-from PaladinEngine.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber, \
+from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber, \
     FunctionCallStubber
-from PaladinEngine.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__
+from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 
 

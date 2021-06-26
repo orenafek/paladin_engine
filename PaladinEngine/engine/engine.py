@@ -4,18 +4,19 @@
     :author: Oren Afek
     :since: 05/04/19
 """
+import ast
 import inspect
 import pickle
 import sys
 import traceback
 from types import CodeType
 
-from PaladinEngine.finders import *
-from PaladinEngine.module_transformer.module_transformator import ModuleTransformer
-from PaladinEngine.stubbers import *
+from ast_common.ast_common import ast2str
+from conf.engine_conf import PALADIN_ERROR_FILE_PATH
+from module_transformer.module_transformator import ModuleTransformer
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from PaladinEngine.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__
+from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__
 from source_provider import SourceProvider
 
 

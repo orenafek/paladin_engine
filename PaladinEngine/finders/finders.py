@@ -1,14 +1,11 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional, Iterable
+from typing import Union, Optional
 
-from PaladinEngine.conf.engine_conf import *
-from PaladinEngine.api.api import PaladinPostCondition
-from PaladinEngine.stubs import StubArgumentType, all_stubs, SubscriptVisitResult
-import astor
-from typing import Tuple
-
+from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
+from conf.engine_conf import *
+from stubs.stubs import StubArgumentType, all_stubs, SubscriptVisitResult
 
 
 class StubEntry(object):

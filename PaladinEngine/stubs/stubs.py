@@ -1,17 +1,15 @@
-import ast
 import inspect
 import json
 import re
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from PaladinEngine.archive.archive import Archive
-from PaladinEngine.interactive_debugger import InteractiveDebugger
+from archive.archive import Archive
 from ast_common.ast_common import str2ast
+from interactive_debugger.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
 
-from PaladinEngine.Examples.Tetris.tetris import Board, Block
 
 
 # TODO: Export tagging class.
