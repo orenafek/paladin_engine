@@ -507,7 +507,7 @@ class AssignmentFinder(GenericFinder):
         else:
             target_string = name
 
-        return [(target_string, StubArgumentType.NAME)]
+        return target_string
 
     def visit_Assign(self, node):
         extras = []
@@ -621,12 +621,12 @@ class FunctionCallFinder(GenericFinder):
             return None
 
         if type(function_name_visit) is FunctionCallFinder.FunctionCallExtra:
-            extra.function_name = function_name_visit.function_name
+            extra.func_name = function_name_visit.func_name
         else:
-            extra.function_name = function_name_visit
+            extra.func_name = function_name_visit
 
         # Filter PaLaDiN stub calls.
-        if self._is_match_paladin_stub_call(extra.function_name):
+        if self._is_match_paladin_stub_call(extra.func_name):
             return None
 
         # Extract args.
@@ -667,8 +667,8 @@ class FunctionCallFinder(GenericFinder):
             if type(name) is str:
                 return name
 
-            # return super(GenericFinder, self).visit(name)
-            return self.visit(name)
+            return super(GenericFinder, self).visit(name) + '.' +  node.attr
+            #return self.visit(name)
         except BaseException:
             print('')
 
@@ -679,15 +679,15 @@ class FunctionCallFinder(GenericFinder):
 
         return extras
 
-    def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
-        # If the node has a field that can be extended (is a list).
-        can_node_be_extended = [f for f in node._fields if type(node.__getattribute__(f)) == list] != []
-
-        # If the node should be excluded because of its type.
-        should_node_be_excluded_by_type = type(node) in FunctionCallFinder.TYPES_TO_EXCLUDE
-
-        return super()._should_visit(node, child_node) \
-               and can_node_be_extended and not should_node_be_excluded_by_type
+    # def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
+    #     # If the node has a field that can be extended (is a list).
+    #     can_node_be_extended = [f for f in node._fields if type(node.__getattribute__(f)) == list] != []
+    #
+    #     # If the node should be excluded because of its type.
+    #     should_node_be_excluded_by_type = type(node) in FunctionCallFinder.TYPES_TO_EXCLUDE
+    #
+    #     return super()._should_visit(node, child_node) \
+    #            and can_node_be_extended and not should_node_be_excluded_by_type
 
 
 class DanglingPaLaDiNDefinition(Exception):

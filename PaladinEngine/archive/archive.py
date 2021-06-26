@@ -8,13 +8,11 @@ from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
-
+import tabulate
+import pandas as pd
 import prettytable
 
 from PaladinEngine.conf.engine_conf import ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
-
-class Archive(object):
-    ...
 
 
 class Archive(object):
@@ -86,7 +84,7 @@ class Archive(object):
         self.time += 1
         return self.time
 
-    def store(self, record_key: Record.RecordKey, record_value: Record.RecordValue) -> Archive:
+    def store(self, record_key: Record.RecordKey, record_value: Record.RecordValue):
         if not self._should_record:
             return self
 
@@ -107,7 +105,7 @@ class Archive(object):
     def reset(self):
         self.records.clear()
 
-    def to_csv(self):
+    def to_table(self):
         try:
             header_row = list(Archive.Record.RecordKey.__dataclass_fields__) + \
                          list(Archive.Record.RecordValue.__dataclass_fields__)
@@ -125,9 +123,9 @@ class Archive(object):
                     str(v.rtype.__name__),
                     represent(v.value).replace('\n', ' '),
                     v.expression,
-                    v.extra,
                     v.line_no,
-                    v.time
+                    v.time,
+                    v.extra
                 )
                 for k, vv in list(self.records.items()) for v in vv
             ]
@@ -141,25 +139,16 @@ class Archive(object):
         import pickle
         return pickle.dumps(self.records)
 
+    def __repr__(self):
+        header, rows = self.to_table()
+        data_frame = pd.DataFrame(columns=header, data=rows)
+        return data_frame.to_markdown(index=True)
+
     def search(self, expression: str):
         pass
 
     def __str__(self):
-        # Create a pretty table.
-        table = prettytable.PrettyTable(border=prettytable.ALL,
-                                        hrules=1,
-                                        field_names=['variable', 'values'])
-        table.align = 'l'
-        table.max_width = ARCHIVE_PRETTY_TABLE_MAX_ROW_LENGTH
-
-        # Add rows from the archive.
-
-        for record_key, record_value in list(self.records.items()):
-            table.add_row([record_key, '\n'.join(str(s) for s in record_value)])
-            print(len(self.records))
-            print(list(self.records.items())[len(self.records) - 1])
-
-        return table.get_string()
+        return self.__repr__()
 
     def pause_record(self):
         self._should_record = False
