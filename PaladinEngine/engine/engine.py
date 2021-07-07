@@ -80,7 +80,11 @@ class PaLaDiNEngine(object):
         sys.argv[0] = original_file_name
         # Clear args.
         sys.argv[1:] = []
-        return exec(source_code, variables), archive
+        try:
+            return exec(source_code, variables), archive
+
+        except:
+            return None, archive
 
     @staticmethod
     def __collect_imports_to_execution():
@@ -109,8 +113,8 @@ class PaLaDiNEngine(object):
             m = t.module
 
         except BaseException as e:
-            pass
-            # print(ast2str(m))
+            traceback.print_tb(e.__traceback__)
+            print(ast2str(m))
         return t.module
 
     @staticmethod

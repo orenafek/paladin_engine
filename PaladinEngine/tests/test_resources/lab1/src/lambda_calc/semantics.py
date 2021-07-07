@@ -645,17 +645,21 @@ class SillyBlocker(object):
             raise SyntaxError("unbalanced '%s' and '%s'" % (self.topen, self.tclose))
 
 
+def PaladinSkipStatement(args):
+    pass
+
 
 class LambdaParser(object):
     TOKENS = r"(let|in)(?![\w\d_])   (?P<id>[^\W\d]\w*)   (?P<num>\d+)   [\\.()=]".split()
+
     GRAMMAR = r"""
-    E    ->  \. | let_    |   E1  |  E1'
+    E    ->  \. | let_    |   E1  |  E1λ
     E1   ->  @            |   E0
-    E1'  ->  @'           |   E0
+    E1λ  ->  @λ           |   E0
     E0   ->  id | num     |  ( E )
     \.   ->  \ L . E 
     @    ->  E1 E0
-    @'   ->  E1 \.
+    @λ   ->  E1 \.
     L    ->  id L |
     let_ ->  let id = E in E
     """

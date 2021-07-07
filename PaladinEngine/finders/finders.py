@@ -530,7 +530,11 @@ class AssignmentFinder(GenericFinder):
         # Visit value (the object being subscripted) to extract extra.
         value_extra = super(GenericFinder, self).visit(node.value)
 
+
         class SliceFinder(ast.NodeVisitor):
+
+            def visit_Constant(self, node: ast.Constant):
+                return node.value
 
             def visit_Tuple(self, node):
                 return [self.visit(elem) for elem in node.elts]
@@ -628,12 +632,7 @@ class FunctionCallFinder(GenericFinder):
 
         # Extract args.
         for arg in node.args:
-            if type(arg) is ast.Tuple:
-                extra.add_arg(self.visit_Tuple(arg))
-            else:
-                # TODO: Change to this:
-                # extra.add_arg(super(GenericFinder, self).visit(arg))
-                extra.add_arg(ast2str(arg))
+            extra.add_arg(ast2str(arg))
 
         # Extract kwargs.
         for key, value_node in [(kw.arg, kw.value) for kw in node.keywords]:
@@ -674,7 +673,7 @@ class FunctionCallFinder(GenericFinder):
         for tuple_target in node.elts:
             extras.append(super(GenericFinder, self).visit(tuple_target))
 
-        return extras
+        return tuple(extras)
 
     # def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
     #     # If the node has a field that can be extended (is a list).

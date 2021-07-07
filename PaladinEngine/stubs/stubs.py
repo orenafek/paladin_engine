@@ -10,24 +10,14 @@ from interactive_debugger.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
 
-
-
 # TODO: Export tagging class.
 @dataclass
 class SubscriptVisitResult(object):
-    collection: list
-    slice: list
+    collection: str
+    slice: tuple
 
-    def deflate(self) -> str:
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
-
-    def __str__(self) -> str:
-        return self.deflate()
-
-    @staticmethod
-    def inflate(s: dict):
-        return SubscriptVisitResult(collection=s['collection'], slice=s['slice'])
-
+    def __str__(self):
+        return f'{self.collection}[{":".join([str(x) if x else "" for x in self.slice])}]'
 
 def __FRAME__():
     return sys._getframe(1)
@@ -203,7 +193,6 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     record_value = Archive.Record.RecordValue(type(value), value, expression, line_no)
 
     archive.store(record_key, record_value)
-
 
 def __FC__(expression: str, function,
            locals: dict, globals: dict, frame, line_no: int,

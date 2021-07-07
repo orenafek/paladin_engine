@@ -30,4 +30,4 @@ def wrap(s: str, w: str, wrap_left: bool = True, wrap_right: bool = True) -> str
         else s
 
 def wrap_str_param(s: str):
-    return wrap(s, '\'')
+    return wrap(s, '\'') if not '\'' in s else wrap(s, '"')
