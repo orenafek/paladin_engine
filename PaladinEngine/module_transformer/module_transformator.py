@@ -5,16 +5,14 @@
     :since: 24/05/19
 """
 import ast
-import textwrap
-import traceback
 
 from api.api import PaladinPostCondition
+from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber, \
     FunctionCallStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__
-from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 
 
 class ModuleTransformer(object):
@@ -81,7 +79,7 @@ class ModuleTransformer(object):
                 for target in targets:
                     ass_stub = create_ast_stub(__AS__,
                                                wrap_str_param(ast2str(stub_entry.node)),
-                                               wrap_str_param(target),
+                                               wrap_str_param(str(target)),
                                                locals='locals()',
                                                globals='globals()',
                                                frame=__FRAME__.__name__,
@@ -96,8 +94,8 @@ class ModuleTransformer(object):
 
             return self
         except BaseException as e:
-            traceback.print_exception(e)
             print(e)
+            raise e
 
     def transform_paladin_post_condition(self) -> ModuleTransformer:
         # Find all PaLaDiN post conditions.
@@ -143,15 +141,19 @@ class ModuleTransformer(object):
                 if kwargs_string != '':
                     all_args_string += ', ' + kwargs_string
 
-                s = f'{__FC__.__name__}(' + ', '.join([
-                    f'\'{ast2str(stub_entry.node)}\'',
-                    f'{ast2str(stub_entry.node.func)}',
+                new_call_params = [
+                    wrap_str_param(ast2str(stub_entry.node)),
+                    ast2str(stub_entry.node.func),
                     'locals()',
                     'globals()',
                     __FRAME__.__name__,
-                    f'{stub_entry.node.lineno}',
-                    f'{all_args_string}' if args_string else '']) + \
-                    ')'
+                    f'{stub_entry.node.lineno}']
+
+                if args_string:
+                    #new_call_params.append(wrap_str_param(f'{all_args_string}'))
+                    new_call_params.append(all_args_string)
+
+                s = f'{__FC__.__name__}(' + ', '.join(new_call_params) + ')'
 
                 # Create a stub.
                 stubbed_call = str2ast(s).value

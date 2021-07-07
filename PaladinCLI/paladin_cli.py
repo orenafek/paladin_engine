@@ -39,15 +39,17 @@ def main():
                 fo.writelines('\n' * 3)
                 fo.write(paladinized_code)
 
-        if args.run:
-            result, archive = PaLaDiNEngine.execute_with_paladin(paladinized_code, args.input_file)
-
-        if args.csv != '':
-            with open(args.csv, 'w+') as fo:
-                writer = csv.writer(fo)
-                header, rows = archive.to_table()
-                writer.writerow(header)
-                writer.writerows(rows)
+        try:
+            if args.run:
+                result, archive = PaLaDiNEngine.execute_with_paladin(paladinized_code, args.input_file)
+        finally:
+            if args.csv != '':
+                print('Creating CSV')
+                with open(args.csv, 'w+') as fo:
+                    writer = csv.writer(fo)
+                    header, rows = archive.to_table()
+                    writer.writerow(header)
+                    writer.writerows(rows)
 
 
 if __name__ == '__main__':

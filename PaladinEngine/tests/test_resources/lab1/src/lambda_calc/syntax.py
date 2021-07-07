@@ -634,7 +634,7 @@ class SillyBlocker(object):
 class LambdaParser(object):
     TOKENS = r"(let|in)(?![\w\d_])   (?P<id>[^\W\d]\w*)   (?P<num>\d+)   [\\.()=]".split()
     GRAMMAR = r"""
-    E    ->  \. | let_    |   E1  |  E1'
+    E    ->  \. | let_    |   E1  |  E1λ
     E1   ->  @            |   E0
     E1'  ->  @'           |   E0
     E0   ->  id | num     |  ( E )
