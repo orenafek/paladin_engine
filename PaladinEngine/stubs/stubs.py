@@ -175,6 +175,9 @@ def _separate_to_container_and_field_inner(expression: str, frame, vars_dict: di
 
 
 def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
+    if not archive._should_record:
+        return
+
     # Create variable dict.
     vars_dict = {**locals, **globals}
 
@@ -216,6 +219,9 @@ def __FC__(expression: str, function,
 
     # Call the function.
     ret_value = function(*args, **kwargs)
+
+    if not archive._should_record:
+        return ret_value
 
     # Find container.
     container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
