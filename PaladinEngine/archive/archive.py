@@ -37,8 +37,8 @@ class Archive(object):
             value: object
             expression: str
             line_no: int
-            extra: str = ''
             time: int = -1
+            extra: str = ''
 
             def __str__(self) -> str:
                 return f'({self.time}): {self.expression}({self.rtype.__name__}) = {self._stringify_value(self.value)} ' \
