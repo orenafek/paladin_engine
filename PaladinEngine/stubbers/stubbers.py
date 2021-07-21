@@ -312,17 +312,20 @@ class LoopStubber(Stubber):
 
 class ForToWhileLoopStubber(LoopStubber):
     WHILE_LOOP_TEMPLATE = \
-        "__iter = {iterator}.__iter__()\n" + \
+        "__iter_{iterator_number} = {iterator}.__iter__()\n" + \
         "while True:\n" + \
         "    try:\n" + \
-        "        {loop_index} = __iter.__next__()\n" + \
+        "        {loop_index} = __iter_{iterator_number}.__next__()\n" + \
         "    except StopIteration:\n" + \
         "        break\n" + \
         "\n" + \
         "{body}\n"
 
+    ITERATOR_NUMBER = -1
+
     def __init__(self, root_module) -> None:
         super().__init__(root_module)
+        ForToWhileLoopStubber.ITERATOR_NUMBER += 1
 
     def _create_while_loop_code(self, for_loop_node: ast.For):
         """
@@ -351,7 +354,8 @@ class ForToWhileLoopStubber(LoopStubber):
         except BaseException as e:
             print(e)
         # Fill the while loop template.
-        return ForToWhileLoopStubber.WHILE_LOOP_TEMPLATE.format(iterator=iterator, loop_index=loop_index,
+        return ForToWhileLoopStubber.WHILE_LOOP_TEMPLATE.format(iterator_number=ForToWhileLoopStubber.ITERATOR_NUMBER,
+                                                                iterator=iterator, loop_index=loop_index,
                                                                 body=for_loop_body)
 
     def stub_while_loop_instead_of_for_loop(self, for_loop_node,
