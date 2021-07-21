@@ -10,7 +10,7 @@ from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder
-from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhilerLoopStubber, \
+from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
     FunctionCallStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__
 
@@ -51,14 +51,20 @@ class ModuleTransformer(object):
         plf.visit(self._module)
         for_loop_entries = plf.find()
 
-        for for_loop_entry in for_loop_entries:
+        while for_loop_entries:
+            for_loop_entry = for_loop_entries.pop()
+
             # Create a stuber.
-            stuber = ForToWhilerLoopStubber(self._module)
+            stuber = ForToWhileLoopStubber(self._module)
 
             # Stub.
             self._module = stuber.stub_while_loop_instead_of_for_loop(for_loop_entry.node,
                                                                       for_loop_entry.container,
                                                                       for_loop_entry.attr_name)
+
+            plf.visit(self._module)
+            for_loop_entries = plf.find()
+
         return self
 
     def transform_assignments(self) -> ModuleTransformer:
