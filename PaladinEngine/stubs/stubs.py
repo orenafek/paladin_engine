@@ -236,7 +236,7 @@ def __FC__(expression: str, function,
     record_key = Archive.Record.RecordKey(container_id, function.__name__)
 
     # Create Record value.
-    record_value = Archive.Record.RecordValue(func_type, ret_value, expression, line_no, extra)
+    record_value = Archive.Record.RecordValue(func_type, ret_value, expression, line_no, extra=extra)
 
     # Store.
     archive.store(record_key, record_value)
