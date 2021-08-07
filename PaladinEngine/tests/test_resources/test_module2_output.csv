@@ -1,0 +1,12 @@
+container_id,field,rtype,value,expression,line_no,time,extra
+4714811344,self,Point,4714811344,self._x = 0,9,0,
+4714811344,self,Point,4714811344,self._y = 0,9,1,
+4714811344,self,Point,4714811344,self._x = x,13,4,
+4714811344,self,Point,4714811344,self._y = y,16,6,
+4714348256,Point,function,4714811344,Point(),29,2,"args = , kwargs = "
+4714348256,p0,Point,4714811344,p0 = Point(),29,3,
+4714811344,setX,function,4516189584,p0.setX(1),30,5,"args = 1, kwargs = "
+4714811344,setY,function,4516189584,p0.setY(2),31,7,"args = 2, kwargs = "
+4714811344,p0,Point,4714811344,p0._y = 4,29,8,
+4517865568,print,function,4516189584,print(p0),34,9,"args = (1,4), kwargs = "
+4714348256,main,function,4516189584,main(),38,10,"args = , kwargs = "

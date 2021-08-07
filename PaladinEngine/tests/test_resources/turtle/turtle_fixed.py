@@ -95,20 +95,22 @@ def IrobotClean():
     Edges={} 
     
     visited={start_pos}
-    
-    while has_unexplored(visited,Edges):
-        next_pos = add_v(current_pos, direction)
-
+    unexplored = [start_pos]
+    while unexplored != []:
+        next_pos = unexplored.pop()
         if next_pos not in visited:
             visited.add(next_pos)
-        
+
         status= Move()
         Edges[(current_pos, next_pos)]= status
 
-        # updating position - no wall   
-        
+        # updating position - no wall
         if status:
             current_pos = next_pos
+            next_pos = add_v(current_pos, direction)
+            unexplored.insert(0, next_pos)
+
+            continue
                 
         # updating the direction  - hit a wall
         else:
@@ -121,22 +123,21 @@ def IrobotClean():
             elif direction==(-1,0):
                 direction =(0,1)
             else : direction = (1,0)     
-                
-            
+            visited.remove(next_pos)
+            unexplored = list(set(get_unexplored(visited, Edges)))
 
 
 # In[10]:
 
 
 # checking if there are unexplored points
-def has_unexplored(visited,edges):
+def get_unexplored(visited, edges):
+    unexplored = []
     for (x,y) in visited:
         l = [(x+1,y),(x,y-1),(x-1,y),(x,y+1)]
-        for p in l:
-            if p not in visited and ((x,y),p) not in edges:
-                return True  # there is still unexplored points, p is unexplored
-            
-    return False  # there aren't otherb points to explore     
+        unexplored.extend([p for p in l if p not in visited and ((x,y),p) not in edges])
+
+    return list(set(unexplored))
     
 
 

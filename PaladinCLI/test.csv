@@ -1,0 +1,10 @@
+container_id,field,rtype,value,expression,line_no,extra,time
+4590204960,result,int,1,result = 1,8,0,
+4590204960,result,int,2,result = result * n,10,2,
+4590204960,result,int,4,result = result * n,10,3,
+4590204960,result,int,8,result = result * n,10,4,
+4590204960,result,int,-1,result = -1,21,5,
+4590204960,result,int,-2,result = result * n,10,6,
+4590204960,result,int,-4,result = result * n,10,7,
+4590204960,range,function,4590505680,range(p),9,1,"args = 5, kwargs = "
+4403128416,print,function,4401472912,"print(power(2, 5))",26,8,"args = -4, kwargs = "

@@ -109,6 +109,9 @@ class Archive(object):
                 if type(o) in [str, int, float, bool, complex]:
                     return str(o)
 
+                if type(o) in [tuple, list, dict]:
+                    return f'({", ".join([represent(x) for x in o])})'
+
                 return f'{id(o)}'
 
             flat_records = [

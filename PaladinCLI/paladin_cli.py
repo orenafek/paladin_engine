@@ -42,6 +42,10 @@ def main():
         try:
             if args.run:
                 result, archive = PaLaDiNEngine.execute_with_paladin(paladinized_code, args.input_file)
+
+        except BaseException as e:
+            print(e)
+
         finally:
             if args.csv != '':
                 print('Creating CSV')

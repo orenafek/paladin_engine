@@ -9,10 +9,10 @@ import ast
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder
+    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder, IfStatementsFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
-    FunctionCallStubber
-from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__
+    FunctionCallStubber, IfStatementStubber
+from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__, __IF__
 
 
 class ModuleTransformer(object):
@@ -156,7 +156,7 @@ class ModuleTransformer(object):
                     f'{stub_entry.node.lineno}']
 
                 if args_string:
-                    #new_call_params.append(wrap_str_param(f'{all_args_string}'))
+                    # new_call_params.append(wrap_str_param(f'{all_args_string}'))
                     new_call_params.append(all_args_string)
 
                 s = f'{__FC__.__name__}(' + ', '.join(new_call_params) + ')'
@@ -177,6 +177,38 @@ class ModuleTransformer(object):
 
                 self.module = function_call_stubber.stub_func(stub_entry.node, stub_entry.container,
                                                               stub_entry.attr_name, stubbed_call)
+
+        except BaseException as e:
+            print(e)
+
+        finally:
+            return self
+
+    def transform_if_statements(self) -> ModuleTransformer:
+        try:
+            # Find all if statements.
+            if_statements_finder = IfStatementsFinder()
+            if_statements_finder.visit(self._module)
+            if_statements = if_statements_finder.find()
+
+            # Create a stubber.
+            if_statements_stubber = IfStatementStubber(self._module)
+
+            for if_statement in if_statements:
+                # Create __IF__ stub call.
+                stub = create_ast_stub(__IF__,
+                                       ast2str(if_statement.node.test),
+                                       *[wrap_str_param(str(x)) for x in if_statement.extra.test],
+                                       locals='locals()',
+                                       globals='globals()',
+                                       frame=__FRAME__.__name__,
+                                       line_no=f'{if_statement.node.lineno}'
+                                       )
+
+                # Stub.
+                if_statements_stubber.stub_if_statement(if_statement.node, if_statement.container,
+                                                        if_statement.attr_name, stub)
+
 
         except BaseException as e:
             print(e)

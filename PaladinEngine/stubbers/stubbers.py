@@ -1,4 +1,5 @@
 import ast
+import re
 from abc import ABC, abstractmethod
 from ast import *
 from typing import Union
@@ -458,6 +459,7 @@ class AssignmentStubber(Stubber):
         except BaseException as e:
             print(e)
 
+
 class FunctionCallStubber(Stubber):
     def stub_func(self, node, container, attr_name, stubbed_call):
         try:
@@ -477,7 +479,7 @@ class FunctionCallStubber(Stubber):
 
     def stub_function_call(self, node: ast.Call, container: ast.AST,
                            attr_name: str,
-                           function_name:str,
+                           function_name: str,
                            args: str,
                            kwargs: str,
                            stub_function_name: str) -> Module:
@@ -509,6 +511,40 @@ class FunctionCallStubber(Stubber):
 
             # Stub.
             self.root_module = self._stub(stub_record)
+            assert_not_raise(ast2str, self.root_module)
+
+            # Create a stub record.
+            return self.root_module
+
+        except BaseException as e:
+            print(e)
+            raise e
+
+
+class IfStatementStubber(Stubber):
+    def stub_if_statement(self, node: ast.If,
+                          container: ast.AST,
+                          attr_name: str,
+                          stub) -> Module:
+        """
+            Stub a function call.
+        :param node:
+        :param container:
+        :param attr_name:
+        :param stub:
+        :return:
+        """
+        # Create the code to replace the function call itself.
+        try:
+            # Replace the test with the stub.
+            new_if_statement = str2ast(re.sub('if .*:',f'if {ast2str(stub)}:', ast2str(node)))
+
+            # Create a stub record.
+            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, new_if_statement)
+
+            # Stub.
+            self.root_module = self._stub(stub_record)
+
             assert_not_raise(ast2str, self.root_module)
 
             # Create a stub record.

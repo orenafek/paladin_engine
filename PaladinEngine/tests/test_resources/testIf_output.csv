@@ -1,0 +1,7 @@
+container_id,field,rtype,value,expression,line_no,time,extra
+4560791648,print,function,4559107472,print('1 > 0'),2,0,"args = 1 > 0, kwargs = "
+4560791648,print,function,4559107472,print('0 == 0 or 9 == 9'),2,1,"args = 0 == 0 or 9 == 9, kwargs = "
+4560791648,print,function,4559107472,print('1 < 2 or (3 > 5)'),2,2,"args = 1 < 2 or (3 > 5), kwargs = "
+4560791648,print,function,4559107472,print('square(3) == 9'),2,5,"args = square(3) == 9, kwargs = "
+4757273904,square,function,4757859488,square = lambda x: x * x,10,3,
+4757273904,<lambda>,function,9,square(3),1,4,"args = 3, kwargs = "

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional
+from typing import Union, Optional, Any
 
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
@@ -530,7 +530,6 @@ class AssignmentFinder(GenericFinder):
         # Visit value (the object being subscripted) to extract extra.
         value_extra = super(GenericFinder, self).visit(node.value)
 
-
         class SliceFinder(ast.NodeVisitor):
 
             def visit_Constant(self, node: ast.Constant):
@@ -663,8 +662,8 @@ class FunctionCallFinder(GenericFinder):
             if type(name) is str:
                 return name
 
-            return super(GenericFinder, self).visit(name) + '.' +  node.attr
-            #return self.visit(name)
+            return super(GenericFinder, self).visit(name) + '.' + node.attr
+            # return self.visit(name)
         except BaseException:
             print('')
 
@@ -684,6 +683,43 @@ class FunctionCallFinder(GenericFinder):
     #
     #     return super()._should_visit(node, child_node) \
     #            and can_node_be_extended and not should_node_be_excluded_by_type
+
+
+class IfStatementsFinder(GenericFinder):
+    @dataclass
+    class IfStatementExtra(object):
+        test: list
+
+        def __init__(self):
+            self.test = []
+
+        def __repr__(self):
+            return ", ".join(t.__repr__() for t in self.test)
+
+        def __str__(self):
+            return self.__repr__()
+
+    def types_to_find(self) -> Union:
+        return ast.If
+
+    def visit_If(self, node: ast.If) -> Any:
+        return self._generic_visit_with_extras(node, super(GenericFinder, self).visit(node.test))
+
+    def visit_UnaryOp(self, node: ast.UnaryOp) -> Any:
+        extra = IfStatementsFinder.IfStatementExtra()
+        extra.test.extend([str(type(node.op)), super(GenericFinder, self).visit(node.operand)])
+        return self._generic_visit_with_extras(node, extra)
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> Any:
+        extra = IfStatementsFinder.IfStatementExtra()
+        extra.test.extend([super(GenericFinder, self).visit(value) for value in node.values])
+        extra.test.append('and' if type(node.op) is ast.And else 'or')
+        return self._generic_visit_with_extras(node, extra)
+
+    def visit_Compare(self, node: ast.Compare) -> Any:
+        extra = IfStatementsFinder.IfStatementExtra()
+        extra.test.append(ast2str(node))
+        return extra
 
 
 class DanglingPaLaDiNDefinition(Exception):

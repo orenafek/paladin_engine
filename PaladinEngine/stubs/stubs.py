@@ -1,5 +1,4 @@
 import inspect
-import json
 import re
 from dataclasses import dataclass
 from typing import Optional, Union
@@ -10,6 +9,7 @@ from interactive_debugger.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
 
+
 # TODO: Export tagging class.
 @dataclass
 class SubscriptVisitResult(object):
@@ -19,7 +19,8 @@ class SubscriptVisitResult(object):
     def __str__(self):
         return f'{self.collection}[{":".join([str(x) if x else "" for x in self.slice])}]'
 
-def __FRAME__():
+
+def __FRAME__() -> dict:
     return sys._getframe(1)
 
 
@@ -197,6 +198,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
 
     archive.store(record_key, record_value)
 
+
 def __FC__(expression: str, function,
            locals: dict, globals: dict, frame, line_no: int,
            *args: Optional[list[object]], **kwargs: Optional[dict[object]]):
@@ -249,7 +251,7 @@ def __FCS__(name: str,
             args: list,
             kwargs: list,
             return_value: object,
-            locals: dict, globals: dict, frame: dict, line_no: int) -> None:
+            locals: dict, globals: dict, frame, line_no: int) -> None:
     """
         A stub for function calls.
         :param function_name:               The name of the function.
@@ -273,6 +275,12 @@ def __FCS__(name: str,
 
     # Store the function call.
     archive.store(name, frame, line_no, function_call_record_value, vars_dict={**locals, **globals})
+
+
+def __IF__(value: bool, *test, locals: dict, globals: dict, frame, line_no: int) -> bool:
+    print('__IF__')
+    print(test)
+    return value
 
 
 def create_ast_stub(stub, *args, **kwargs):
