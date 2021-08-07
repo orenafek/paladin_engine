@@ -135,7 +135,8 @@ class ModuleTransformer(object):
             # Create a stubber.
             function_call_stubber = FunctionCallStubber(self._module)
 
-            for stub_entry in function_calls:
+            while function_calls:
+                stub_entry = function_calls[0]
                 # Convert args to a string.
                 args_string = ", ".join(stub_entry.extra.args)
 
@@ -164,19 +165,13 @@ class ModuleTransformer(object):
                 # Create a stub.
                 stubbed_call = str2ast(s).value
 
-                # func_stub = create_ast_stub(__AS_FC__,
-                #                             ast2str(stub_entry.node),
-                #                             stub_entry.node.func,
-                #                             stub_entry.container,
-                #                             locals='locals()',
-                #                             globals='globals()',
-                #                             frame=__FRAME__.__name,
-                #                             line_no=stub_entry.node.lineno,
-                #                             args=args_string,
-                #                             kwargs=kwargs_string)
-
                 self.module = function_call_stubber.stub_func(stub_entry.node, stub_entry.container,
                                                               stub_entry.attr_name, stubbed_call)
+
+                function_call_finder = FunctionCallFinder()
+                function_call_finder.visit(self._module)
+                function_calls = function_call_finder.find()
+
 
         except BaseException as e:
             print(e)
