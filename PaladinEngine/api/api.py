@@ -1,3 +1,6 @@
+from stubs.stubs import archive
+
+
 class Paladin(object):
     @staticmethod
     def precond(func, *args, **kwargs):
@@ -7,6 +10,13 @@ class Paladin(object):
     def postcond(func, *args, **kwargs):
         pass
 
+    @classmethod
+    def pause_record(cls):
+        archive.pause_record()
+
+    @classmethod
+    def resume_record(cls):
+        archive.resume_record()
 
 def Paladinize(cls):
     pass
