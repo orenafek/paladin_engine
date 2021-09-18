@@ -1,3 +1,4 @@
+import ast
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, Optional
@@ -220,7 +221,8 @@ class GenericFinder(ABC, ast.NodeVisitor):
     def _should_filter(self, node: ast.AST) -> bool:
         is_stub_call = isinstance(node, ast.Call) and ast2str(node.func).startswith('__')
         is_stub_assign = isinstance(node, ast.Assign) and ast2str(node).startswith('____')
-        return is_stub_call or is_stub_assign
+        is___str___call = isinstance(node, ast.FunctionDef) and node.name == '__str__'
+        return is_stub_call or is_stub_assign or is___str___call
 
     def _safe_visit(self, node):
         if not node:
@@ -530,7 +532,6 @@ class AssignmentFinder(GenericFinder):
         # Visit value (the object being subscripted) to extract extra.
         value_extra = super(GenericFinder, self).visit(node.value)
 
-
         class SliceFinder(ast.NodeVisitor):
 
             def visit_Constant(self, node: ast.Constant):
@@ -663,8 +664,8 @@ class FunctionCallFinder(GenericFinder):
             if type(name) is str:
                 return name
 
-            return super(GenericFinder, self).visit(name) + '.' +  node.attr
-            #return self.visit(name)
+            return super(GenericFinder, self).visit(name) + '.' + node.attr
+            # return self.visit(name)
         except BaseException:
             print('')
 
@@ -684,6 +685,26 @@ class FunctionCallFinder(GenericFinder):
     #
     #     return super()._should_visit(node, child_node) \
     #            and can_node_be_extended and not should_node_be_excluded_by_type
+
+
+class FunctionDefFinder(GenericFinder):
+
+    def types_to_find(self):
+        return ast.FunctionDef
+
+    @dataclass
+    class FunctionDefExtra(object):
+        function_name: str
+        args: list[str]
+
+        def __init__(self):
+            self.args = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        extra = FunctionDefFinder.FunctionDefExtra()
+        extra.function_name = node.name
+        extra.args = [arg.arg for arg in node.args.args]
+        return self._generic_visit_with_extras(node, extra)
 
 
 class DanglingPaLaDiNDefinition(Exception):

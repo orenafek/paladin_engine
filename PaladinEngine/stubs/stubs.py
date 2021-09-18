@@ -1,5 +1,4 @@
 import inspect
-import json
 import re
 from dataclasses import dataclass
 from typing import Optional, Union
@@ -10,6 +9,7 @@ from interactive_debugger.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
 
+
 # TODO: Export tagging class.
 @dataclass
 class SubscriptVisitResult(object):
@@ -18,6 +18,7 @@ class SubscriptVisitResult(object):
 
     def __str__(self):
         return f'{self.collection}[{":".join([str(x) if x else "" for x in self.slice])}]'
+
 
 def __FRAME__():
     return sys._getframe(1)
@@ -174,6 +175,24 @@ def _separate_to_container_and_field_inner(expression: str, frame, vars_dict: di
     return container_id, field
 
 
+def __DEF__(func_name: str, line_no: int):
+    key = Archive.Record.RecordKey(id(func_name), func_name, __DEF__.__name__)
+    value = Archive.Record.RecordValue(key, type(lambda _: _), func_name, func_name, line_no)
+    archive.store(key, value)
+
+
+def __UNDEF__(func_name: str, line_no: int):
+    key = Archive.Record.RecordKey(id(func_name), func_name, __UNDEF__.__name__)
+    value = Archive.Record.RecordValue(key, type(lambda _: _), func_name, func_name, line_no)
+    archive.store(key, value)
+
+
+def __ARG__(func_name: str, arg: str, value: object, line_no: int):
+    key = Archive.Record.RecordKey(id(func_name), arg, __ARG__.__name__)
+    value = Archive.Record.RecordValue(key, type(value), value, arg, line_no)
+    archive.store(key, value)
+
+
 def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
     if not archive._should_record:
         return
@@ -190,12 +209,13 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         return
 
     # Create Record key.
-    record_key = Archive.Record.RecordKey(container_id, field)
+    record_key = Archive.Record.RecordKey(container_id, field, __AS__.__name__)
 
     # Create Record value.
-    record_value = Archive.Record.RecordValue(type(value), value, expression, line_no)
+    record_value = Archive.Record.RecordValue(record_key, type(value), value, expression, line_no)
 
     archive.store(record_key, record_value)
+
 
 def __FC__(expression: str, function,
            locals: dict, globals: dict, frame, line_no: int,
@@ -226,17 +246,17 @@ def __FC__(expression: str, function,
     # Find container.
     container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
 
-    args_string = ', '.join([str(a) for a in args])
+    args_string = ', '.join([str(a) if function.__name__ != '__str__' else '@@@@ self @@@@' for a in args])
     kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
 
     # Create an extra with the args and keywords.
     extra = f'args = {args_string}, kwargs = {kwargs_string}'
 
     # Create a Record key.
-    record_key = Archive.Record.RecordKey(container_id, function.__name__)
+    record_key = Archive.Record.RecordKey(container_id, function.__name__, __FC__.__name__)
 
     # Create Record value.
-    record_value = Archive.Record.RecordValue(func_type, ret_value, expression, line_no, extra=extra)
+    record_value = Archive.Record.RecordValue(record_key, func_type, ret_value, expression, line_no, extra=extra)
 
     # Store.
     archive.store(record_key, record_value)
