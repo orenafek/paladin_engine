@@ -14,20 +14,31 @@ class CasaDeBurrito(object):
     _distance: int
     _menu: set[str]
 
+    def __init__(self):
+        self._rates = {}
+
     def is_rated_by(self, p: Professor) -> bool:
-        pass
+        return p in self._rates
 
     def rate(self, p: Professor, r: int) -> CasaDeBurrito:
-        pass
+        if r < 0 or r > 5:
+            raise CasaDeBurrito.RateRangeException()
+
+        self._rates[p] = r
+
+        return self
 
     def number_of_rates(self) -> int:
-        pass
+        return len(self._rates)
 
     def average_rating(self) -> float:
-        pass
+        return sum(self._rates.values()) / len(self._rates)
 
     def __str__(self) -> str:
-        pass
+        return f'CasaDeBurrito: {self.name}\nId: {self.id}\nDistance: {self._distance}\nMenu: {self._menu}'
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o, CasaDeBurrito) and o.id == self.id
 
     @property
     def id(self):
