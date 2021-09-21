@@ -1,7 +1,10 @@
 from dataclasses import dataclass, field
 from typing import List
+<<<<<<< HEAD
 
 from tests.test_resources.oop_basic_java_2021.abstract.abstract import *
+=======
+>>>>>>> Change default attributes to fields from dataclasses
 
 
 
