@@ -40,6 +40,15 @@ class CasaDeBurrito(object):
     def __eq__(self, o: object) -> bool:
         return isinstance(o, CasaDeBurrito) and o.id == self.id
 
+    def __ge__(self, other):
+        if not isinstance(other, CasaDeBurrito):
+            raise RuntimeError(f'Trying to sort A CasaDeBurrito and a {type(other).__name__}.')
+
+        return self.id > other.id
+
+    def __le__(self, other):
+        return not self > other and not self == other
+
     @property
     def id(self):
         return self._id
