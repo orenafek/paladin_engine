@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Collection
 
 from tests.test_resources.oop_basic_java_2021.casa_de_burrito import CasaDeBurrito
@@ -12,10 +12,8 @@ class Professor(object):
 class Professor(object):
     _id: int
     _name: str
-
-    def __init__(self):
-        self._favorites: set[CasaDeBurrito] = set()
-        self._friends: set[Professor] = set()
+    _favorites: set = field(default_factory=set)
+    _friends: set = field(default_factory=set)
 
     def favorite(self, c: CasaDeBurrito) -> Professor:
         if not c.is_rated_by(self):

@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List
 
 from tests.test_resources.oop_basic_java_2021.professor import Professor
 
@@ -13,9 +14,7 @@ class CasaDeBurrito(object):
     _name: str
     _distance: int
     _menu: set[str]
-
-    def __init__(self):
-        self._rates = {}
+    _rates: dict = field(default_factory=lambda: [])
 
     def is_rated_by(self, p: Professor) -> bool:
         return p in self._rates
