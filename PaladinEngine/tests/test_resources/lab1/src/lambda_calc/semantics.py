@@ -288,7 +288,7 @@ class Tree(object):
 
     @classmethod
     def reconstruct(cls, t):
-        return cls(t.root, [cls.reconstruct(s) for s in t.subtrees])
+        return cls(t._root, [cls.reconstruct(s) for s in t.subtrees])
 
     @property
     def nodes(self):
@@ -301,7 +301,7 @@ class Tree(object):
     @property
     def terminals(self):
         """ @return a list of the values located at the leaf nodes. """
-        return [n.root for n in self.leaves]
+        return [n._root for n in self.leaves]
 
     @property
     def depth(self):
@@ -326,7 +326,7 @@ class Tree(object):
 
 def pretty(expr: Tree, parent: Tuple[str, int] = ('.', 0), follow: str = '') -> str:
     if expr.root in ['id', 'num']:
-        return expr.subtrees[0].root
+        return expr.subtrees[0]._root
     if expr.root == '\\':
         tmpl = r"\%s. %s"
         if parent == ('@', 0) or parent[0] == follow == '@':
@@ -684,7 +684,7 @@ class LambdaParser(object):
     def postprocess(self, t: Tree) -> Tree:
         if t.root in ['γ', 'E', 'E0', 'E1', "E1'"] and len(t.subtrees) == 1:
             return self.postprocess(t.subtrees[0])
-        elif t.root == 'E0' and t.subtrees[0].root == '(':
+        elif t.root == 'E0' and t.subtrees[0]._root == '(':
             return self.postprocess(t.subtrees[1])
         elif t.root == r'\.':
             args = t.subtrees[1].split()
@@ -706,14 +706,14 @@ class LambdaInterpreter(object):
         return self.normal_form(self.preprocess(expr))
 
     def preprocess(self, expr):
-        if expr.root == 'num':
-            return self.church_numeral(int(expr.subtrees[0].root))
-        elif expr.root == 'let_':
+        if expr._root == 'num':
+            return self.church_numeral(int(expr.subtrees[0]._root))
+        elif expr._root == 'let_':
             T = type(expr)
             var, defn, body = expr.subtrees[1], expr.subtrees[3], expr.subtrees[5]
             return self.preprocess(T('@', [T('\\', [var, body]), defn]))
         else:
-            return type(expr)(expr.root, [self.preprocess(s) for s in expr.subtrees])
+            return type(expr)(expr._root, [self.preprocess(s) for s in expr.subtrees])
 
     def normal_form(self, expr):
         print(pretty(expr))
@@ -722,7 +722,7 @@ class LambdaInterpreter(object):
         while True:
             for n in PreorderWalk(expr):
                 for i, s in enumerate(n.subtrees):
-                    if s.root == '@' and s.subtrees[0].root == '\\':
+                    if s._root == '@' and s.subtrees[0]._root == '\\':
                         n.subtrees[i] = self.beta_reduce(s)
                         break
                 else:
@@ -737,15 +737,15 @@ class LambdaInterpreter(object):
         return expr.subtrees[0]
 
     def freevars(self, expr):
-        if expr.root == 'id':
-            return set([expr.subtrees[0].root])
-        elif expr.root == '\\':
+        if expr._root == 'id':
+            return set([expr.subtrees[0]._root])
+        elif expr._root == '\\':
             return self.freevars(expr.subtrees[1]) - self.freevars(expr.subtrees[0])
         else:
             return reduce(lambda x, y: x | y, map(self.freevars, expr.subtrees), set())
 
     def beta_reduce(self, redex):
-        assert (redex.root == '@' and redex.subtrees[0].root == '\\')
+        assert (redex._root == '@' and redex.subtrees[0]._root == '\\')
         var, body = redex.subtrees[0].subtrees
         arg = redex.subtrees[1]
         return self.subst(body, var, arg, fv=self.freevars(arg))
@@ -754,20 +754,20 @@ class LambdaInterpreter(object):
         if in_ == what:
             return with_.clone()
         else:
-            if in_.root == '\\':
+            if in_._root == '\\':
                 if what == in_.subtrees[0]: return in_.clone()
-                if in_.subtrees[0].root == 'id' and in_.subtrees[0].subtrees[0].root in fv:
+                if in_.subtrees[0]._root == 'id' and in_.subtrees[0].subtrees[0]._root in fv:
                     in_ = self.alpha_rename(in_, fv)
                 return type(in_)(in_.root,
                                  [in_.subtrees[0].clone()] + [self.subst(s, what, with_, fv) for s in in_.subtrees[1:]])
             else:
-                return type(in_)(in_.root, [self.subst(s, what, with_, fv) for s in in_.subtrees])
+                return type(in_)(in_._root, [self.subst(s, what, with_, fv) for s in in_.subtrees])
 
     def alpha_rename(self, expr, fv):
-        assert (expr.root == '\\' and expr.subtrees[0].root == 'id')
+        assert (expr._root == '\\' and expr.subtrees[0]._root == 'id')
         forbid = fv | set(expr.terminals)
         var = expr.subtrees[0]
-        base, i = var.subtrees[0].root, 0
+        base, i = var.subtrees[0]._root, 0
         while base and base[-1].isdigit(): base = base[:-1]
         if not base: base = "v"
         while "%s%d" % (base, i) in forbid: i += 1
@@ -793,7 +793,7 @@ class PostorderWalkNoLambdas(TreeWalk):
                 yield top
             else:
                 stack += [(UP, top)] + \
-                         ([] if top.root == '\\'
+                         ([] if top._root == '\\'
                           else [(DOWN, x) for x in top.subtrees])
 
 

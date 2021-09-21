@@ -5,8 +5,9 @@ from Examples.Tetris.graphics import Window, Point, Rectangle, CanvasFrame, Text
 ############################################################
 # BLOCK CLASS
 ############################################################
-from api.api import Paladinize, PaladinPostCondition
+from api.api import Paladinize, PaladinPostCondition, Paladin
 
+Paladin.pause_record()
 
 class Block(Rectangle):
     ''' Block class:
@@ -212,7 +213,7 @@ class Shape(object):
             self.rotation_dir *= -1
 
     def __str__(self):
-        return f'{type(self).__qualname__}'
+        return f'{Shape.__qualname__}'
 
 
 ############################################################
@@ -654,6 +655,7 @@ class Tetris(object):
 # Start the game
 ################################################################
 if __name__ == '__main__':
+    Paladin.resume_record()
     win = Window("Tetris")
     game = Tetris(win)
     win.mainloop()

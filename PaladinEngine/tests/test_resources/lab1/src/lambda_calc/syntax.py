@@ -288,7 +288,7 @@ class Tree(object):
 
     @classmethod
     def reconstruct(cls, t):
-        return cls(t.root, [cls.reconstruct(s) for s in t.subtrees])
+        return cls(t._root, [cls.reconstruct(s) for s in t.subtrees])
 
     @property
     def nodes(self):
@@ -301,7 +301,7 @@ class Tree(object):
     @property
     def terminals(self):
         """ @return a list of the values located at the leaf nodes. """
-        return [n.root for n in self.leaves]
+        return [n._root for n in self.leaves]
 
     @property
     def depth(self):
@@ -665,7 +665,7 @@ class LambdaParser(object):
     def postprocess(self, t: Tree) -> Tree:
         if t.root in ['γ', 'E', 'E0', 'E1', "E1'"] and len(t.subtrees) == 1:
             return self.postprocess(t.subtrees[0])
-        elif t.root == 'E0' and t.subtrees[0].root == '(':
+        elif t.root == 'E0' and t.subtrees[0]._root == '(':
             return self.postprocess(t.subtrees[1])
         elif t.root == r'\.':
             args = t.subtrees[1].split()
@@ -688,7 +688,7 @@ They are used subsequently by recursive calls.
 
 def pretty(expr: Tree, parent: Tuple[str, int] = ('.', 0), follow: str = '') -> str:
     if expr.root in ['id', 'num']:
-        return expr.subtrees[0].root
+        return expr.subtrees[0]._root
     if expr.root == '\\':
         tmpl = r"\%s. %s"
         if parent == ('@', 0) or parent[0] == follow == '@':
