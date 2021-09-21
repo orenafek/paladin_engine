@@ -9,10 +9,11 @@ import ast
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder
+    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
-    FunctionCallStubber
-from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__
+    FunctionCallStubber, FunctionDefStubber
+from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__, __ARG__, __DEF__, \
+    __UNDEF__
 
 
 class ModuleTransformer(object):
@@ -103,6 +104,43 @@ class ModuleTransformer(object):
             print(e)
             raise e
 
+    def transform_function_def(self) -> ModuleTransformer:
+        # Find all function definitions.
+        function_def_finder = FunctionDefFinder()
+        function_def_finder.visit(self._module)
+        function_defs = function_def_finder.find()
+
+        for function_def in function_defs:
+            function_def_stub = create_ast_stub(__DEF__,
+                                                wrap_str_param(function_def.extra.function_name),
+                                                f'{function_def.node.lineno}')
+
+            # Create a stubber.
+            function_def_stubber = FunctionDefStubber(self._module)
+
+            # Create args prefix_stubs.
+            prefix_stubs = [function_def_stub]
+            for arg in function_def.extra.args:
+                arg_stub = create_ast_stub(__ARG__,
+                                           wrap_str_param(function_def.extra.function_name),
+                                           wrap_str_param(arg),
+                                           arg,
+                                           line_no=f'{function_def.node.lineno}')
+                prefix_stubs.append(arg_stub)
+
+            # Create sufix stub.
+            suffix_stub = create_ast_stub(__UNDEF__,
+                                          wrap_str_param(function_def.extra.function_name),
+                                          line_no=f'{function_def.node.lineno}')
+
+            # Stub.
+            self._module = function_def_stubber.stub_function_def(function_def.node, function_def.container,
+                                                                  function_def.attr_name,
+                                                                  prefix_stubs,
+                                                                  suffix_stub)
+
+        return self
+
     def transform_paladin_post_condition(self) -> ModuleTransformer:
         # Find all PaLaDiN post conditions.
         paladin_post_condition_finder = PaladinPostConditionFinder()
@@ -157,7 +195,7 @@ class ModuleTransformer(object):
                     f'{stub_entry.node.lineno}']
 
                 if args_string:
-                    #new_call_params.append(wrap_str_param(f'{all_args_string}'))
+                    # new_call_params.append(wrap_str_param(f'{all_args_string}'))
                     new_call_params.append(all_args_string)
 
                 s = f'{__FC__.__name__}(' + ', '.join(new_call_params) + ')'

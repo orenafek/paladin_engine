@@ -458,6 +458,7 @@ class AssignmentStubber(Stubber):
         except BaseException as e:
             print(e)
 
+
 class FunctionCallStubber(Stubber):
     def stub_func(self, node, container, attr_name, stubbed_call):
         try:
@@ -477,7 +478,7 @@ class FunctionCallStubber(Stubber):
 
     def stub_function_call(self, node: ast.Call, container: ast.AST,
                            attr_name: str,
-                           function_name:str,
+                           function_name: str,
                            args: str,
                            kwargs: str,
                            stub_function_name: str) -> Module:
@@ -517,3 +518,40 @@ class FunctionCallStubber(Stubber):
         except BaseException as e:
             print(e)
             raise e
+
+
+class FunctionDefStubber(Stubber):
+    TEMP_RETURN_ASSIGMENT_VAR_NAME = '__TEMP__'
+
+    def stub_function_def(self, node: ast.FunctionDef, container: ast.AST, attr_name, prefix_stub=None,
+                          suffix_stub=None) -> Module:
+
+        if prefix_stub:
+            if isinstance(prefix_stub, list):
+                node.body = prefix_stub + node.body
+            else:
+                node.body = [prefix_stub] + node.body
+
+        if suffix_stub:
+            if not isinstance(suffix_stub, list):
+                suffix_stub = [suffix_stub]
+
+            last_body_statement = node.body[len(node.body) - 1]
+
+            if isinstance(last_body_statement, ast.Return):
+                # Extract the return statement into a temporary var.
+                return_value_temp_assignment_stub = str2ast(
+                    f'{FunctionDefStubber.TEMP_RETURN_ASSIGMENT_VAR_NAME} = {ast2str(last_body_statement.value)}')
+                last_return_statement = str2ast(f'return {FunctionDefStubber.TEMP_RETURN_ASSIGMENT_VAR_NAME}')
+
+                node.body = node.body[0:node.body.index(last_body_statement)] + [
+                    return_value_temp_assignment_stub] + suffix_stub + [last_return_statement]
+            else:
+                node.body = node.body + suffix_stub
+
+        # Create a stub record.
+        stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, node)
+
+        self.root_module = self._stub(stub_record)
+
+        return self.root_module

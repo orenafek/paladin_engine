@@ -1,6 +1,11 @@
 from cmd import Cmd
+from typing import Callable, Iterable
 
-from archive.archive import Archive, Archive
+from pygments import highlight
+from pygments.formatters.terminal256 import TerminalTrueColorFormatter
+from pygments.lexers.python import PythonLexer
+
+from archive.archive import Archive
 from source_provider import SourceProvider
 
 
@@ -20,6 +25,8 @@ class TerminalColor:
 
 class InteractiveDebugger(Cmd):
     CODE_WINDOW_SIZE = 10
+    FORMATTER = TerminalTrueColorFormatter(linenos=False, cssclass="source")
+    LEXER = PythonLexer()
 
     def __init__(self, archive: Archive, error_line: str, line_no: int) -> None:
         # Call Super constructor.
@@ -36,6 +43,9 @@ class InteractiveDebugger(Cmd):
                                                                       SourceProvider.get_line(line_no).lstrip())
         # Initiate the time of search in the archive.
         self._archive_time_of_search = archive.time
+
+        # Initiate window size.
+        self.window_size = 1
 
     @property
     def archive(self):
@@ -64,19 +74,21 @@ class InteractiveDebugger(Cmd):
     def _create_code_window(self, expr_to_search: str):
         # Retrieve the record from the archive.
 
-        record = self.archive.search(expr_to_search)
+        record_values = self.archive.search(expr_to_search)
 
         # Get the last recorded values from time.
-        record_value = record.get_last_value_from_time(self._archive_time_of_search)
+        record_value = record_values[0] if len(record_values) == 1 else \
+            sorted(record_values, key=lambda rv: rv.time)[0]
 
         # Set the archive time of search to start from the time of the last value searched.
         self._archive_time_of_search = record_value.time
 
         # Create code window.
-        code_window, bold_line_no = SourceProvider.get_window(record_value.line_no, before=InteractiveDebugger.CODE_WINDOW_SIZE,
+        code_window, bold_line_no = SourceProvider.get_window(record_value.line_no,
+                                                              before=InteractiveDebugger.CODE_WINDOW_SIZE,
                                                               after=InteractiveDebugger.CODE_WINDOW_SIZE)
 
-        return record_value.value, zip(code_window, range(1, len(code_window))), bold_line_no
+        return record_value.value, code_window, bold_line_no
 
     def do_why(self, arg):
         strings_to_print = []
@@ -85,21 +97,35 @@ class InteractiveDebugger(Cmd):
             # Create a code window.
             value, code_window, bold_line_no = self._create_code_window(arg)
 
-            for line, no in code_window:
-                if no == bold_line_no:
-                    strings_to_print.append(
-                        f'{TerminalColor.OKBLUE}{line} {TerminalColor.OKCYAN}>>> {arg} = {str(value)}{TerminalColor.ENDC}')
-                else:
-                    strings_to_print.append(line)
-
-            strings_to_print.append(f'{TerminalColor.OKBLUE}...{TerminalColor.ENDC}')
+            self.print_highlighted_code_window(code_window, bold_line_no,
+                                               lambda line, no,
+                                                      bold_line_no: f'{line} # >>> {arg} = {value}'
+                                               if no == bold_line_no else line)
+            print(f'{TerminalColor.OKBLUE}...{TerminalColor.ENDC}')
 
         except BaseException:
-            strings_to_print = [f'{TerminalColor.FAIL}Can\'t find {TerminalColor.UNDERLINE}{arg}'
-                                f'{TerminalColor.ENDC}{TerminalColor.FAIL} in archive.']
+            print(f'{TerminalColor.FAIL}Can\'t find {TerminalColor.UNDERLINE}{arg}\n'
+                  f'{TerminalColor.ENDC}{TerminalColor.FAIL} in archive.')
 
-        for s in strings_to_print:
-            print(s)
+    def do_expand(self, size: int):
+        try:
+            self.window_size = int(size)
+            code_window, bold_line_no = SourceProvider.get_window(self.line_no, self.window_size, self.window_size)
+            self.print_highlighted_code_window(code_window, bold_line_no,
+                                               lambda line, no, bold_line_no:
+                                               f'{line} # BOLD' if no == bold_line_no else line)
+        except ValueError:
+            print(f'Can\'t expand, {size} is not an integer.')
+
+    @staticmethod
+    def highlight(code: str):
+        return highlight(code, lexer=InteractiveDebugger.LEXER, formatter=InteractiveDebugger.FORMATTER)
+
+    def print_highlighted_code_window(self, code_window: Iterable[str], bold_line_no: int,
+                                      line_extender: Callable = lambda _: _) -> None:
+        for (no, line) in enumerate(code_window):
+            highlighted = InteractiveDebugger.highlight(line_extender(line, no, bold_line_no))
+            print(highlighted.rstrip())
 
     def do_print_line(self, line_no):
         print(f'{SourceProvider.get_line(int(line_no)).strip()}')

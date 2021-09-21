@@ -5,7 +5,7 @@
     :since: 05/04/2019
 """
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Iterable
 
 import pandas as pd
 
@@ -16,6 +16,7 @@ class Archive(object):
         class RecordKey(object):
             container_id: int
             field: str
+            stub_name: str
 
             def __hash__(self) -> int:
                 return hash(hash(self.container_id) + hash(self.field))
@@ -23,7 +24,8 @@ class Archive(object):
             def __eq__(self, o: object) -> bool:
                 return isinstance(o, Archive.Record.RecordKey) \
                        and o.field == self.field \
-                       and o.container_id == self.container_id
+                       and o.container_id == self.container_id \
+                       and o.stub_name == self.stub_name
 
             def __str__(self) -> str:
                 return f'{self.field}(c:{self.container_id})'
@@ -33,6 +35,7 @@ class Archive(object):
 
         @dataclass
         class RecordValue(object):
+            key: object
             rtype: type
             value: object
             expression: str
@@ -115,6 +118,8 @@ class Archive(object):
                 (
                     k.container_id,
                     k.field,
+                    k.stub_name,
+                    id(v.key),
                     str(v.rtype.__name__),
                     represent(v.value).replace('\n', ' '),
                     v.expression,
@@ -125,10 +130,19 @@ class Archive(object):
                 for k, vv in list(self.records.items()) for v in vv
             ]
 
-            return header_row, flat_records
+            return header_row, sorted(flat_records, key=lambda r: r[len(r) - 2])
 
         except RuntimeError as e:
             print(e)
+
+    def flat_and_sort_by_time(self):
+        return sorted([(rk, rv) for rk in self.records for rv in self.records[rk]],
+                      key=lambda r: r[1].time)
+    @property
+    def record_values_sorted_by_time(self):
+        return sorted([rv for rk in self.records for rv in self.records[rk]],
+                      key=lambda r: r.time)
+
 
     def to_pickle(self):
         import pickle
@@ -139,8 +153,15 @@ class Archive(object):
         data_frame = pd.DataFrame(columns=header, data=rows)
         return data_frame.to_markdown(index=True)
 
-    def search(self, expression: str):
-        pass
+    def search(self, expression: str, frame: dict = None) -> Optional[Iterable[Record.RecordValue]]:
+        for key in self.records.keys():
+            if key.field == expression:
+                return self.records[key]
+            record_values = [rv for rv in self.records[key] if rv.expression == expression]
+            if record_values:
+                return record_values
+
+        return None
 
     def __str__(self):
         return self.__repr__()

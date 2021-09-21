@@ -18,7 +18,8 @@ from module_transformer.module_transformator import ModuleTransformer
 from source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__
+from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__, __ARG__, \
+    __DEF__, __UNDEF__
 
 
 class PaLaDiNEngine(object):
@@ -34,7 +35,7 @@ class PaLaDiNEngine(object):
     __INSTANCE = PaLaDiNEngine()
 
     # List of stubs that can be added to the PaLaDiNized code
-    PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__]
+    PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__, __ARG__, __DEF__, __UNDEF__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -83,8 +84,8 @@ class PaLaDiNEngine(object):
         try:
             return exec(source_code, variables), archive
 
-        except:
-            return None, archive
+        except BaseException as e:
+            return sys.exc_info(), archive
 
     @staticmethod
     def __collect_imports_to_execution():
@@ -109,12 +110,13 @@ class PaLaDiNEngine(object):
             m = t.module
             t = t.transform_for_loops_to_while_loops()
             m = t.module
+            t.transform_function_def()
+            m = t.module
             t = t.transform_paladin_post_condition()
             m = t.module
 
         except BaseException as e:
-            traceback.print_tb(e.__traceback__)
-            print(ast2str(m))
+            pass
         return t.module
 
     @staticmethod
