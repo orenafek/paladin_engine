@@ -2,7 +2,7 @@ import argparse
 import csv
 import traceback
 
-import InteractiveGraph.interactive_graph
+import interactive_graph.interactive_graph
 from engine.engine import PaLaDiNEngine
 from interactive_debugger import interactive_debugger
 from source_provider import SourceProvider
@@ -58,8 +58,8 @@ def main():
             d: dict = archive.records
             di = [(k, v[0::max(len(v), 3)]) for k, v in d.items()]
             archive.records = dict(di)
-            ig = InteractiveGraph.interactive_graph.InteractiveGraph(archive)
-            igi = InteractiveGraph.interactive_graph.InteractiveGraph.GraphIterator(ig)
+            ig = interactive_graph.interactive_graph.InteractiveGraph(archive)
+            igi = interactive_graph.interactive_graph.InteractiveGraph.GraphIterator(ig)
 
             ig.create_reset_button_callback(igi)
             ig.create_tap_node_data_callback(igi)
