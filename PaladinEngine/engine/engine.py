@@ -116,7 +116,7 @@ class PaLaDiNEngine(object):
             m = t.module
 
         except BaseException as e:
-            pass
+            print(e)
         return t.module
 
     @staticmethod

@@ -544,7 +544,8 @@ class AssignmentFinder(GenericFinder):
                 return node.id, StubArgumentType.NAME
 
             def visit_Attribute(self, node):
-                return node.attr, StubArgumentType.NAME
+                return ast2str(node)#, StubArgumentType.NAME
+                #return node.attr, StubArgumentType.NAME
 
             def visit_Slice(self, node):
                 def safe_visit(node):
@@ -613,7 +614,7 @@ class FunctionCallFinder(GenericFinder):
 
     def _is_match_paladin_stub_call(self, function_name: str) -> bool:
         return function_name.startswith('__') or function_name == 'locals' or \
-               function_name == 'globals'
+               function_name == 'globals' or function_name == '__str__'
 
     def visit_Call(self, node: ast.Call):
         extra = FunctionCallFinder.FunctionCallExtra()

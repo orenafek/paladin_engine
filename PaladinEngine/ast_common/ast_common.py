@@ -30,4 +30,6 @@ def wrap(s: str, w: str, wrap_left: bool = True, wrap_right: bool = True) -> str
         else s
 
 def wrap_str_param(s: str):
+    # TODO: Patch for passing strings with strings inside, their ' and " are replaced with @
+    s = s.replace('"','@').replace("'", '@')
     return wrap(s, '\'') if not '\'' in s else wrap(s, '"')

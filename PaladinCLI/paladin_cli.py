@@ -19,8 +19,10 @@ def parse_args():
                         help='Should print PaLaDiNized code to the screen')
     parser.add_argument('--output-file', type=str, default='', help='Output file path of the PaLaDiNized code')
     parser.add_argument('--csv', default='', type=str, help='Should output archive results to a csv file')
-    parser.add_argument('--static-graph-file-name', default='', type=str,
-                        help='A path to print the runtime static graph image into.')
+    parser.add_argument('--run-graph', default=False, dest='run_graph', action='store',
+                        help='Should run the dynamic graph of the PaLaDiNized run.')
+    parser.add_argument('--graph-port', default=9999, type=int,
+                        help='The port no of the server in which the dynamic graph runs on.')
     args = parser.parse_args()
 
     if args.csv != '' and not args.run:
@@ -55,19 +57,11 @@ def main():
         except:  # Plot a graph.
             pass
         finally:
-            d: dict = archive.records
-            di = [(k, v[0::max(len(v), 3)]) for k, v in d.items()]
-            archive.records = dict(di)
             ig = interactive_graph.interactive_graph.InteractiveGraph(archive)
-            igi = interactive_graph.interactive_graph.InteractiveGraph.GraphIterator(ig)
 
-            ig.create_reset_button_callback(igi)
-            ig.create_tap_node_data_callback(igi)
-
-            if args.static_graph_file_name:
-                # ig.print_static_graph(args.static_graph_file_name)
+            if args.run_graph:
                 try:
-                    ig.run()
+                    ig.run_collapsible_tree(args.input_file, port=args.graph_port)
                 except KeyboardInterrupt:
                     pass
             if args.csv != '':
