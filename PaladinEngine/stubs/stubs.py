@@ -238,9 +238,17 @@ def __FC__(expression: str, function,
     func_type = type(lambda _: _)
 
     # Call the function.
-    ret_value = function(*args, **kwargs)
+    ret_exc = None
+    try:
+        ret_value = function(*args, **kwargs)
+    except BaseException as e:
+        ret_exc = e
+        ret_value = ret_exc
 
     if not archive._should_record:
+        if ret_exc:
+            raise ret_exc
+
         return ret_value
 
     # Find container.

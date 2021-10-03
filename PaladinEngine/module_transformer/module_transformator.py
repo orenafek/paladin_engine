@@ -85,7 +85,7 @@ class ModuleTransformer(object):
                 # Create a stub.
                 for target in targets:
                     ass_stub = create_ast_stub(__AS__,
-                                               wrap_str_param(ast2str(stub_entry.node)),
+                                               wrap_str_param(ast2str(stub_entry.node).replace('"','@').replace("'", "@")),
                                                wrap_str_param(str(target)),
                                                locals='locals()',
                                                globals='globals()',
@@ -175,6 +175,12 @@ class ModuleTransformer(object):
 
             while function_calls:
                 stub_entry = function_calls[0]
+
+                # TODO: Patch for dataclasses support.
+                if 'field(default_factory' in ast2str(stub_entry.node):
+                    function_calls.pop(0)
+                    continue
+
                 # Convert args to a string.
                 args_string = ", ".join(stub_entry.extra.args)
 

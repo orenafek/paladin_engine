@@ -71,6 +71,7 @@ class Professor(object):
 
     def __hash__(self):
         return hash(self.id)
+
     @property
     def id(self):
         return self._id
@@ -241,7 +242,9 @@ class CartelDeNachos(object):
         return g
 
     def __str__(self) -> str:
-        pass
+        return f'Registered professors: {self._professors.keys()}\n' \
+               f'Registered casas de burrito: {self._casas_de_burrito.keys()}\n' \
+               f'Professors:\n{"#".join([f"{p_id} -> [{self._professors[p_id].friends}]" for p_id in self._professors])}'
 
     class ImpossibleConnectionException(BaseException):
         pass

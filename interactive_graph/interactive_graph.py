@@ -1,9 +1,15 @@
+import http.server
+import json
+import os
+import random
+import shutil
+import socketserver
 import typing
 
 import dash_cytoscape as cyto
 import dash_html_components as html
 import networkx as nx
-from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform
+from dash_extensions.enrich import Output, Input
 from networkx.drawing.nx_agraph import to_agraph
 
 import archive.archive
@@ -64,9 +70,9 @@ class InteractiveGraph(object):
 
     def __init__(self, _a: archive.archive.Archive):
         self.archive = _a
-        self._app = DashProxy(prevent_initial_callbacks=True, transforms=[MultiplexerTransform()],
-                              name=InteractiveGraph.__name__)
-        self._app.layout = self._app_layout
+        # self._app = DashProxy(prevent_initial_callbacks=True, transforms=[MultiplexerTransform()],
+        #                      name=InteractiveGraph.__name__)
+        # self._app.layout = self._app_layout
         self._nodes_state = {}
 
     def _graph_nodes(self, nodes=None):
@@ -93,8 +99,17 @@ class InteractiveGraph(object):
             else:
                 node_expr = rv.expression
 
-            return node_expr if len(node_expr) <= 10 else node_expr[
-                                                          0:10] + '...' + f' ({rv.time})', rv.key.stub_name, rv.time, rv.key.container_id
+            return \
+                node_expr \
+                    if len(node_expr) <= 10 \
+                    else node_expr[0:10] + '...' + f' ({rv.time})', \
+                node_expr, \
+                f'{rv.time}', \
+                rv.key.stub_name, \
+                str(rv.time), \
+                str(rv.key.container_id), \
+                str(rv.value), \
+                str(rv.line_no)
 
         def add_node_to_graph(rv, color='white'):
             g.add_node(repr_node(rv), fillcolor=color, color=color)
@@ -331,3 +346,60 @@ class InteractiveGraph(object):
         graph_nodes, graph_edges = igi.create_sub_graph(graph_roots)
 
         return graph_nodes + graph_edges
+
+    @property
+    def archive_as_json_graph(self):
+        g = self._archive_as_graph
+
+        roots = [n for n in g.nodes if g.in_degree(n) == 0]
+        r = roots[0]
+
+        def generate_dict(n, p_name):
+            d = {
+                "parent": p_name,
+                "name": n[0],
+                "expression": n[1],
+                "time": n[2],
+                "stub_name": n[3],
+                "container": n[5],
+                "value": n[6],
+                "line_no": n[7],
+                "children": []
+            }
+
+            if not g.successors(n):
+                return d
+
+            d["children"] = [
+                generate_dict(child, n[0]) for child in g.successors(n)
+            ]
+
+            return d
+
+        return json.dumps(generate_dict(r, "null"))
+
+    def run_collapsible_tree(self, source_code_file_path: str, port: int=9999) -> None:
+        interactive_graph_dir = '/Users/orenafek/Projects/Paladin/PaladinEngine/interactive_graph'
+        with open(os.path.join(interactive_graph_dir, 'input_graph_tree.json'), 'w+') as f:
+            f.write(self.archive_as_json_graph)
+        os.chdir(interactive_graph_dir)
+        html_file_name = 'index.html'
+
+        class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == '/':
+                    self.path = '/' + html_file_name
+                return http.server.SimpleHTTPRequestHandler.do_GET(self)
+
+        # Create an object of the above class
+        handler_object = MyHttpRequestHandler
+
+        my_server = socketserver.TCPServer(("", port), handler_object)
+
+        # Create the source code file.
+        shutil.copyfile(source_code_file_path,
+                        os.path.join(interactive_graph_dir, 'source_code.txt'))
+
+        # Star the server
+        print(f'Serving on 127.0.0.1:{port}')
+        my_server.serve_forever()
