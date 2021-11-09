@@ -7,12 +7,13 @@ import socketserver
 import typing
 
 import dash_cytoscape as cyto
-import dash_html_components as html
+from dash import html
 import networkx as nx
 from dash_extensions.enrich import Output, Input
 from networkx.drawing.nx_agraph import to_agraph
 
 import archive.archive
+import interactive_graph.interactive_graph
 from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG__
 
 
@@ -20,10 +21,10 @@ class InteractiveGraph(object):
     EDGE_ID_SRC_DEST_SEP = '->'
     EDGE_ID_FORMAT = '{source}' + EDGE_ID_SRC_DEST_SEP + '{target}'
     NODE_COLORS = {
-        __DEF__.__name__: 'blue',
-        __FC__.__name__: 'red',
+        __DEF__.__name__: 'brown',
+        __FC__.__name__: 'blue',
         __AS__.__name__: 'yellow',
-        __ARG__.__name__: 'brown',
+        __ARG__.__name__: 'red',
     }
 
     class GraphIterator(object):
@@ -100,15 +101,13 @@ class InteractiveGraph(object):
                 node_expr = rv.expression
 
             return \
-                node_expr \
-                    if len(node_expr) <= 10 \
-                    else node_expr[0:10] + '...' + f' ({rv.time})', \
+                rv.key.stub_name.strip('__'), \
                 node_expr, \
                 f'{rv.time}', \
                 rv.key.stub_name, \
                 str(rv.time), \
                 str(rv.key.container_id), \
-                str(rv.value), \
+                str(archive.archive.represent(rv.value)), \
                 str(rv.line_no)
 
         def add_node_to_graph(rv, color='white'):
@@ -120,19 +119,25 @@ class InteractiveGraph(object):
         def add_children(node, record_values: typing.List[archive.archive.Archive.Record.RecordValue]) -> typing.List[
             archive.archive.Archive.Record.RecordValue]:
 
-            while record_values:
+            next_def_node = None
 
+            while record_values:
                 next_node = record_values[0]
 
                 node_type = next_node.key.stub_name
                 if node_type == __DEF__.__name__:
-                    record_values = add_children(next_node, record_values[1::])
-
+                    if not next_def_node:
+                        # TODO: This is for function calls that are not PaLaDiNized,
+                        #       meaning, there is no __FC__ before __DEF__
+                        next_def_node = node if node.key.stub_name == __FC__.__name__ else next_node
+                    record_values = add_children(next_def_node, record_values[1::])
+                    continue
                 if node_type == __UNDEF__.__name__:
                     return record_values[1::]
 
                 if node_type == __FC__.__name__:
                     color = 'blue'
+                    next_def_node = next_node
 
                 elif node_type == __AS__.__name__:
                     color = 'red'
@@ -156,7 +161,7 @@ class InteractiveGraph(object):
 
         # Get the first node.
         try:
-            first_node = [rv for rv in all_record_values if rv.key.stub_name == __DEF__.__name__][0]
+            first_node = [rv for rv in all_record_values if rv.key.stub_name == __FC__.__name__][0]
         except IndexError:
             return None
 
@@ -364,6 +369,7 @@ class InteractiveGraph(object):
                 "container": n[5],
                 "value": n[6],
                 "line_no": n[7],
+                "color": interactive_graph.interactive_graph.InteractiveGraph.NODE_COLORS[n[3]],
                 "children": []
             }
 
