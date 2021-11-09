@@ -10,6 +10,40 @@ from typing import Optional, Iterable
 import pandas as pd
 
 
+def represent(o: object):
+    if any(isinstance(o, t) for t in [str, int, float, bool, complex]):
+        return str(o)
+
+    if o is None:
+        return ''
+
+    if isinstance(o, type):
+        return o.__name__
+
+    if isinstance(o, tuple):
+        return (represent(x) for x in o)
+
+    if isinstance(o, list):
+        return [represent(x) for x in o]
+
+    if isinstance(o, set):
+        return {represent(x) for x in o}
+
+    if isinstance(o, dict):
+        return {represent(k): represent(v) for (k, v) in o.items()}
+
+    obj = {}
+    try:
+        for attr in o.__dict__:
+            try:
+                obj[attr] = represent(o.__getattribute__(attr))
+            except TypeError as e:
+                print(e)
+    except BaseException as e:
+        print(e)
+
+    return obj
+
 class Archive(object):
     class Record(object):
         @dataclass
@@ -61,7 +95,7 @@ class Archive(object):
 
             def to_json(self):
                 return (self.rtype.__name__,
-                        self.value,
+                        represent(self.value),
                         self.expression,
                         self.line_no,
                         self.time,
@@ -108,11 +142,7 @@ class Archive(object):
             header_row = list(Archive.Record.RecordKey.__dataclass_fields__) + \
                          list(Archive.Record.RecordValue.__dataclass_fields__)
 
-            def represent(o: object) -> str:
-                if type(o) in [str, int, float, bool, complex]:
-                    return str(o)
 
-                return f'{id(o)}'
 
             flat_records = [
                 (
@@ -121,7 +151,8 @@ class Archive(object):
                     k.stub_name,
                     id(v.key),
                     str(v.rtype.__name__),
-                    represent(v.value).replace('\n', ' '),
+                    #represent(v.value).replace('\n', ' '),
+                    represent(v.value),
                     v.expression,
                     v.line_no,
                     v.time,

@@ -64,6 +64,8 @@ def main():
                     ig.run_collapsible_tree(args.input_file, port=args.graph_port)
                 except KeyboardInterrupt:
                     pass
+                except BaseException:
+                    traceback.print_exc()
             if args.csv != '':
                 print('Creating CSV')
                 with open(args.csv, 'w+') as fo:
