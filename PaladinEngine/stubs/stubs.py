@@ -1,10 +1,12 @@
+import ast
 import inspect
 import re
+from _ast import Attribute
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 from archive.archive import Archive
-from ast_common.ast_common import str2ast
+from ast_common.ast_common import str2ast, ast2str
 from interactive_debugger.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
@@ -17,7 +19,12 @@ class SubscriptVisitResult(object):
     slice: tuple
 
     def __str__(self):
-        return f'{self.collection}[{":".join([str(x) if x else "" for x in self.slice])}]'
+        if type(self.slice) is not tuple:
+            keys = str(self.slice)
+        else:
+            keys = '' if len(self.slice) == 0 else str(self.slice[0]) if len(self.slice) == 1 else \
+                ":".join([str(x) if x else "" for x in self.slice])
+        return f'{self.collection}[{keys}]'
 
 
 def __FRAME__():
@@ -144,35 +151,20 @@ def _separate_to_container_and_func(function, expression: str, frame, vars_dict:
     # return _separate_to_container_and_field_inner(expression, frame, vars_dict, _extract_identifier)
 
 
-def _separate_to_container_and_field(expression: str, frame, vars_dict: dict) -> tuple[int, str]:
-    def separator(exr: str) -> tuple[str, str]:
-        parts = exr.split('.')
+def _separate_to_container_and_field(expression: str, frame, locals: dict, globals: dict) -> tuple[int, str]:
 
-        if len(parts) > 1:
-            return parts[0], '.'.join(parts[1::])
-        else:
-            return parts[0], ''
+    expression_ast = str2ast(expression).value
+    if isinstance(expression_ast, ast.Subscript):
+        # TODO : Handle
+        pass
+    if not isinstance(expression_ast, ast.Attribute):
+        # There is only an object.
+        return id(frame), expression
 
-    return _separate_to_container_and_field_inner(expression, frame, vars_dict, separator)
+    container = eval(ast2str(expression_ast.value), locals, globals)
+    field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
 
-
-def _separate_to_container_and_field_inner(expression: str, frame, vars_dict: dict, separator_func) -> tuple[int, str]:
-    dot_separator = '.'
-
-    expr = expression
-    container_id = id(frame)
-    field = expression
-
-    value = _search_in_vars_dict(field, vars_dict)
-
-    while dot_separator in expr:
-        identifier, rest = separator_func(expr)
-        field = identifier
-        obj = vars_dict[identifier]
-        container_id = id(obj)
-        expr = rest
-
-    return container_id, field
+    return id(container), field
 
 
 def __DEF__(func_name: str, line_no: int):
@@ -187,10 +179,26 @@ def __UNDEF__(func_name: str, line_no: int):
     archive.store(key, value)
 
 
-def __ARG__(func_name: str, arg: str, value: object, line_no: int):
-    key = Archive.Record.RecordKey(id(func_name), arg, __ARG__.__name__)
+# FIXME: Move to a better place...
+PALADIN_OBJECT_COLLECTION_FIELD = '__PALADIN_INIT_COLLECT__'
+PALADIN_OBJECT_COLLECTION_EXPRESSION = '__PALADIN_INIT_COLLECT_EXPRESSION__'
+
+
+def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
+            line_no: int):
+    # func_obj = _search_in_vars_dict(func_name, {**locals, **globals})
+
+    key = Archive.Record.RecordKey(id(frame), arg, __ARG__.__name__)
     value = Archive.Record.RecordValue(key, type(value), value, arg, line_no)
     archive.store(key, value)
+
+    if func_name == '__init__' and arg == 'self':
+        # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
+        # FIXME: Meaning that if __init__ is called with a firs arg which is not "self", this wouldn't work.
+        key = Archive.Record.RecordKey(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__)
+        value = Archive.Record.RecordValue(key, type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION,
+                                           line_no)
+        archive.store(key, value)
 
 
 def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
@@ -200,7 +208,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     # Create variable dict.
     vars_dict = {**locals, **globals}
 
-    container_id, field = _separate_to_container_and_field(target, frame, vars_dict)
+    container_id, field = _separate_to_container_and_field(target, frame, locals, globals)
 
     value = _search_in_vars_dict(field, vars_dict)
 
@@ -237,20 +245,6 @@ def __FC__(expression: str, function,
     # Function type.
     func_type = type(lambda _: _)
 
-    # Call the function.
-    ret_exc = None
-    try:
-        ret_value = function(*args, **kwargs)
-    except BaseException as e:
-        ret_exc = e
-        ret_value = ret_exc
-
-    if not archive._should_record:
-        if ret_exc:
-            raise ret_exc
-
-        return ret_value
-
     # Find container.
     container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
 
@@ -264,10 +258,31 @@ def __FC__(expression: str, function,
     record_key = Archive.Record.RecordKey(container_id, function.__name__, __FC__.__name__)
 
     # Create Record value.
-    record_value = Archive.Record.RecordValue(record_key, func_type, ret_value, expression, line_no, extra=extra)
+    # First put a null value and update it after the function has been called with the value / exception.
+    record_value = Archive.Record.RecordValue(record_key, func_type, None, expression, line_no, extra=extra)
 
-    # Store.
-    archive.store(record_key, record_value)
+    # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
+    if archive._should_record:
+        archive.store(record_key, record_value)
+
+    # Call the function.
+    ret_exc = None
+    try:
+        ret_value = function(*args, **kwargs)
+    except BaseException as e:
+        ret_exc = e
+        ret_value = ret_exc
+
+    if not archive._should_record:
+        if ret_exc:
+            raise ret_exc
+
+    # TODO: Represent the value.
+    ret_value_to_store = ret_value if type(ret_value) in [str, int, float, bool, complex] else id(ret_value)
+    if archive._should_record:
+        # Update the value of the called function (or exception).
+        #record_value.value = ret_value
+        record_value.value = ret_value_to_store
 
     # Return ret value.
     return ret_value
@@ -302,6 +317,24 @@ def __FCS__(name: str,
     # Store the function call.
     archive.store(name, frame, line_no, function_call_record_value, vars_dict={**locals, **globals})
 
+def __AC__(obj: object, attr: str, expr:str, locals: dict, globals: dict, line_no: int):
+    # Access field (or method).
+    field = obj.__getattribute__(attr)
+
+    if archive._should_record:
+        # Create a Record key.
+        record_key = Archive.Record.RecordKey(id(obj), attr, __AC__.__name__)
+
+        # Create Record value.
+        record_value = Archive.Record.RecordValue(record_key,
+                                                  type(field),
+                                                  field if type(field) in [int, float, str, bool] else id(field),
+                                                  expr, line_no)
+
+        # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
+        archive.store(record_key, record_value)
+
+    return field
 
 def create_ast_stub(stub, *args, **kwargs):
     """
@@ -344,3 +377,11 @@ class StubArgumentType(enumerate):
     #       and the id of x should be passed to the stub,
     #       the stub will be: __STUB_PRINT(id(x))
     ID = 2
+
+
+def __PAUSE__():
+    archive.pause_record()
+
+
+def __RESUME__():
+    archive.resume_record()
