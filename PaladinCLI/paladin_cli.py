@@ -51,11 +51,12 @@ def main():
         try:
             if args.run:
                 result, archive = PaLaDiNEngine.execute_with_paladin(paladinized_code, args.input_file)
-
+                print(result)
             # handle_run_exceptions(archive, result)
 
         except:  # Plot a graph.
-            pass
+            traceback.print_exc()
+
         finally:
             ig = interactive_graph.interactive_graph.InteractiveGraph(archive)
 

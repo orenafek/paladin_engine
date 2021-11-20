@@ -92,6 +92,14 @@
                 <td id="stub"></td>
             </tr>
             <tr>
+                <td>Container Id.</td>
+                <td id="container"></td>
+            </tr>
+            <tr>
+                <td>Field</td>
+                <td id="field"></td>
+            </tr>
+            <tr>
                 <td>Expression</td>
                 <td id="expression"></td>
             </tr>
@@ -104,6 +112,20 @@
                 <td id="line_no"></td>
             </tr>
         </table>
+        <form action="index.html">
+        <table>
+            <tr>
+                <td>
+                    <div>Search:</div>
+                </td>
+                <td><input type="text" name="expression_to_search"/></td>
+                <td>
+                        <input type="hidden" name="IsSearchButtonPressed" value="true" />
+                        <input type="submit" id="search_btn" disabled="disabled" />
+                </td>
+            </tr>
+        </table>
+            </form>
     </div>
 
 </div>
@@ -298,6 +320,14 @@
             d._children = null;
         }
         update(d);
+
+        /* Enable search button. */
+        document.getElementById("search_btn").disabled = false;
+    }
+
+    /* Handle search. */
+    function searchButtonOnClick() {
+
     }
 
     // Handle mouse over callback.
@@ -305,7 +335,7 @@
 
     function hover(node) {
         //var hover_box = document.getElementById("hover_box");
-        var ids = ["stub", "expression", "value", "line_no"];
+        var ids = ["stub", "expression", "container", "field", "value", "line_no"];
 
         if (box_filled) {
             /* Clear the box. */
@@ -313,7 +343,7 @@
                 document.getElementById(id).innerText = ""
             });
         } else {
-            var values = [node.stub_name, node.expression, node.value,
+            var values = [node.stub_name, node.expression, node.container, node.field, node.value,
                 node.line_no];
 
             for (let i = 0; i < ids.length; i++) {

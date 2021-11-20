@@ -1,20 +1,21 @@
 import http.server
 import json
 import os
-import random
 import shutil
 import socketserver
 import typing
+from typing import Optional
 
 import dash_cytoscape as cyto
-from dash import html
 import networkx as nx
+from dash import html
 from dash_extensions.enrich import Output, Input
 from networkx.drawing.nx_agraph import to_agraph
 
 import archive.archive
 import interactive_graph.interactive_graph
-from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG__
+import stubs.stubs
+from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG__, __AC__
 
 
 class InteractiveGraph(object):
@@ -25,6 +26,7 @@ class InteractiveGraph(object):
         __FC__.__name__: 'blue',
         __AS__.__name__: 'yellow',
         __ARG__.__name__: 'red',
+        __AC__.__name__: 'pink'
     }
 
     class GraphIterator(object):
@@ -107,6 +109,7 @@ class InteractiveGraph(object):
                 rv.key.stub_name, \
                 str(rv.time), \
                 str(rv.key.container_id), \
+                str(rv.key.field), \
                 str(archive.archive.represent(rv.value)), \
                 str(rv.line_no)
 
@@ -144,6 +147,9 @@ class InteractiveGraph(object):
 
                 elif node_type == __ARG__.__name__:
                     color = 'green'
+
+                elif node_type == __AC__.__name__:
+                    color = 'pink'
                 else:
                     color = 'yellow'
 
@@ -355,7 +361,8 @@ class InteractiveGraph(object):
     @property
     def archive_as_json_graph(self):
         g = self._archive_as_graph
-
+        if not g:
+            return '{}'
         roots = [n for n in g.nodes if g.in_degree(n) == 0]
         r = roots[0]
 
@@ -367,8 +374,9 @@ class InteractiveGraph(object):
                 "time": n[2],
                 "stub_name": n[3],
                 "container": n[5],
-                "value": n[6],
-                "line_no": n[7],
+                "field": n[6],
+                "value": n[7],
+                "line_no": n[8],
                 "color": interactive_graph.interactive_graph.InteractiveGraph.NODE_COLORS[n[3]],
                 "children": []
             }
@@ -384,7 +392,7 @@ class InteractiveGraph(object):
 
         return json.dumps(generate_dict(r, "null"))
 
-    def run_collapsible_tree(self, source_code_file_path: str, port: int=9999) -> None:
+    def run_collapsible_tree(self, source_code_file_path: str, port: int = 9999) -> None:
         interactive_graph_dir = '/Users/orenafek/Projects/Paladin/PaladinEngine/interactive_graph'
         with open(os.path.join(interactive_graph_dir, 'input_graph_tree.json'), 'w+') as f:
             f.write(self.archive_as_json_graph)
@@ -392,9 +400,19 @@ class InteractiveGraph(object):
         html_file_name = 'index.html'
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+
+            def send_response(self, code: int, message: Optional[str] = ...) -> None:
+                super().send_response(code, message)
+
             def do_GET(self):
                 if self.path == '/':
                     self.path = '/' + html_file_name
+                elif self.path.find('IsSearchButtonPressed=true') != -1:
+                    # The user has pressed the search button.
+                    expression = self.path[self.path.find('expression_to_search') + len(
+                        'expression_to_search') + 1:self.path.find('&')]
+                    self.result = stubs.stubs.archive.search_web(expression)
+                    print(self.result)
                 return http.server.SimpleHTTPRequestHandler.do_GET(self)
 
         # Create an object of the above class
@@ -406,6 +424,6 @@ class InteractiveGraph(object):
         shutil.copyfile(source_code_file_path,
                         os.path.join(interactive_graph_dir, 'source_code.txt'))
 
-        # Star the server
-        print(f'Serving on 127.0.0.1:{port}')
+        # Start the server
+        print(f'Serving on http://127.0.0.1:{port}')
         my_server.serve_forever()
