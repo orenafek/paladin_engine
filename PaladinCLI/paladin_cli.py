@@ -2,11 +2,11 @@ import argparse
 import csv
 import traceback
 
-import interactive_graph.interactive_graph
+import PaladinCLI
 from engine.engine import PaLaDiNEngine
 from interactive_debugger import interactive_debugger
 from source_provider import SourceProvider
-
+from PaladinCLI.interactive_graph.interactive_graph import InteractiveGraph
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -58,11 +58,11 @@ def main():
             traceback.print_exc()
 
         finally:
-            ig = interactive_graph.interactive_graph.InteractiveGraph(archive)
+            ig = InteractiveGraph(archive)
 
             if args.run_graph:
                 try:
-                    ig.run_collapsible_tree(args.input_file, port=args.graph_port)
+                    ig.run_collapsible_tree(source_code, port=args.graph_port)
                 except KeyboardInterrupt:
                     pass
                 except BaseException:
