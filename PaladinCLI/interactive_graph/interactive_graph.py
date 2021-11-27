@@ -3,8 +3,9 @@ import os
 import typing
 
 import networkx as nx
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
 from flask_classful import FlaskView, route
+from flask_cors import CORS
 
 import archive.archive
 from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG__, __AC__
@@ -12,7 +13,7 @@ from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG_
 NAME = 'PaLaDiN Research Server'
 TEMPLATE_FOLDER = os.path.join(os.getcwd(), 'interactive_graph', 'templates')
 JSON_FILE_NAME = 'input_graph_tree.json'
-SOURCE_CODE = ''
+SOURCE_CODE: str = ''
 
 
 class InteractiveGraph(object):
@@ -157,10 +158,11 @@ class InteractiveGraph(object):
         return json.dumps(generate_dict(r, "null"))
 
     def run_collapsible_tree(self, source_code: str, port: int = 9999) -> None:
-        global SOURCE_CODE
+        global SOURCE_CODE, IG
         server = PaladinFlaskServer()
         self.dump_graph_to_json(file_name=JSON_FILE_NAME)
         SOURCE_CODE = source_code
+        IG = self
         server.register_app()
         server.run(port)
 
@@ -168,11 +170,18 @@ class InteractiveGraph(object):
         with open(os.path.join(TEMPLATE_FOLDER, file_name), 'w') as f:
             f.write(self.archive_as_json_graph)
 
+    def search(self, expr: str):
+        return self.archive.search_web(expr)
+
+
+IG: typing.Optional[InteractiveGraph] = None
+
 
 class PaladinFlaskServer(FlaskView):
 
     def __init__(self):
         self._app = Flask(NAME, template_folder=TEMPLATE_FOLDER)
+        CORS(self.app, resources={r'/*': {'origins': '*'}})
 
     def register_app(self):
         self.app.template_folder = TEMPLATE_FOLDER
@@ -182,9 +191,12 @@ class PaladinFlaskServer(FlaskView):
     def app(self):
         return self._app
 
-    @route('/')
+    @route('/', methods=['GET', 'POST'])
     def index(self):
-        return render_template('index.html')
+        if request.method == 'GET':
+            return render_template('index.html')
+        if request.method == 'POST':
+            return self.search()
 
     @route('/input_graph_tree.json')
     def input_graph_tree(self):
@@ -195,11 +207,13 @@ class PaladinFlaskServer(FlaskView):
     def src_code(self):
         return SOURCE_CODE
 
-    @route('/oren', methods=['POST'])
-    def oren(self):
-        with open('/Users/orenafek/Projects/Paladin/PaladinEngine/interactive_graph/input_graph_tree.json',
-                  'r') as f:
-            return f.read()
+    @route('/search', methods=['POST'])
+    def search(self):
+        if not request.json:
+            result = {'search_result': ''}
+        else:
+            result = {'search_result': IG.search(request.json['expression_to_search'])}
+        return result
 
     def run(self, port: int = 5000):
         self.app.run(port=port)
