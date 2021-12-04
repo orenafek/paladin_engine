@@ -123,10 +123,7 @@
                 <td>
                     <div>Search:</div>
                 </td>
-                <td><input type="text" ref="expr_to_search"/></td>
-                <td>
-                    <button type="button" id="search_btn" @click="search" title="Search"></button>
-                </td>
+                <td><input type="text" ref="expr_to_search" placeholder="Start typing to search" @input="search"/></td>
             </tr>
             <tr>
                 <td>
@@ -404,6 +401,7 @@
             search: async function (event) {
                 const expr = this.$refs.expr_to_search.value;
                 this.search_result = await search_for_expression(expr);
+
             }
         }
     }

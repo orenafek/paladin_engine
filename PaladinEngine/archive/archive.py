@@ -193,6 +193,8 @@ class Archive(object):
         container_id = None
         for element in expression.split('.'):
             record_value: Archive.Record.RecordValue = search_web_inner(container_id, element)
+            if not record_value:
+                return ''
             if record_value.rtype in [str, int, float, bool, complex]:
                 return str(record_value.value)
 
