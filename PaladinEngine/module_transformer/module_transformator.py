@@ -14,7 +14,7 @@ from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
     FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
-    __UNDEF__, __AC__
+    __UNDEF__, __AC__, __PIS__
 
 
 class ModuleTransformer(object):
@@ -120,8 +120,19 @@ class ModuleTransformer(object):
             # Create a stubber.
             function_def_stubber = FunctionDefStubber(self._module)
 
-            # Create args prefix_stubs.
             prefix_stubs = [function_def_stub]
+
+            if function_def.extra.function_name == '__init__':
+                # Add a __PIS__ stub.
+                # First param should be the object being initialized (usually "self").
+                first_arg = function_def.extra.args[0]
+                init_prefix_stub = create_ast_stub(__PIS__,
+                                                   first_arg,
+                                                   wrap_str_param(first_arg),
+                                                   f'{function_def.node.lineno}')
+                prefix_stubs.append(init_prefix_stub)
+            # Create args prefix_stubs.
+
             for arg in function_def.extra.args:
                 arg_stub = create_ast_stub(__ARG__,
                                            wrap_str_param(function_def.extra.function_name),

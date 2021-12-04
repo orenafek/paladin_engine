@@ -8,7 +8,7 @@ from flask_classful import FlaskView, route
 from flask_cors import CORS
 
 import archive.archive
-from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG__, __AC__
+from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG__, __AC__, __PIS__
 
 NAME = 'PaLaDiN Research Server'
 TEMPLATE_FOLDER = os.path.join(os.getcwd(), 'interactive_graph', 'templates')
@@ -24,7 +24,8 @@ class InteractiveGraph(object):
         __FC__.__name__: 'blue',
         __AS__.__name__: 'yellow',
         __ARG__.__name__: 'red',
-        __AC__.__name__: 'pink'
+        __AC__.__name__: 'pink',
+        __PIS__.__name__: 'cyan'
     }
 
     def __init__(self, _a: archive.archive.Archive):
