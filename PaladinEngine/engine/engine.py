@@ -18,7 +18,7 @@ from module_transformer.module_transformator import ModuleTransformer
 from source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__, __ARG__, \
+from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
     __DEF__, __UNDEF__, __AC__, __PIS__
 
 

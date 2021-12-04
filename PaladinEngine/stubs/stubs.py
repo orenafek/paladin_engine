@@ -2,11 +2,11 @@ import ast
 import inspect
 import re
 from dataclasses import dataclass
-from typing import Optional, Union, Any
+from typing import Optional, Union
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
-from common.common import POID
+from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION
 from interactive_debugger.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
@@ -151,7 +151,8 @@ def _separate_to_container_and_func(function, expression: str, frame, vars_dict:
     # return _separate_to_container_and_field_inner(expression, frame, vars_dict, _extract_identifier)
 
 
-def _separate_to_container_and_field(expression: str, frame, locals: dict, globals: dict) -> tuple[int, str, object, bool]:
+def _separate_to_container_and_field(expression: str, frame, locals: dict, globals: dict) -> tuple[
+    int, str, object, bool]:
     expression_ast = str2ast(expression).value
     if isinstance(expression_ast, ast.Subscript):
         # TODO : Handle
@@ -167,9 +168,9 @@ def _separate_to_container_and_field(expression: str, frame, locals: dict, globa
 
 
 def __DEF__(func_name: str, line_no: int):
-    key = Archive.Record.RecordKey(Archive.GLOBAL_PALADIN_CONTAINER_ID, func_name, __DEF__.__name__)
-    value = Archive.Record.RecordValue(key, type(lambda _: _), func_name, func_name, line_no)
-    archive.store(key, value)
+    archive.store_new \
+        .key(Archive.GLOBAL_PALADIN_CONTAINER_ID, func_name, __DEF__.__name__) \
+        .value(type(lambda _: _), func_name, func_name, line_no)
 
 
 def __PIS__(first_param: object, first_param_name: str, line_no: int):
@@ -180,31 +181,23 @@ def __PIS__(first_param: object, first_param_name: str, line_no: int):
 
 
 def __UNDEF__(func_name: str, line_no: int):
-    key = Archive.Record.RecordKey(id(func_name), func_name, __UNDEF__.__name__)
-    value = Archive.Record.RecordValue(key, type(lambda _: _), func_name, func_name, line_no)
-    archive.store(key, value)
-
-
-# FIXME: Move to a better place...
-PALADIN_OBJECT_COLLECTION_FIELD = '__PALADIN_INIT_COLLECT__'
-PALADIN_OBJECT_COLLECTION_EXPRESSION = '__PALADIN_INIT_COLLECT_EXPRESSION__'
+    archive.store_new \
+        .key(id(func_name), func_name, __UNDEF__.__name__) \
+        .value(type(lambda _: _), func_name, func_name, line_no)
 
 
 def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
             line_no: int):
-    # func_obj = _search_in_vars_dict(func_name, {**locals, **globals})
-
-    key = Archive.Record.RecordKey(id(frame), arg, __ARG__.__name__)
-    value = Archive.Record.RecordValue(key, type(value), value, arg, line_no)
-    archive.store(key, value)
+    archive.store_new \
+        .key(id(frame), arg, __ARG__.__name__) \
+        .value(type(value), value, arg, line_no)
 
     if func_name == '__init__' and arg == 'self':
         # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
         # FIXME: Meaning that if __init__ is called with a firs arg which is not "self", this wouldn't work.
-        key = Archive.Record.RecordKey(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__)
-        value = Archive.Record.RecordValue(key, type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION,
-                                           line_no)
-        archive.store(key, value)
+        archive.store_new \
+            .key(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__) \
+            .value(type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION, line_no)
 
 
 def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
@@ -214,9 +207,10 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     # Create variable dict.
     vars_dict = {**locals, **globals}
 
-    container_id, field, container, is_container_value = _separate_to_container_and_field(target, frame, locals, globals)
+    container_id, field, container, is_container_value = _separate_to_container_and_field(target, frame, locals,
+                                                                                          globals)
 
-    #value = _search_in_vars_dict(field, vars_dict)
+    # value = _search_in_vars_dict(field, vars_dict)
     if is_container_value:
         value = container
     else:
@@ -226,14 +220,12 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         # TODO: handle?
         return
 
-    # Create Record key.
-    record_key = Archive.Record.RecordKey(container_id, field, __AS__.__name__)
-
-    # Create Record value.
     value_to_store = POID(value)
-    record_value = Archive.Record.RecordValue(record_key, type(value), value_to_store, expression, line_no)
 
-    archive.store(record_key, record_value)
+    archive.store_new \
+        .key(container_id, field, __AS__.__name__) \
+        .value(type(value), value_to_store, expression, line_no)
+
 
 def __FC__(expression: str, function,
            locals: dict, globals: dict, frame, line_no: int,
@@ -298,52 +290,14 @@ def __FC__(expression: str, function,
     return ret_value
 
 
-def __FCS__(name: str,
-            args: list,
-            kwargs: list,
-            return_value: object,
-            locals: dict, globals: dict, frame: dict, line_no: int) -> None:
-    """
-        A stub for function calls.
-        :param function_name:               The name of the function.
-        :param function_args_kwargs:        A list of the args and kwargs of the function.
-        :param function_call_return_value   The return value of the call to this function.
-        :param locals                       A dict of the local variables of the context in which this stub was called.
-        :param globals                      A dict of the global variables of the context in which this stub was called.
-        :param frame                        The frame of the context in which this stub was called.
-        :param line_no                      The line number in the original source code that triggered the creation of this
-                                            stub.
-
-    :return: None
-    """
-
-    # Create a function call record value.
-    function_call_record_value = archive.Record.FunctionCallRecordValue(
-        return_value,
-        line_no,
-        args,
-        kwargs)
-
-    # Store the function call.
-    archive.store(name, frame, line_no, function_call_record_value, vars_dict={**locals, **globals})
-
-
 def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
     # Access field (or method).
     field = obj.__getattribute__(attr)
 
     if archive._should_record:
-        # Create a Record key.
-        record_key = Archive.Record.RecordKey(id(obj), attr, __AC__.__name__)
-
-        # Create Record value.
-        record_value = Archive.Record.RecordValue(record_key,
-                                                  type(field),
-                                                  POID(field),
-                                                  expr, line_no)
-
-        # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
-        archive.store(record_key, record_value)
+        archive.store_new \
+            .key(id(obj), attr, __AC__.__name__) \
+            .value(type(field), POID(field), expr, line_no)
 
     return field
 
@@ -364,7 +318,7 @@ def create_ast_stub(stub, *args, **kwargs):
     return str2ast(f'{stub.__name__}({arguments_string})')
 
 
-all_stubs = [__FLI__, __AS__, __FCS__]
+all_stubs = [__FLI__, __AS__]
 
 
 class StubArgumentType(enumerate):

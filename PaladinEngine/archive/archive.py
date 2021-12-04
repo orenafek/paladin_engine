@@ -4,10 +4,14 @@
     :author: Oren Afek
     :since: 05/04/2019
 """
+import json
 from dataclasses import dataclass
-from typing import Optional, Iterable, Dict
+from itertools import product
+from typing import Optional, Iterable, Dict, List
 
 import pandas as pd
+
+from common.common import ISP
 
 
 def represent(o: object):
@@ -47,6 +51,8 @@ def represent(o: object):
 
 
 class Archive(object):
+    GLOBAL_PALADIN_CONTAINER_ID = 1337
+
     class Record(object):
         @dataclass
         class RecordKey(object):
@@ -104,7 +110,7 @@ class Archive(object):
                         self.extra)
 
     def __init__(self) -> None:
-        self.records: Dict[Archive.Record.RecordKey, Archive.Record.RecordValue] = {}
+        self.records: Dict[Archive.Record.RecordKey, List[Archive.Record.RecordValue]] = {}
         self._time = -1
         self._should_record = True
 
@@ -184,6 +190,19 @@ class Archive(object):
         data_frame = pd.DataFrame(columns=header, data=rows)
         return data_frame.to_markdown(index=True)
 
+    def build_object(self, object_id: int, time: int = -1) -> List[Dict]:
+        def time_filter(rv: Archive.Record.RecordValue):
+            return rv.time <= time if time != -1 else True
+
+        # noinspection PyTypeChecker
+        d = {
+            rk.field:
+                [(v.value if ISP(v.rtype) else self.build_object(v.value, time)) for v in rv if time_filter(v)]
+            for rk, rv in self.records.items()
+            if rk.container_id == object_id and rk.stub_name == '__AS__'}
+
+        return [dict(zip(keys, values)) for keys, values in product([d.keys()], zip(*d.values()))]
+
     def search_web(self, expression: str):
         def search_web_inner(container_id, field):
             for key in self.records:
@@ -195,12 +214,15 @@ class Archive(object):
             record_value: Archive.Record.RecordValue = search_web_inner(container_id, element)
             if not record_value:
                 return ''
+
             if record_value.rtype in [str, int, float, bool, complex]:
                 return str(record_value.value)
 
             container_id = record_value.value if type(record_value.value) is int else id(record_value.value)
 
-        return ''
+        # Getting here means that the last record value found is of an object and not primitive.
+        assert record_value and record_value.rtype is not int and type(record_value.value) is int
+        return json.dumps(self.build_object(record_value.value))
 
     def search(self, expression: str, frame: dict = None) -> Optional[Iterable[Record.RecordValue]]:
         for key in self.records.keys():
@@ -211,6 +233,28 @@ class Archive(object):
                 return record_values
 
         return None
+
+    @property
+    def store_new(self):
+        @dataclass
+        class Builder_Key(object):
+            _key: Archive.Record.RecordKey = None
+
+            def key(self, container_id: int, field: str, stub_name: str):
+                self._key = Archive.Record.RecordKey(container_id, field, stub_name)
+                return Builder(self._key)
+
+        @dataclass
+        class Builder(object):
+            _key: Archive.Record.RecordKey
+            _value: Archive.Record.RecordValue = None
+
+            def value(_self, rtype: type, value: object, expression: str, line_no: int, time: int = -1,
+                      extra: str = ''):
+                _self._value = Archive.Record.RecordValue(_self._key, rtype, value, expression, line_no, time, extra)
+                self.store(_self._key, _self._value)
+
+        return Builder_Key()
 
     def __str__(self):
         return self.__repr__()
