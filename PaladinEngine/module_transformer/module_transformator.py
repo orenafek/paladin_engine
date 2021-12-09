@@ -9,11 +9,12 @@ import ast
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder
+    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
+    AttributeAccessFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
-    FunctionCallStubber, FunctionDefStubber
-from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __FRAME__, __ARG__, __DEF__, \
-    __UNDEF__
+    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber
+from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
+    __UNDEF__, __AC__, __PIS__
 
 
 class ModuleTransformer(object):
@@ -85,11 +86,12 @@ class ModuleTransformer(object):
                 # Create a stub.
                 for target in targets:
                     ass_stub = create_ast_stub(__AS__,
-                                               wrap_str_param(ast2str(stub_entry.node).replace('"','@').replace("'", "@")),
+                                               wrap_str_param(
+                                                   ast2str(stub_entry.node).replace('"', '@').replace("'", "@")),
                                                wrap_str_param(str(target)),
                                                locals='locals()',
                                                globals='globals()',
-                                               frame=__FRAME__.__name__,
+                                               frame='__FRAME__()',
                                                line_no=f'{ass.lineno}')
 
                     # Create a stubber.
@@ -118,13 +120,27 @@ class ModuleTransformer(object):
             # Create a stubber.
             function_def_stubber = FunctionDefStubber(self._module)
 
-            # Create args prefix_stubs.
             prefix_stubs = [function_def_stub]
+
+            if function_def.extra.function_name == '__init__':
+                # Add a __PIS__ stub.
+                # First param should be the object being initialized (usually "self").
+                first_arg = function_def.extra.args[0]
+                init_prefix_stub = create_ast_stub(__PIS__,
+                                                   first_arg,
+                                                   wrap_str_param(first_arg),
+                                                   f'{function_def.node.lineno}')
+                prefix_stubs.append(init_prefix_stub)
+            # Create args prefix_stubs.
+
             for arg in function_def.extra.args:
                 arg_stub = create_ast_stub(__ARG__,
                                            wrap_str_param(function_def.extra.function_name),
                                            wrap_str_param(arg),
                                            arg,
+                                           locals='locals()',
+                                           globals='globals()',
+                                           frame='__FRAME__()',
                                            line_no=f'{function_def.node.lineno}')
                 prefix_stubs.append(arg_stub)
 
@@ -150,7 +166,7 @@ class ModuleTransformer(object):
             # Create a stub.
             post_cond_stub = create_ast_stub(__POST_CONDITION__,
                                              condition=f'{stub_entry.extra.name}({", ".join(stub_entry.extra.params)})',
-                                             locals='locals()', globals='globals()', frame=__FRAME__.__name__)
+                                             locals='locals()', globals='globals()', frame='__FRAME__()')
 
             # Create a stubber.
             method_stubber = MethodStubber(self._module)
@@ -197,7 +213,7 @@ class ModuleTransformer(object):
                     ast2str(stub_entry.node.func),
                     'locals()',
                     'globals()',
-                    __FRAME__.__name__,
+                    '__FRAME__()',
                     f'{stub_entry.node.lineno}']
 
                 if args_string:
@@ -205,7 +221,9 @@ class ModuleTransformer(object):
                     new_call_params.append(all_args_string)
 
                 s = f'{__FC__.__name__}(' + ', '.join(new_call_params) + ')'
-
+                # Remove \n to not break strings in the middle.
+                s= s.replace('\n','')
+                #s = __FC__.__name__ + '(' + ", ".join(new_call_params) + ')'
                 # Create a stub.
                 stubbed_call = str2ast(s).value
 
@@ -216,6 +234,52 @@ class ModuleTransformer(object):
                 function_call_finder.visit(self._module)
                 function_calls = function_call_finder.find()
 
+
+        except BaseException as e:
+            print(e)
+
+        finally:
+            return self
+
+    def transform_attribute_accesses(self) -> ModuleTransformer:
+        try:
+            # Find all function calls.
+            attribute_finder = AttributeAccessFinder()
+            attribute_finder.visit(self.module)
+            attribute_accesses = attribute_finder.find()
+
+            # Create a stubber.
+            attribute_access_stubber = AttributeAccessStubber(self.module)
+
+            while attribute_accesses:
+                attr_acc = attribute_accesses[0]
+
+                # In case that the attribute access is a lhs,
+                # TODO: Handle lhs.
+                if isinstance(attr_acc.container, ast.Assign) and attr_acc.node in attr_acc.container.targets:
+                    # TODO: Currently skipping.
+                    attribute_accesses = attribute_accesses[1::]
+                    continue
+                else:
+                    attr_acc_stub = create_ast_stub(__AC__,
+                                                    ast2str(attr_acc.node.value),
+                                                    wrap_str_param(attr_acc.node.attr),
+                                                    wrap_str_param(ast2str(attr_acc.node)),
+                                                    locals='locals()',
+                                                    globals='globals()',
+                                                    line_no=attr_acc.node.lineno)
+
+                    self.module = attribute_access_stubber.stub_attribute_access(
+                        attr_acc.node,
+                        attr_acc.container,
+                        attr_acc.attr_name,
+                        attr_acc_stub
+                    )
+
+                # Find all function calls.
+                attribute_finder = AttributeAccessFinder()
+                attribute_finder.visit(self.module)
+                attribute_accesses = attribute_finder.find()
 
         except BaseException as e:
             print(e)

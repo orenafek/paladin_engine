@@ -18,8 +18,8 @@ from module_transformer.module_transformator import ModuleTransformer
 from source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __FCS__, __AS__, __FC__, __FRAME__, __ARG__, \
-    __DEF__, __UNDEF__
+from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
+    __DEF__, __UNDEF__, __AC__, __PIS__
 
 
 class PaLaDiNEngine(object):
@@ -35,7 +35,7 @@ class PaLaDiNEngine(object):
     __INSTANCE = PaLaDiNEngine()
 
     # List of stubs that can be added to the PaLaDiNized code
-    PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__, __ARG__, __DEF__, __UNDEF__]
+    PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__, __ARG__, __DEF__, __UNDEF__, __AC__, __PIS__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -104,13 +104,15 @@ class PaLaDiNEngine(object):
         try:
             t = t.transform_loop_invariants()
             m = t.module
+            t = t.transform_attribute_accesses()
+            m = t.module
             t = t.transform_assignments()
             m = t.module
             t = t.transform_function_calls()
             m = t.module
             t = t.transform_for_loops_to_while_loops()
             m = t.module
-            t.transform_function_def()
+            t = t.transform_function_def()
             m = t.module
             t = t.transform_paladin_post_condition()
             m = t.module

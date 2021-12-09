@@ -1,7 +1,7 @@
 import ast
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional
+from typing import Union, Optional, List, Type, Any
 
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
@@ -544,8 +544,8 @@ class AssignmentFinder(GenericFinder):
                 return node.id, StubArgumentType.NAME
 
             def visit_Attribute(self, node):
-                return ast2str(node)#, StubArgumentType.NAME
-                #return node.attr, StubArgumentType.NAME
+                return ast2str(node)  # , StubArgumentType.NAME
+                # return node.attr, StubArgumentType.NAME
 
             def visit_Slice(self, node):
                 def safe_visit(node):
@@ -707,6 +707,45 @@ class FunctionDefFinder(GenericFinder):
         extra.args = [arg.arg for arg in node.args.args]
         return self._generic_visit_with_extras(node, extra)
 
+
+class AttributeAccessFinder(GenericFinder):
+
+    def __init__(self):
+        super().__init__()
+        self.attr_accesses = []
+
+    def types_to_find(self) -> Union[List[Type], Type]:
+        return ast.Attribute
+
+    def _should_filter(self, node: ast.AST) -> bool:
+        return False
+
+    @dataclass
+    class AttributeExtra(object):
+        value_extra: object
+        attr_extra: object
+
+    def _should_store_entry(self, extra: Union[None, object]) -> bool:
+        return True
+
+    # def _store_entry(self, entry: StubEntry) -> None:
+    #     extra: AttributeAccessFinder.AttributeExtra = entry.extra
+    #
+    #     while isinstance(extra.value_extra, AttributeAccessFinder.AttributeExtra):
+
+
+    def visit_Attribute(self, node: ast.Attribute):
+        return self._generic_visit_with_extras(node,
+                                               AttributeAccessFinder.AttributeExtra(
+                                                   super(GenericFinder, self).visit(node.value),
+                                                   node.attr
+                                               ))
+
+    # def visit(self, node):
+    #     if isinstance(node, ast.Attribute):
+    #         return super(GenericFinder, self).visit(node)
+    #
+    #     return node
 
 class DanglingPaLaDiNDefinition(Exception):
     """

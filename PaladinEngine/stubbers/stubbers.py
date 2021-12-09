@@ -555,3 +555,29 @@ class FunctionDefStubber(Stubber):
         self.root_module = self._stub(stub_record)
 
         return self.root_module
+
+
+class AttributeAccessStubber(Stubber):
+    """
+        A stubber for assignment statements.
+    """
+
+    def __init__(self, root_module) -> None:
+        """
+            Constructor
+        :param root_module: (ast.module) The module that contains the assignment statement.
+        """
+        # Call the super constructor.
+        super().__init__(root_module)
+
+
+    def stub_attribute_access(self, node: ast.Attribute,
+                              container: ast.AST,
+                              container_attr_name: str,
+                              stub: object):
+        stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name, stub)
+
+        self.root_module = self._stub(stub_record)
+
+        return self.root_module
+
