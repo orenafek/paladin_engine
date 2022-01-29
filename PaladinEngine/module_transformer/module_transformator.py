@@ -18,10 +18,6 @@ from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __
 
 
 class ModuleTransformer(object):
-    ...
-
-
-class ModuleTransformer(object):
     """
         Transformations for AST modules.
     """
@@ -30,7 +26,7 @@ class ModuleTransformer(object):
         self._module = module
         self.__temp_var_counter = 0
 
-    def transform_loop_invariants(self) -> ModuleTransformer:
+    def transform_loop_invariants(self) -> 'ModuleTransformer':
         pidf = PaladinForLoopInvariantsFinder()
         pidf.visit(self._module)
         loops = pidf.find()
@@ -48,7 +44,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_for_loops_to_while_loops(self) -> ModuleTransformer:
+    def transform_for_loops_to_while_loops(self) -> 'ModuleTransformer':
         plf = PaladinForLoopFinder()
         plf.visit(self._module)
         for_loop_entries = plf.find()
@@ -69,7 +65,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_assignments(self) -> ModuleTransformer:
+    def transform_assignments(self) -> 'ModuleTransformer':
         try:
             # Find all assignments.
             assignments_finder = AssignmentFinder()
@@ -92,7 +88,7 @@ class ModuleTransformer(object):
                                                locals='locals()',
                                                globals='globals()',
                                                frame='__FRAME__()',
-                                               line_no=f'{ass.lineno}')
+                                               line_no=f'{stub_entry.line_no}')
 
                     # Create a stubber.
                     ass_stubber = AssignmentStubber(self._module)
@@ -106,7 +102,7 @@ class ModuleTransformer(object):
             print(e)
             raise e
 
-    def transform_function_def(self) -> ModuleTransformer:
+    def transform_function_def(self) -> 'ModuleTransformer':
         # Find all function definitions.
         function_def_finder = FunctionDefFinder()
         function_def_finder.visit(self._module)
@@ -157,7 +153,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_paladin_post_condition(self) -> ModuleTransformer:
+    def transform_paladin_post_condition(self) -> 'ModuleTransformer':
         # Find all PaLaDiN post conditions.
         paladin_post_condition_finder = PaladinPostConditionFinder()
         paladin_post_condition_finder.visit(self._module)
@@ -179,7 +175,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_function_calls(self) -> ModuleTransformer:
+    def transform_function_calls(self) -> 'ModuleTransformer':
         try:
             # Find all function calls.
             function_call_finder = FunctionCallFinder()
@@ -241,7 +237,7 @@ class ModuleTransformer(object):
         finally:
             return self
 
-    def transform_attribute_accesses(self) -> ModuleTransformer:
+    def transform_attribute_accesses(self) -> 'ModuleTransformer':
         try:
             # Find all function calls.
             attribute_finder = AttributeAccessFinder()
@@ -298,22 +294,3 @@ class ModuleTransformer(object):
     @module.setter
     def module(self, value):
         self._module = value
-
-
-class PaladinPostConditionTransformer(ast.NodeTransformer):
-    def visit_FunctionDef(self, node):
-        # Extract decorators.
-        for decorator in node.decorator_list:
-            if self._decorator_predicate(node, decorator):
-                self.__decorators[node] = DecoratorFinder.Decorator(node, decorator)
-        self.generic_visit(node)
-
-        # noinspection PyUnusedLocal, PyMethodMayBeStatic
-
-    def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
-        """
-            A predicate to filter found decorators.
-        :param decorator:  A decorator object.
-        :return: True if the decorator should be added.
-        """
-        return DecoratorFinder.Decorator(func, decorator).name == PaladinPostCondition.__name__
