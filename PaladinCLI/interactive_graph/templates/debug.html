@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<!--suppress ALL -->
+<meta charset="utf-8">
+<head>
+    <title>Paladin</title>
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/agate.min.css"/>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+    <script src="//cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.8.0/dist/highlightjs-line-numbers.min.js"></script>
+    <script>hljs.initLineNumbersOnLoad();</script>
+    <script src="https://unpkg.com/vue@next"></script>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="https://unpkg.com/vue@next"></script>
+
+    <style type="text/css">
+        body {
+            background-color: #282727;
+            color: white;
+        }
+
+        thead {
+            color: #efc081;
+            align-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <h1 style="position: center">Welcome to PaLaDiN Archive Debugger!</h1>
+    <div>
+        <table>
+            <tr>
+                <td>Type a line number to debug:</td>
+                <td><input ref="line_no_to_debug_input" type="number"></td>
+                <td>
+                    <button id="line_no_to_debug_button" @click="select_line_no">Select</button>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <br/>
+    <div id="div_line_debug" style="visibility: hidden">
+        <table>
+            <tr>
+                <td> $$[ line_no_to_debug ]$$</td>
+                <td>
+                    <pre><code id="line_to_debug_code_block" style="overflow: hidden;"/></pre>
+                </td>
+            </tr>
+            <tr>
+                <td> Archive entries for line:</td>
+                <td>
+                    <table id="archive_entries_table">
+                        <thead>
+                        <td>Stub</td>
+                        <td>Container Id.</td>
+                        <td>Field</td>
+                        <td>Expression</td>
+                        <td>Value</td>
+                        </thead>
+                        <tr v-for="entry in archive_entries">
+                            <td v-for="v in Object.values(entry)">$$[ v ]$$</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div>
+        <table>
+            <tr>
+                <td> Select a var to follow:</td>
+                <td>
+                    <table>
+                        <thead>
+                        <td>Id</td>
+                        <td>Name</td>
+                        <td>Value</td>
+                        <td>&nbsp;</td>
+                        </thead>
+                        <tr v-for="target in vars_to_follow">
+                            <td ref="target_id" :id="'id' + target.id">$$[ target.id ]$$</td>
+                            <td>$$[ target.name ]$$</td>
+                            <td>$$[ target.value ]$$</td>
+                            <td>
+                                <button :id="target.id" @click="follow_var">follow</button>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div id="div_followed_var_history" style="visibility: hidden">
+        <table>
+            <tr>
+                <td>History of $$[ var_id_to_follow ]$$:</td>
+                <td>
+                    <table>
+                        <thead>
+                        <td v-if="var_id_to_follow != null && var_history[var_id_to_follow].length > 0"
+                            v-for="k in Object.keys(var_history[var_id_to_follow][0])"> $$[ k ]$$
+                        </td>
+                        </thead>
+                        <tr v-if="var_id_to_follow != null" v-for="entry in var_history[var_id_to_follow]">
+                            <td v-for="(value, index) in Object.values(entry)">
+                                <div v-if="index != Object.keys(entry).indexOf('expression')">
+                                    $$[ value ]$$
+                                </div>
+                                <div v-else :id="var_id_to_follow + '_' + index.toString() + '_' + 'expression'">
+                                    $$[ value ]$$
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+</body>
+
+<script type="module">
+    import {request} from "/scripts/request.js";
+
+    const debug_info = {
+        data: function () {
+            return {
+                line_no_to_debug: -1,
+                archive_entries: [],
+                vars_to_follow: [],
+                var_history: {},
+                var_id_to_follow: null,
+            }
+        },
+        created: async function () {
+        },
+        compilerOptions: {
+            delimiters: ['$$[', ']$$']
+        },
+        methods: {
+            update_element_visibility: function (element_id, visibility) {
+                document.getElementById(element_id).style.visibility = visibility ? 'visible' : 'hidden';
+            },
+            update_div_line_debug_visibility: function (visibility) {
+                this.update_element_visibility('div_line_debug', visibility);
+            },
+
+            update_div_followed_var_history_visibility: function (visibility) {
+                this.update_element_visibility('div_followed_var_history', visibility);
+            },
+
+
+            select_line_no: async function () {
+                this.line_no_to_debug = parseInt(this.$refs.line_no_to_debug_input.value);
+                this.archive_entries = new Object(
+                    (await request('debug_info',
+                        await {
+                            'line_no_to_debug': await this.line_no_to_debug,
+                            'info': 'archive_entries'
+                        }
+                    ))['result']['archive_entries']);
+                this.vars_to_follow = new Object(
+                    (await request('debug_info',
+                        await {
+                            'line_no_to_debug': await this.line_no_to_debug,
+                            'info': 'vars_to_follow'
+                        }))['result']['vars_to_follow']);
+                this.line_to_debug = new Object(await request('debug_info',
+                    {
+                        'line_no': this.line_no_to_debug,
+                        'info': 'get_line'
+                    }))['result']['line'];
+
+                document.getElementById('line_to_debug_code_block').innerHTML =
+                    hljs.highlightAuto(this.line_to_debug).value
+
+                this.update_div_line_debug_visibility(true);
+
+                this.update_div_followed_var_history_visibility(false);
+            },
+
+            follow_var: async function (event) {
+                const clicked_button_key = event.target.id;
+                this.var_history[clicked_button_key] = new Object(
+                    (await request('debug_info',
+                        {
+                            'info': 'var_assignments',
+                            'var_id_to_follow': clicked_button_key.toString()
+                        }))['result']['var_assignments']);
+                this.var_id_to_follow = clicked_button_key;
+                this.update_div_followed_var_history_visibility(true);
+            }
+        }
+    }
+
+    Vue.createApp(debug_info).mount('#header');
+
+</script>

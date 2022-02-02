@@ -1,9 +1,11 @@
 import json
 import os
 import typing
+from dataclasses import dataclass
+from pathlib import Path
 
 import networkx as nx
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, send_file
 from flask_classful import FlaskView, route
 from flask_cors import CORS
 
@@ -11,9 +13,15 @@ import archive.archive
 from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG__, __AC__, __PIS__
 
 NAME = 'PaLaDiN Research Server'
-TEMPLATE_FOLDER = os.path.join(os.getcwd(), 'interactive_graph', 'templates')
+# TEMPLATE_FOLDER = os.path.join(os.getcwd(), 'interactive_graph', 'templates')
+TEMPLATE_FOLDER = Path.cwd().joinpath('interactive_graph').joinpath('templates')
+STATIC_FOLDER = Path.cwd().joinpath('interactive_graph').joinpath('static')
+SCRIPTS_FOLDER = STATIC_FOLDER.joinpath('scripts')
 JSON_FILE_NAME = 'input_graph_tree.json'
 SOURCE_CODE: str = ''
+
+# FIXME: Currently for debugging purposes.
+LINE_NO_TO_DEBUG = 42
 
 
 class InteractiveGraph(object):
@@ -179,9 +187,23 @@ IG: typing.Optional[InteractiveGraph] = None
 
 
 class PaladinFlaskServer(FlaskView):
+    @dataclass
+    class _ArchiveEntriesView(object):
+        stub: str
+        container_id: int
+        field: str
+        expression: str
+        value: object
+
+    @dataclass
+    class _VarHistoryView(object):
+        field: str
+        value: object
+        line_no: int
+        expression: str
 
     def __init__(self):
-        self._app = Flask(NAME, template_folder=TEMPLATE_FOLDER)
+        self._app = Flask(NAME, template_folder=str(TEMPLATE_FOLDER), static_folder=str(STATIC_FOLDER))
         CORS(self.app, resources={r'/*': {'origins': '*'}})
 
     def register_app(self):
@@ -199,14 +221,54 @@ class PaladinFlaskServer(FlaskView):
         if request.method == 'POST':
             return self.search()
 
+    @route('/debug', methods=['GET', 'POST'])
+    def debug(self):
+        if request.method == 'GET':
+            return render_template('debug.html')
+
     @route('/input_graph_tree.json')
     def input_graph_tree(self):
         with open(os.path.join(TEMPLATE_FOLDER, JSON_FILE_NAME), 'r') as f:
             return f.read()
 
+    @route('/scripts/<path:path>')
+    def get_script(self, path):
+        return send_file(str(SCRIPTS_FOLDER.joinpath(path)), 'text/javascript')
+
+    @route('/faulty_line', methods=['GET'])
+    def faulty_line(self):
+        # TODO: Connect after run.
+        with open(str(TEMPLATE_FOLDER.joinpath('source_code.txt')), 'r') as f:
+            lines = f.readlines()
+            return lines[LINE_NO_TO_DEBUG - 1]
+
+    @route('/debug_info', methods=['POST'])
+    def debug_info(self):
+        args = request.json['args']
+        response = {}
+        if 'info' in args:
+            if args['info'] == 'line_no_to_debug':
+                response = {'line_no_to_debug': LINE_NO_TO_DEBUG}
+            elif args['info'] == 'get_line':
+                response = {'line': PaladinFlaskServer._get_line_from_source_code(args['line_no'])}
+            elif args['info'] == 'archive_entries':
+                response = {'archive_entries': PaladinFlaskServer._get_archive_entries(args['line_no_to_debug'])}
+            elif args['info'] == 'vars_to_follow':
+                response = {'vars_to_follow': PaladinFlaskServer._get_vars_to_follow(args['line_no_to_debug'])}
+            elif args['info'] == 'var_assignments':
+                response = {'var_assignments': PaladinFlaskServer._all_assignments_by_id(int(args['var_id_to_follow']))}
+        return {'result': response}
+
     @route('/source_code.txt')
     def src_code(self):
         return SOURCE_CODE
+
+    @staticmethod
+    def _get_line_from_source_code(line_no: int) -> str:
+        if line_no <= 0:
+            return ''
+
+        return SOURCE_CODE.split('\n')[line_no - 1]
 
     @route('/search', methods=['POST'])
     def search(self):
@@ -218,3 +280,39 @@ class PaladinFlaskServer(FlaskView):
 
     def run(self, port: int = 5000):
         self.app.run(port=port)
+
+    @staticmethod
+    def _get_archive_entries(line_no: int) -> typing.List['PaladinFlaskServer._ArchiveEntriesView']:
+
+        return [
+            PaladinFlaskServer._ArchiveEntriesView(
+                key.stub_name,
+                key.container_id,
+                key.field,
+                value.expression,
+                value.value
+            ) for (key, value_list) in IG.archive.get_by_line_no(line_no).items() for value in value_list
+        ]
+
+    @staticmethod
+    def _get_vars_to_follow(line_no_to_debug: int) -> typing.List:
+        archive_entries: list = PaladinFlaskServer._get_archive_entries(line_no_to_debug)
+        # FIXME: Currently only for __AS__.
+        ass_archive_entries = filter(lambda ae: ae.stub == __AS__.__name__, archive_entries)
+
+        @dataclass
+        class _ArchiveVarView(object):
+            id: str
+            name: int
+            value: object
+
+        return [_ArchiveVarView(aev.value, aev.field, IG.search(aev.field)) for aev in ass_archive_entries]
+
+    @staticmethod
+    def _all_assignments_by_id(container_id: int) -> typing.List['PaladinFlaskServer._VarHistoryView']:
+        return [PaladinFlaskServer._VarHistoryView(
+            key.field,
+            value.value,
+            value.line_no,
+            value.expression
+        ) for (key, value_list) in IG.archive.get_by_container_id(container_id).items() for value in value_list]

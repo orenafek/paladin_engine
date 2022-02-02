@@ -264,3 +264,9 @@ class Archive(object):
 
     def resume_record(self):
         self._should_record = True
+
+    def get_by_line_no(self, line_no: int) -> Dict['Archive.Record.RecordKey', List['Archive.Record.RecordValue']]:
+        return {k: v for (k, v) in self.records.items() for vv in v if vv.line_no == line_no}
+
+    def get_by_container_id(self, container_id: int):
+        return {k: v for (k, v) in self.records.items() if k.container_id == container_id and k.stub_name == '__AS__'}
