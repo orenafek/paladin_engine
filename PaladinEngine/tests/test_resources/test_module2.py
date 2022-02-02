@@ -45,7 +45,6 @@ def main():
     r0.rt = Point(-1, -2)
 
     r0.rt.setX(4)
-
     print(p0)
 
 

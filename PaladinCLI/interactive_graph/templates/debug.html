@@ -12,6 +12,7 @@
     <script src="https://unpkg.com/vue@next"></script>
     <script src="https://d3js.org/d3.v3.min.js"></script>
     <script src="https://unpkg.com/vue@next"></script>
+    <script src="/scripts/vue3-highlight.js"></script>
 
     <style type="text/css">
         body {
@@ -48,7 +49,9 @@
             <tr>
                 <td> $$[ line_no_to_debug ]$$</td>
                 <td>
-                    <pre><code id="line_to_debug_code_block" style="overflow: hidden;"/></pre>
+                    <pre v-if="line_to_debug != null" v-highlightjs>
+                        <code style="overflow: hidden;">$$[ line_to_debug ]$$</code>
+                    </pre>
                 </td>
             </tr>
             <tr>
@@ -56,11 +59,8 @@
                 <td>
                     <table id="archive_entries_table">
                         <thead>
-                        <td>Stub</td>
-                        <td>Container Id.</td>
-                        <td>Field</td>
-                        <td>Expression</td>
-                        <td>Value</td>
+                        <td v-if="archive_entries.length > 0"
+                            v-for="k in Object.keys(archive_entries[0])" v-html="capitalize(k)" />
                         </thead>
                         <tr v-for="entry in archive_entries">
                             <td v-for="v in Object.values(entry)">$$[ v ]$$</td>
@@ -77,10 +77,8 @@
                 <td>
                     <table>
                         <thead>
-                        <td>Id</td>
-                        <td>Name</td>
-                        <td>Value</td>
-                        <td>&nbsp;</td>
+                        <td v-if="vars_to_follow.length > 0" v-for="k in Object.keys(vars_to_follow[0])" v-html="capitalize(k)" />
+
                         </thead>
                         <tr v-for="target in vars_to_follow">
                             <td ref="target_id" :id="'id' + target.id">$$[ target.id ]$$</td>
@@ -103,7 +101,7 @@
                     <table>
                         <thead>
                         <td v-if="var_id_to_follow != null && var_history[var_id_to_follow].length > 0"
-                            v-for="k in Object.keys(var_history[var_id_to_follow][0])"> $$[ k ]$$
+                            v-for="k in Object.keys(var_history[var_id_to_follow][0])" v-html="capitalize(k)">
                         </td>
                         </thead>
                         <tr v-if="var_id_to_follow != null" v-for="entry in var_history[var_id_to_follow]">
@@ -112,7 +110,7 @@
                                     $$[ value ]$$
                                 </div>
                                 <div v-else :id="var_id_to_follow + '_' + index.toString() + '_' + 'expression'">
-                                    $$[ value ]$$
+                                    <pre v-highlightjs><code>$$[ value ]$$</code></pre>
                                 </div>
                             </td>
                         </tr>
@@ -127,6 +125,7 @@
 
 <script type="module">
     import {request} from "/scripts/request.js";
+    import {capitalizeFirstLetter} from "/scripts/string_utils.js";
 
     const debug_info = {
         data: function () {
@@ -136,6 +135,7 @@
                 vars_to_follow: [],
                 var_history: {},
                 var_id_to_follow: null,
+                line_to_debug: null
             }
         },
         created: async function () {
@@ -177,11 +177,7 @@
                         'info': 'get_line'
                     }))['result']['line'];
 
-                document.getElementById('line_to_debug_code_block').innerHTML =
-                    hljs.highlightAuto(this.line_to_debug).value
-
                 this.update_div_line_debug_visibility(true);
-
                 this.update_div_followed_var_history_visibility(false);
             },
 
@@ -195,10 +191,12 @@
                         }))['result']['var_assignments']);
                 this.var_id_to_follow = clicked_button_key;
                 this.update_div_followed_var_history_visibility(true);
-            }
+            },
+            capitalize: capitalizeFirstLetter
         }
     }
 
-    Vue.createApp(debug_info).mount('#header');
-
+    const debug_info_vue_app = Vue.createApp(debug_info);
+    debug_info_vue_app.use(Vue3Highlightjs);
+    debug_info_vue_app.mount('#header');
 </script>
