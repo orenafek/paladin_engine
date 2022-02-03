@@ -247,7 +247,9 @@ class PaladinFlaskServer(FlaskView):
         args = request.json['args']
         response = {}
         if 'info' in args:
-            if args['info'] == 'line_no_to_debug':
+            if args['info'] == 'source_code':
+                response = {'source_code': self.src_code().split('\n')}
+            elif args['info'] == 'line_no_to_debug':
                 response = {'line_no_to_debug': LINE_NO_TO_DEBUG}
             elif args['info'] == 'get_line':
                 response = {'line': PaladinFlaskServer._get_line_from_source_code(args['line_no'])}

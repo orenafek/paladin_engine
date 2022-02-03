@@ -31,93 +31,95 @@
 
 <div id="header">
     <h1 style="position: center">Welcome to PaLaDiN Archive Debugger!</h1>
-    <div>
-        <table>
-            <tr>
-                <td>Type a line number to debug:</td>
-                <td><input ref="line_no_to_debug_input" type="number"></td>
-                <td>
-                    <button id="line_no_to_debug_button" @click="select_line_no">Select</button>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <br/>
-    <div id="div_line_debug" style="visibility: hidden">
-        <table>
-            <tr>
-                <td> $$[ line_no_to_debug ]$$</td>
-                <td>
+    <h3>Select a line to start debuging:</h3>
+    <div class="flex-container">
+        <div style="line-height: 1px; height: 550px; overflow-y: scroll;">
+            <div v-for="(line, index) in source_code">
+                            <pre v-highlightjs @click="select_line_no(index + 1)">
+                                <code class="python" :id="'code_' + index">
+                                 $$[ index + 1 ]$$ $$[ line ]$$
+                            </code></pre>
+            </div>
+        </div>
+        <br/>
+        <div id="div_line_debug" style="visibility: hidden">
+            <table>
+                <tr>
+                    <td>
+                        <pre v-highlightjs><code>$$[ line_no_to_debug ]$$</code></pre>
+                    </td>
+                    <td>
                     <pre v-if="line_to_debug != null" v-highlightjs>
                         <code style="overflow: hidden;">$$[ line_to_debug ]$$</code>
                     </pre>
-                </td>
-            </tr>
-            <tr>
-                <td> Archive entries for line:</td>
-                <td>
-                    <table id="archive_entries_table">
-                        <thead>
-                        <td v-if="archive_entries.length > 0"
-                            v-for="k in Object.keys(archive_entries[0])" v-html="capitalize(k)" />
-                        </thead>
-                        <tr v-for="entry in archive_entries">
-                            <td v-for="v in Object.values(entry)">$$[ v ]$$</td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </div>
-    <div>
-        <table>
-            <tr>
-                <td> Select a var to follow:</td>
-                <td>
-                    <table>
-                        <thead>
-                        <td v-if="vars_to_follow.length > 0" v-for="k in Object.keys(vars_to_follow[0])" v-html="capitalize(k)" />
-
-                        </thead>
-                        <tr v-for="target in vars_to_follow">
-                            <td ref="target_id" :id="'id' + target.id">$$[ target.id ]$$</td>
-                            <td>$$[ target.name ]$$</td>
-                            <td>$$[ target.value ]$$</td>
-                            <td>
-                                <button :id="target.id" @click="follow_var">follow</button>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </div>
-    <div id="div_followed_var_history" style="visibility: hidden">
-        <table>
-            <tr>
-                <td>History of $$[ var_id_to_follow ]$$:</td>
-                <td>
-                    <table>
-                        <thead>
-                        <td v-if="var_id_to_follow != null && var_history[var_id_to_follow].length > 0"
-                            v-for="k in Object.keys(var_history[var_id_to_follow][0])" v-html="capitalize(k)">
-                        </td>
-                        </thead>
-                        <tr v-if="var_id_to_follow != null" v-for="entry in var_history[var_id_to_follow]">
-                            <td v-for="(value, index) in Object.values(entry)">
-                                <div v-if="index != Object.keys(entry).indexOf('expression')">
-                                    $$[ value ]$$
-                                </div>
-                                <div v-else :id="var_id_to_follow + '_' + index.toString() + '_' + 'expression'">
+                    </td>
+                </tr>
+                <tr>
+                    <td> Archive entries for line:</td>
+                    <td>
+                        <table id="archive_entries_table">
+                            <thead>
+                            <td v-if="archive_entries.length > 0"
+                                v-for="k in Object.keys(archive_entries[0])" v-html="capitalize(k)"/>
+                            </thead>
+                            <tr v-for="entry in archive_entries">
+                                <td v-for="value in Object.values(entry)">
                                     <pre v-highlightjs><code>$$[ value ]$$</code></pre>
-                                </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div>
+            <table>
+                <tr>
+                    <td> Select a var to follow:</td>
+                    <td>
+                        <table>
+                            <thead>
+                            <td v-if="vars_to_follow.length > 0" v-for="k in Object.keys(vars_to_follow[0])"
+                                v-html="capitalize(k)"/>
+
+                            </thead>
+                            <tr v-for="(target, target_index) in vars_to_follow">
+                                <td v-for="(value, key, index) in target" :id="key + '_' + target_index">
+                                    <pre v-highlightjs><code>$$[ value ]$$</code></pre>
+                                </td>
+                                <td>
+                                    <button :id="target.id" @click="follow_var">follow</button>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div id="div_followed_var_history" style="visibility: hidden">
+            <table>
+                <tr>
+                    <td>History of
+                        <pre v-highlightjs><code>$$[ var_id_to_follow ]$$ </code></pre>
+                        :
+                    </td>
+                    <td>
+                        <table>
+                            <thead>
+                            <td v-if="var_id_to_follow != null && var_history[var_id_to_follow].length > 0"
+                                v-for="k in Object.keys(var_history[var_id_to_follow][0])" v-html="capitalize(k)">
                             </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
+                            </thead>
+                            <tr v-if="var_id_to_follow != null" v-for="entry in var_history[var_id_to_follow]">
+                                <td v-for="value in Object.values(entry)">
+                                    <pre v-highlightjs><code>$$[ value ]$$</code></pre>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -130,6 +132,7 @@
     const debug_info = {
         data: function () {
             return {
+                source_code: [],
                 line_no_to_debug: -1,
                 archive_entries: [],
                 vars_to_follow: [],
@@ -139,6 +142,7 @@
             }
         },
         created: async function () {
+            this.source_code = (await request('debug_info', {'info': 'source_code'}))['result']['source_code'];
         },
         compilerOptions: {
             delimiters: ['$$[', ']$$']
@@ -156,8 +160,8 @@
             },
 
 
-            select_line_no: async function () {
-                this.line_no_to_debug = parseInt(this.$refs.line_no_to_debug_input.value);
+            select_line_no: async function (line_no) {
+                this.line_no_to_debug = line_no;
                 this.archive_entries = new Object(
                     (await request('debug_info',
                         await {
@@ -192,7 +196,11 @@
                 this.var_id_to_follow = clicked_button_key;
                 this.update_div_followed_var_history_visibility(true);
             },
-            capitalize: capitalizeFirstLetter
+            capitalize: capitalizeFirstLetter,
+
+            source_code_hover_event: function (id) {
+                document.getElementById(id).style.textDecoration = 'underline';
+            }
         }
     }
 

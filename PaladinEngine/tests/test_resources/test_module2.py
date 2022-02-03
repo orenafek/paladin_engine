@@ -5,6 +5,7 @@ from stubs.stubs import archive
 
 archive.pause_record()
 
+
 # @Paladin
 class Point(object):
     def __init__(self, x=0, y=0):
@@ -38,11 +39,14 @@ def main():
     p0.setX(1)
     p0.setY(2)
 
-    r0 = Rectangle(1,2,3,4)
+    r0 = Rectangle(1, 2, 3, 4)
     print(r0.rt.getX())
     print(r0.rt._x)
 
     r0.rt = Point(-1, -2)
+
+    for i in range(10):
+        r0.rt = Point(i, i + 1)
 
     r0.rt.setX(4)
     print(p0)
