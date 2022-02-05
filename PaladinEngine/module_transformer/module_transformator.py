@@ -239,7 +239,7 @@ class ModuleTransformer(object):
 
     def transform_attribute_accesses(self) -> 'ModuleTransformer':
         try:
-            # Find all function calls.
+            # Find all attribute accesses.
             attribute_finder = AttributeAccessFinder()
             attribute_finder.visit(self.module)
             attribute_accesses = attribute_finder.find()
@@ -263,13 +263,13 @@ class ModuleTransformer(object):
                                                     wrap_str_param(ast2str(attr_acc.node)),
                                                     locals='locals()',
                                                     globals='globals()',
-                                                    line_no=attr_acc.node.lineno)
+                                                    line_no=attr_acc.line_no)
 
                     self.module = attribute_access_stubber.stub_attribute_access(
                         attr_acc.node,
                         attr_acc.container,
                         attr_acc.attr_name,
-                        attr_acc_stub
+                        attr_acc_stub.value
                     )
 
                 # Find all function calls.
