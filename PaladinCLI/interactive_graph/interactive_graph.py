@@ -11,6 +11,7 @@ from flask_cors import CORS
 
 import archive.archive
 from PaladinEngine.stubs.stubs import __DEF__, __FC__, __UNDEF__, __AS__, __ARG__, __AC__, __PIS__
+from common.common import ISP
 
 NAME = 'PaLaDiN Research Server'
 # TEMPLATE_FOLDER = os.path.join(os.getcwd(), 'interactive_graph', 'templates')
@@ -194,6 +195,8 @@ class PaladinFlaskServer(FlaskView):
         field: str
         expression: str
         value: object
+        type: type
+        time: int
 
     @dataclass
     class _VarHistoryView(object):
@@ -201,9 +204,12 @@ class PaladinFlaskServer(FlaskView):
         value: object
         line_no: int
         expression: str
+        time: int
 
     def __init__(self):
         self._app = Flask(NAME, template_folder=str(TEMPLATE_FOLDER), static_folder=str(STATIC_FOLDER))
+        self._app.jinja_options['variable_start_string'] = '@='
+        self._app.jinja_options['variable_end_string'] = '=@'
         CORS(self.app, resources={r'/*': {'origins': '*'}})
 
     def register_app(self):
@@ -259,6 +265,8 @@ class PaladinFlaskServer(FlaskView):
                 response = {'vars_to_follow': PaladinFlaskServer._get_vars_to_follow(args['line_no_to_debug'])}
             elif args['info'] == 'var_assignments':
                 response = {'var_assignments': PaladinFlaskServer._all_assignments_by_id(int(args['var_id_to_follow']))}
+            elif args['info'] == 'retrieve_object':
+                response = {'object': IG.archive.retrieve_object(int(args['object_id']), int(args['time']))}
         return {'result': response}
 
     @route('/source_code.txt')
@@ -292,23 +300,26 @@ class PaladinFlaskServer(FlaskView):
                 key.container_id,
                 key.field,
                 value.expression,
-                value.value
+                value.value,
+                value.rtype.__name__ if ISP(value.rtype) else 'ptr',
+                value.time
             ) for (key, value_list) in IG.archive.get_by_line_no(line_no).items() for value in value_list
         ]
 
     @staticmethod
     def _get_vars_to_follow(line_no_to_debug: int) -> typing.List:
         archive_entries: list = PaladinFlaskServer._get_archive_entries(line_no_to_debug)
-        # FIXME: Currently only for __AS__.
-        ass_archive_entries = filter(lambda ae: ae.stub == __AS__.__name__, archive_entries)
+
+        # # FIXME: Currently only for __AS__.
+        # ass_archive_entries = filter(lambda ae: ae.stub == __AS__.__name__, archive_entries)
 
         @dataclass
         class _ArchiveVarView(object):
             id: str
-            name: int
+            field: int
             value: object
 
-        return [_ArchiveVarView(aev.value, aev.field, IG.search(aev.field)) for aev in ass_archive_entries]
+        return [_ArchiveVarView(aev.value, aev.field, IG.search(aev.field)) for aev in archive_entries]
 
     @staticmethod
     def _all_assignments_by_id(container_id: int) -> typing.List['PaladinFlaskServer._VarHistoryView']:
@@ -316,5 +327,6 @@ class PaladinFlaskServer(FlaskView):
             key.field,
             value.value,
             value.line_no,
-            value.expression
+            value.expression,
+            value.time
         ) for (key, value_list) in IG.archive.get_by_container_id(container_id).items() for value in value_list]

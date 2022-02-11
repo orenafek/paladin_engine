@@ -4,7 +4,7 @@ from source_provider import SourceProvider
 from stubs import __FCS__, __FLI__, __SIMPLE_AS__, simple_archive
 
 with open(
-        '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/test_module.py') as f:
+        '/tests/test_resources/examples/test_module_1/test_module.py') as f:
     SourceProvider.set_code(f.read())
 
 

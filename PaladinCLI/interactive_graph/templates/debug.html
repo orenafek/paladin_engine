@@ -63,8 +63,20 @@
                                 v-for="k in Object.keys(archive_entries[0])" v-html="capitalize(k)"/>
                             </thead>
                             <tr v-for="entry in archive_entries">
-                                <td v-for="value in Object.values(entry)">
-                                    <pre v-highlightjs><code>$$[ value ]$$</code></pre>
+                                <td v-for="value, key in entry">
+                                    <pre v-if="key != 'value' || entry['type'] != 'ptr'">
+                                        <highlighted :code="value"></highlighted>
+                                    </pre>
+                                    <div v-else>
+                                        <div>
+                                            <pre v-highlightjs @click="follow_var2(value, entry['time'])"><code>$$[ value ]$$</code></pre>
+                                        </div>
+                                        <div>
+                                            <div v-if="retrieved_objects[value, entry['time']] != {}">
+                                                <pre v-highlightjs><code> $$[ retrieved_objects[value, entry['time']] ]$$ </code></pre>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         </table>
@@ -100,7 +112,7 @@
             <table>
                 <tr>
                     <td>History of
-                        <pre v-highlightjs><code>$$[ var_id_to_follow ]$$ </code></pre>
+                        <highlighted :code="var_id_to_follow"></highlighted>
                         :
                     </td>
                     <td>
@@ -130,6 +142,12 @@
     import {capitalizeFirstLetter} from "/scripts/string_utils.js";
 
     const debug_info = {
+        components: {
+            highlighted: {
+                props: ['code'],
+                template: `<pre v-highlightjs><code> {{ code }} </code></pre>`
+            },
+        },
         data: function () {
             return {
                 source_code: [],
@@ -138,7 +156,8 @@
                 vars_to_follow: [],
                 var_history: {},
                 var_id_to_follow: null,
-                line_to_debug: null
+                line_to_debug: null,
+                retrieved_objects: {}
             }
         },
         created: async function () {
@@ -195,6 +214,15 @@
                         }))['result']['var_assignments']);
                 this.var_id_to_follow = clicked_button_key;
                 this.update_div_followed_var_history_visibility(true);
+            },
+
+            follow_var2: async function (object_id, time) {
+                this.retrieved_objects[object_id, time] = new Object((await request('debug_info',
+                    {
+                        'info': 'retrieve_object',
+                        'object_id': object_id,
+                        'time': time
+                    }))['result']['object']);
             },
             capitalize: capitalizeFirstLetter,
 
