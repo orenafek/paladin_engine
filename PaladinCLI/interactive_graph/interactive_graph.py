@@ -266,7 +266,8 @@ class PaladinFlaskServer(FlaskView):
             elif args['info'] == 'var_assignments':
                 response = {'var_assignments': PaladinFlaskServer._all_assignments_by_id(int(args['var_id_to_follow']))}
             elif args['info'] == 'retrieve_object':
-                response = {'object': IG.archive.retrieve_object(int(args['object_id']), int(args['time']))}
+                response = {
+                    'object': IG.archive.retrieve_value(int(args['object_id']), args['object_type'], int(args['time']))}
         return {'result': response}
 
     @route('/source_code.txt')
@@ -309,9 +310,6 @@ class PaladinFlaskServer(FlaskView):
     @staticmethod
     def _get_vars_to_follow(line_no_to_debug: int) -> typing.List:
         archive_entries: list = PaladinFlaskServer._get_archive_entries(line_no_to_debug)
-
-        # # FIXME: Currently only for __AS__.
-        # ass_archive_entries = filter(lambda ae: ae.stub == __AS__.__name__, archive_entries)
 
         @dataclass
         class _ArchiveVarView(object):

@@ -104,11 +104,11 @@ class PaLaDiNEngine(object):
         try:
             t = t.transform_loop_invariants()
             m = t.module
+            t = t.transform_function_calls()
+            m = t.module
             t = t.transform_attribute_accesses()
             m = t.module
             t = t.transform_assignments()
-            m = t.module
-            t = t.transform_function_calls()
             m = t.module
             t = t.transform_for_loops_to_while_loops()
             m = t.module

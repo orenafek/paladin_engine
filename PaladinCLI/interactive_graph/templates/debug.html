@@ -64,12 +64,12 @@
                             </thead>
                             <tr v-for="entry in archive_entries">
                                 <td v-for="value, key in entry">
-                                    <pre v-if="key != 'value' || entry['type'] != 'ptr'">
+                                    <pre v-if="(key != 'value' && key != 'container_id') || entry['type'] != 'ptr'">
                                         <highlighted :code="value"></highlighted>
                                     </pre>
                                     <div v-else>
                                         <div>
-                                            <pre v-highlightjs @click="follow_var2(value, entry['time'])"><code>$$[ value ]$$</code></pre>
+                                            <pre v-highlightjs @click="retrieve_object(value, entry['type'], entry['time'])"><code>$$[ value ]$$</code></pre>
                                         </div>
                                         <div>
                                             <div v-if="retrieved_objects[value, entry['time']] != {}">
@@ -216,11 +216,12 @@
                 this.update_div_followed_var_history_visibility(true);
             },
 
-            follow_var2: async function (object_id, time) {
+            retrieve_object: async function (object_id, object_type, time) {
                 this.retrieved_objects[object_id, time] = new Object((await request('debug_info',
                     {
                         'info': 'retrieve_object',
                         'object_id': object_id,
+                        'object_type': object_type,
                         'time': time
                     }))['result']['object']);
             },

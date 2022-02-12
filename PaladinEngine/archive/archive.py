@@ -271,31 +271,28 @@ class Archive(object):
     def get_by_container_id(self, container_id: int):
         return {k: v for (k, v) in self.records.items() if k.container_id == container_id and k.stub_name == '__AS__'}
 
-    def retrieve_object(self, object_id: int, time: int = -1, recursive: bool = True) -> dict:
+    def retrieve_value(self, object_value: object, object_type: type, time: int = -1):
         """
             Retrieve an object state from the archive in a certain point of time.
-        :param object_id: The object to retrieve.
+        :param object_value: The object to retrieve.
+        :param object_type: The type of the object to retrieve.
         :param time: The time point in which the retrieved state reflected the object.
-        :param recursive: Should the retrieval be recursive, meaning for each field of the object_id,
-        should also retrieve its fields, etc.
         :return:
         """
+        if ISP(object_type):
+            return object_value
+
+        if object_type is list:
+            return [self.retrieve_value(i, type(i), time) for i in object_value]
+
+        if object_type is dict:
+            return {self.retrieve_value(k, type(k), time): self.retrieve_value(v, type(v), time) for (k, v) in
+                    object_value.items()}
 
         def _retrieve_object_one_level(object_id: int) -> Dict[Tuple[str, type], object]:
             assignments = sorted([(k, vv) for (k, v) in self.records.items() for vv in v if
                                   vv.time <= time and k.container_id == object_id and k.stub_name == '__AS__'],
                                  key=lambda r: r[1].time)
-            result = {}
-            for k, v in assignments:
-                result[(k.field, v.rtype)] = v.value
+            return {(k.field, v.rtype): v.value for (k, v) in assignments}
 
-            return result
-
-        result = {}
-        for (k, t), v in _retrieve_object_one_level(object_id).items():
-            if ISP(t):
-                result[k] = v
-            else:
-                result[k] = self.retrieve_object(v, time)
-
-        return result
+        return {k: self.retrieve_value(v, t, time) for (k, t), v in _retrieve_object_one_level(object_value).items()}
