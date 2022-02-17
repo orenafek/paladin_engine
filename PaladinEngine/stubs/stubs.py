@@ -2,7 +2,7 @@ import ast
 import inspect
 import re
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, TypeVar
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
@@ -351,3 +351,18 @@ def __PAUSE__():
 
 def __RESUME__():
     archive.resume_record()
+
+
+_T = TypeVar("_T")
+
+
+# noinspection PyPep8Naming
+class __PALADIN_LIST__(object):
+    def __init__(self, elements: [] = None):
+        if elements is None:
+            self._inner = []
+        else:
+            self._inner = elements
+
+    def append(self, __object: _T) -> None:
+        self._inner = self._inner + [__object]

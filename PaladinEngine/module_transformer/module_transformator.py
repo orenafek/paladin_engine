@@ -6,13 +6,12 @@
 """
 import ast
 
-from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
-    AttributeAccessFinder
+    PaladinPostConditionFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
+    AttributeAccessFinder, ListFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
-    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber
+    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, ListStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
     __UNDEF__, __AC__, __PIS__
 
@@ -218,8 +217,8 @@ class ModuleTransformer(object):
 
                 s = f'{__FC__.__name__}(' + ', '.join(new_call_params) + ')'
                 # Remove \n to not break strings in the middle.
-                s= s.replace('\n','')
-                #s = __FC__.__name__ + '(' + ", ".join(new_call_params) + ')'
+                s = s.replace('\n', '')
+                # s = __FC__.__name__ + '(' + ", ".join(new_call_params) + ')'
                 # Create a stub.
                 stubbed_call = str2ast(s).value
 
@@ -276,6 +275,32 @@ class ModuleTransformer(object):
                 attribute_finder = AttributeAccessFinder()
                 attribute_finder.visit(self.module)
                 attribute_accesses = attribute_finder.find()
+
+        except BaseException as e:
+            print(e)
+
+        finally:
+            return self
+
+    def transform_lists(self) -> 'ModuleTransformer':
+        try:
+            # Find all attribute accesses.
+            lists_finder = ListFinder()
+            lists_finder.visit(self.module)
+            lists = lists_finder.find()
+
+            # Create a stubber.
+            list_stubber = ListStubber(self.module)
+
+            while lists:
+                l = lists[0]
+
+                self.module = list_stubber.stub_list(l.node, l.container, l.attr_name)
+
+                # Find all lists.
+                lists_finder = ListFinder()
+                lists_finder.visit(self.module)
+                lists = lists_finder.find()
 
         except BaseException as e:
             print(e)

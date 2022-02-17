@@ -4,6 +4,7 @@ from ast import *
 from typing import Union
 
 from ast_common.ast_common import str2ast, ast2str
+from stubs.stubs import __PALADIN_LIST__
 from utils.utils import assert_not_raise
 
 
@@ -197,6 +198,50 @@ class Stubber(ABC, ast.NodeTransformer):
                     # ast.copy_location(self.replace[0], self.original)
                     # self.container.__setattr__(self.attr_name, self.replace)
                     # return self.container
+
+            except BaseException as e:
+                print(e)
+
+    class _ListReplacingStubRecord(_ReplacingStubRecord):
+        """
+            A stub record for replacing a node with another instead.
+        """
+
+        def __init__(self,
+                     original: AST,
+                     container: AST,
+                     attr_name: str,
+                     replace: Union[AST, list]) -> None:
+            """
+                Constructor.
+            :param original: (AST) The original AST node that will be replaced with a stub.
+            :param container: (AST) The container that holds the stubbed node.
+            :param attr_name: (str) The name of the attribute of the container that will be replaced.
+            :param replace: (Union[AST, list[AST]) The replacement to the original content in the container.
+            """
+            super().__init__(original, container, attr_name, replace)
+
+        def create_stub(self) -> Union[AST, list]:
+            """
+                Create a stub with the replacement of original.
+            :return:
+            """
+            try:
+                containing_field = self.container.__dict__[self.attr_name]
+                if type(containing_field) is list:
+                    # Initialize a new container.
+                    container_with_stub = []
+
+                    for node in containing_field:
+                        if node is self.original:
+                            # Add the stub.
+                            container_with_stub += self.replace
+                        else:
+                            container_with_stub.append(node)
+
+                    return container_with_stub
+
+                return self.replace[0]
 
             except BaseException as e:
                 print(e)
@@ -581,3 +626,21 @@ class AttributeAccessStubber(Stubber):
 
         return self.root_module
 
+
+class ListStubber(Stubber):
+    def __init__(self, root_module) -> None:
+        """
+            Constructor
+        :param root_module: (ast.module) The module that contains the list.
+        """
+        # Call the super constructor.
+        super().__init__(root_module)
+
+    def stub_list(self, node: ast.List, container: ast.AST, container_attr_name: str):
+
+        stub = str2ast(f'{__PALADIN_LIST__.__name__}([{", ".join([ast2str(i) for i in node.elts])}])').value
+
+        stub_record = Stubber._ListReplacingStubRecord(node, container, container_attr_name, stub)
+        #stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name, stub)
+        self.root_module = self._stub(stub_record)
+        return self.root_module

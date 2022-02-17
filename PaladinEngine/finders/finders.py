@@ -1,4 +1,3 @@
-import ast
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, Optional, List, Type, Any
@@ -7,6 +6,7 @@ from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
 from conf.engine_conf import *
 from stubs.stubs import StubArgumentType, all_stubs, SubscriptVisitResult
+
 
 @dataclass
 class StubEntry(object):
@@ -690,6 +690,14 @@ class FunctionDefFinder(GenericFinder):
         return self._generic_visit_with_extras(node, extra)
 
 
+class ListFinder(GenericFinder):
+    def types_to_find(self):
+        return ast.List
+
+    def visit_List(self, node: ast.List) -> Any:
+        return node
+
+
 class AttributeAccessFinder(GenericFinder):
 
     def __init__(self):
@@ -715,7 +723,6 @@ class AttributeAccessFinder(GenericFinder):
     #
     #     while isinstance(extra.value_extra, AttributeAccessFinder.AttributeExtra):
 
-
     def visit_Attribute(self, node: ast.Attribute):
         return self._generic_visit_with_extras(node,
                                                AttributeAccessFinder.AttributeExtra(
@@ -728,6 +735,7 @@ class AttributeAccessFinder(GenericFinder):
     #         return super(GenericFinder, self).visit(node)
     #
     #     return node
+
 
 class DanglingPaLaDiNDefinition(Exception):
     """
