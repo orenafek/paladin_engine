@@ -1,17 +1,17 @@
-import {request} from "./request"
+import {request_debug_info} from "./request"
 import {capitalizeFirstLetter} from "./string_utils";
 import Tree from "vue3-tree";
 import * as Vue from "vue/dist/vue.esm-bundler.js";
 import Vue3Highlightjs from "./vue3-highlight";
-import {ref} from "vue";
 import Highlighted from "./components/highlighted.vue";
 import {escapeHTMLTags} from "./components/highlighted.vue";
-import archive_entries_table from "./components/archive_entries_table.vue";
+import ArchiveTable from "./components/archive_entries_table.vue";
+import TableLite from "vue3-table-lite";
 
 const debug_info = {
     components: {
         highlighted: Highlighted,
-        ArchiveTable: archive_entries_table,
+        archiveTable: ArchiveTable,
         Tree
     },
     data: function () {
@@ -23,19 +23,20 @@ const debug_info = {
             source_code: [],
             line_no_to_debug: -1,
             archive_entries: [],
+            archive_entries_columns: [],
             vars_to_follow: [],
             var_history: {},
             var_id_to_follow: null,
             line_to_debug: null,
             retrieved_objects: {},
-            time_window: null
+            time_window: []
         }
     },
     created: async function () {
-        this.source_code = (await request('debug_info', {'info': 'source_code'}))['result']['source_code'];
-        const exception = (await request('debug_info', {'info': 'exception_line'}))['result'];
+        this.source_code = await request_debug_info('source_code');
+        const exception = await request_debug_info('exception_line');
         this.exception_line_no = exception != null ? exception['exception_line_no'] : null;
-        this.exception_line = exception != null ? exception['exception_line'] : null;
+        this.exception_source_line = exception != null ? exception['exception_source_line'] : null;
         this.exception_msg = exception != null ? exception['exception_msg'] : null;
         this.exception_archive_time = exception != null ? exception['exception_archive_time'] : null;
     },
@@ -47,82 +48,45 @@ const debug_info = {
             document.getElementById(element_id).style.visibility = visibility ? 'visible' : 'hidden';
         },
         update_div_line_debug_visibility: function (visibility) {
-            this.update_element_visibility('div_line_debug', visibility);
+            this.update_element_visibility('span_line_debug', visibility);
         },
 
-        update_div_followed_var_history_visibility: function (visibility) {
-            this.update_element_visibility('div_followed_var_history', visibility);
+        create_archive_entries_columns: async function (entries) {
+            let columns = []
+            if (entries.length > 0) {
+                for (const entry_key in entries[0]) {
+                    const isKey = entry_key === "time";
+                    columns.push({
+                        label: entry_key,
+                        field: entry_key,
+                        width: "3%",
+                        sortable: true,
+                        isKey: isKey
+                    })
+                }
+            }
+            this.archive_entries_columns = columns
         },
 
         select_line_no: async function (line_no) {
             this.line_no_to_debug = line_no;
-            this.archive_entries = new Object(
-                (await request('debug_info',
-                    {
-                        'line_no_to_debug': this.line_no_to_debug,
-                        'info': 'archive_entries'
-                    }
-                ))['result']['archive_entries']);
-            this.vars_to_follow = new Object(
-                (await request('debug_info',
-                    {
-                        'line_no_to_debug': this.line_no_to_debug,
-                        'info': 'vars_to_follow'
-                    }))['result']['vars_to_follow']);
-            this.line_to_debug = new Object(await request('debug_info',
-                {
-                    'line_no': this.line_no_to_debug,
-                    'info': 'get_line'
-                }))['result']['line'];
-
+            this.archive_entries = await request_debug_info('archive_entries', this.line_no_to_debug);
+            this.archive_entries_columns = await this.create_archive_entries_columns(this.archive_entries);
+            this.line_to_debug = await request_debug_info('source_code', this.line_no_to_debug);
             this.update_div_line_debug_visibility(true);
-            this.update_div_followed_var_history_visibility(false);
-        },
-
-        follow_var: async function (event) {
-            const clicked_button_key = event.target.id;
-            this.var_history[clicked_button_key] = new Object(
-                (await request('debug_info',
-                    {
-                        'info': 'var_assignments',
-                        'var_id_to_follow': clicked_button_key.toString()
-                    }))['result']['var_assignments']);
-            this.var_id_to_follow = clicked_button_key;
-            this.update_div_followed_var_history_visibility(true);
         },
 
         retrieve_object: async function (object_id, object_type, time) {
-            this.retrieved_objects[object_id, time] = new Object((await request('debug_info',
-                {
-                    'info': 'retrieve_object',
-                    'object_id': object_id,
-                    'object_type': object_type,
-                    'time': time
-                }))['result']['object']);
-        },
-
-        objectLifetime: async function (object_id) {
-            this.var_history[object_id] = new Object((await request('debug_info',
-                {'info': 'object_lifetime', 'object_id': object_id}))['result']['lifetime']);
-            this.var_id_to_follow = object_id;
-            console.log(this.var_history[object_id]);
-            this.var_history[object_id] = this.example_nodes;
-            this.update_div_followed_var_history_visibility(true);
+            this.retrieved_objects[object_id, time] = await request_debug_info('retrieve_object', object_id, object_type, time);
         },
 
         capitalize: capitalizeFirstLetter,
 
-        source_code_hover_event: function (id) {
-            document.getElementById(id).style.textDecoration = 'underline';
-        },
+        create_time_window: async function () {
+            const from = document.getElementById("time_window_from").value;
+            const to = document.getElementById("time_window_to").value;
 
-        create_time_window: async function (from, to) {
-            this.time_window = new Object((await request('debug_info',
-                {
-                    'info': "get_time_window",
-                    'from': from,
-                    'to': to
-                }))['result']['time_window']);
+            this.time_window = await request_debug_info('time_window', from, to);
             this.update_element_visibility('time_window_archive_table', true);
         }
     }

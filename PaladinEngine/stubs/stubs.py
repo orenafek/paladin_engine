@@ -3,7 +3,7 @@ import inspect
 import re
 from dataclasses import dataclass
 from typing import Optional, Union, TypeVar
-
+import sys
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
 from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION
@@ -94,11 +94,6 @@ def __POST_CONDITION__(condition: str, frame: dict, locals, globals):
     archive.make_commitment('self.grid', frame, commitment, all_vars)
 
 
-import sys
-
-sys._getframe(0)
-
-
 def _search_in_vars_dict(symbol: Union[str, SubscriptVisitResult], vars: dict) -> Optional[object]:
     if type(symbol) is dict:
         symbol = SubscriptVisitResult.inflate(symbol)
@@ -167,9 +162,9 @@ def _separate_to_container_and_field(expression: str, frame, locals: dict, globa
     return id(container), field, container, False
 
 
-def __DEF__(func_name: str, line_no: int):
+def __DEF__(func_name: str, line_no: int, frame):
     archive.store_new \
-        .key(Archive.GLOBAL_PALADIN_CONTAINER_ID, func_name, __DEF__.__name__) \
+        .key(id(frame), func_name, __DEF__.__name__) \
         .value(type(lambda _: _), func_name, func_name, line_no)
 
 
@@ -180,9 +175,9 @@ def __PIS__(first_param: object, first_param_name: str, line_no: int):
         .value(type(first_param), id(first_param), first_param_name, line_no)
 
 
-def __UNDEF__(func_name: str, line_no: int):
+def __UNDEF__(func_name: str, line_no: int, frame):
     archive.store_new \
-        .key(id(func_name), func_name, __UNDEF__.__name__) \
+        .key(id(frame), func_name, __UNDEF__.__name__) \
         .value(type(lambda _: _), func_name, func_name, line_no)
 
 
@@ -275,17 +270,14 @@ def __FC__(expression: str, function,
         ret_exc = e
         ret_value = ret_exc
 
-    if not archive._should_record:
-        if ret_exc:
-            raise ret_exc
-
-    # TODO: Represent the value.
-    ret_value_to_store = POID(ret_value)
+    ret_value_to_store = POID(ret_value) if ret_exc is not None else ret_exc
     if archive._should_record:
         # Update the value of the called function (or exception).
         # record_value.value = ret_value
         record_value.value = ret_value_to_store
 
+    if ret_exc:
+        raise ret_exc
     # Return ret value.
     return ret_value
 
@@ -354,6 +346,13 @@ def __RESUME__():
 
 
 _T = TypeVar("_T")
+
+__STUBS__ = [__AC__, __AS__, __RESUME__, __PAUSE__, __FRAME__, __ARG__,
+             __FLI__, __DEF__, __PIS__, __POST_CONDITION__, __UNDEF__]
+
+
+def __IS_STUBBED__(line: str) -> bool:
+    return any([stub.__name__ in line for stub in __STUBS__])
 
 
 # noinspection PyPep8Naming

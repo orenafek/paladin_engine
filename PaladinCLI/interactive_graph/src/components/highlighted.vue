@@ -1,5 +1,5 @@
 <template>
-  <pre v-highlightjs><code class="python" v-text="code"></code></pre>
+  <div><pre v-highlightjs><code class="python" v-text="code"></code></pre></div>
 </template>
 
 <script>
