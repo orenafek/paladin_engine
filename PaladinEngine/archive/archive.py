@@ -4,14 +4,20 @@
     :author: Oren Afek
     :since: 05/04/2019
 """
+from ast import *
 import json
 from dataclasses import dataclass
 from itertools import product
-from typing import Optional, Iterable, Dict, List, Tuple
+from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable
 
 import pandas as pd
 
-from common.common import ISP
+from ast_common.ast_common import ast2str
+from common.common import ISP, IS_ITERABLE
+
+Rk = 'Archive.Record.RecordKey'
+Rv = 'Archive.Record.RecordValue'
+Rvf = Callable[['Archive.Record.RecordValue'], bool]
 
 
 def represent(o: object):
@@ -77,7 +83,7 @@ class Archive(object):
 
         @dataclass
         class RecordValue(object):
-            key: object
+            key: 'Archive.Record.RecordKey'
             rtype: type
             value: object
             expression: str
@@ -176,11 +182,6 @@ class Archive(object):
         return sorted([(rk, rv) for rk in self.records for rv in self.records[rk]],
                       key=lambda r: r[1].time)
 
-    @property
-    def record_values_sorted_by_time(self):
-        return sorted([rv for rk in self.records for rv in self.records[rk]],
-                      key=lambda r: r.time)
-
     def to_pickle(self):
         import pickle
         return pickle.dumps(self.records)
@@ -221,7 +222,7 @@ class Archive(object):
             container_id = record_value.value if type(record_value.value) is int else id(record_value.value)
 
         # Getting here means that the last record value found is of an object and not primitive.
-        assert record_value and record_value.rtype is not int and type(record_value.value) is int
+        # assert record_value and record_value.rtype is not int and type(record_value.value) is int
         return json.dumps(self.build_object(record_value.value))
 
     def search(self, expression: str, frame: dict = None) -> Optional[Iterable[Record.RecordValue]]:
@@ -265,13 +266,28 @@ class Archive(object):
     def resume_record(self):
         self._should_record = True
 
-    def get_by_line_no(self, line_no: int) -> Dict['Archive.Record.RecordKey', List['Archive.Record.RecordValue']]:
-        return {k: v for (k, v) in self.records.items() for vv in v if vv.line_no == line_no}
+    def filter(self, filters: Union[Rvf, Iterable[Rvf]]) -> Dict[Rk, List[Rv]]:
+        return {k: v for (k, v) in self.records.items() for vv in v
+                if (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))}
+
+    def flatten_and_filter(self, filters: Union[Rvf, Iterable[Rvf]]) -> List[Tuple[Rk, List[Rv]]]:
+        return [(k, vv) for (k, v) in self.records.items() for vv in v
+                if (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))]
+
+    def get_by_line_no(self, line_no: int) -> Dict[Rk, List[Rv]]:
+        return self.filter(lambda vv: vv.line_no == line_no)
 
     def get_by_container_id(self, container_id: int):
-        return {k: v for (k, v) in self.records.items() if k.container_id == container_id and k.stub_name == '__AS__'}
+        return self.filter([lambda vv: vv.key.container_id == container_id, lambda vv: vv.key.stub_name == '__AS__'])
 
-    def retrieve_value(self, object_value: object, object_type: type, time: int = -1):
+    def _all_assignments_for_object_until_time(self, object_id: int, time: int = -1):
+        time_filter = (lambda t: t <= time) if time >= 0 else (lambda t: True)
+        return sorted(self.flatten_and_filter([lambda vv: time_filter(vv.time),
+                                               lambda vv: vv.key.container_id == object_id,
+                                               lambda vv: vv.key.stub_name == '__AS__']),
+                      key=lambda r: r[1].time)
+
+    def retrieve_value(self, object_value: Union[int, object, List, Dict], object_type: type, time: int = -1):
         """
             Retrieve an object state from the archive in a certain point of time.
         :param object_value: The object to retrieve.
@@ -290,9 +306,94 @@ class Archive(object):
                     object_value.items()}
 
         def _retrieve_object_one_level(object_id: int) -> Dict[Tuple[str, type], object]:
-            assignments = sorted([(k, vv) for (k, v) in self.records.items() for vv in v if
-                                  vv.time <= time and k.container_id == object_id and k.stub_name == '__AS__'],
-                                 key=lambda r: r[1].time)
-            return {(k.field, v.rtype): v.value for (k, v) in assignments}
+            return {(k.field, v.rtype): v.value for (k, v) in
+                    self._all_assignments_for_object_until_time(object_id, time)}
 
         return {k: self.retrieve_value(v, t, time) for (k, t), v in _retrieve_object_one_level(object_value).items()}
+
+    def object_lifetime(self, object_id: int) -> Dict[int, Union[object, Dict]]:
+        """
+            Retrieve the lifetime of an object.
+            I.e. All values the archive has stored for that object id.
+        :param object_id: The Python's Id number of the object.
+        :return: A mapping between times and the values of that object in those times.
+        """
+        assignments = self._all_assignments_for_object_until_time(object_id)
+        assignments_time = [v.time for (k, v) in assignments]
+        return {t: self.retrieve_value(object_id, object, t) for t in assignments_time}
+
+    def get_all_assignments_in_time_range(self, start: int, end: int) -> Dict:
+        return self.filter(lambda vv: start <= vv.time <= end)
+
+    def get_scope_by_line_no(self, line_no: int) -> int:
+        """
+            Returns the "scope", meaning the container_id (id of the frame) of variables (not object's fields) that are referenced in a line_no.
+        :param line_no: The line no.
+        :return: scope.
+        """
+        # Get all records by time.
+        record_values_by_time = [rv for _, rv in self.flat_and_sort_by_time()]
+
+        current_def_rv = None
+        previous_def_rv = None
+
+        for rv in record_values_by_time:
+            if rv.key.stub_name == '__DEF__':
+                previous_def_rv = current_def_rv
+                current_def_rv = rv
+                continue
+
+            if rv.key.stub_name == '__UNDEF__':
+                current_def_rv = previous_def_rv
+                continue
+
+            if rv.line_no == line_no:
+                if current_def_rv:
+                    return current_def_rv.key.container_id
+                # TODO: Should we continue or raise an error? This case should happen when the line_no comes before
+                #  no __DEF__.
+                continue
+
+        # TODO: Raise an error?
+        return -1
+
+    def find_by_line_no(self, expression: str, line_no: int) -> Dict[int, List[Rv]]:
+        """
+        Find the values of an expression in the archive through out its time, where the names are bounded to a scope
+        of a line no.
+        :param expression: The expression to look for.
+        :param line_no: The line no to bound a scope for.
+        :return:
+        """
+        scope = self.get_scope_by_line_no(line_no)
+
+        def _find_by_name_and_container_id(name: str, container_id: int):
+            return [rv for rk, lrv in self.records.items() for rv in lrv if
+                    rk.container_id == container_id and rk.field == name]
+
+        @dataclass
+        class NodeFinder(NodeVisitor):
+            def __init__(self, archive: 'Archive'):
+                self.archive = archive
+                self.values = {}
+
+            def visit_Subscript(self, node: Subscript) -> Any:
+                # TODO: Handle.
+                raise NotImplementedError('TODO: Fix.')
+
+            def visit_Attribute(self, node: Attribute) -> Any:
+                # Resolve value (lhs of "lhs.rhs").
+                self.visit(node.value)
+
+                # Add attribute's value.
+                self.values[ast2str(node)] = {t: v.__getattribute__(node.attr) for t, v in
+                                              self.values[ast2str(node.value)].items()}
+
+            def visit_Name(self, node: Name) -> Any:
+                self.values[node.id] = {rv.time: rv.value for rv in _find_by_name_and_container_id(node.id, scope)}
+
+            def visit(self, node: AST) -> 'NodeFinder':
+                super(NodeFinder, self).visit(node)
+                return self
+
+        return NodeFinder(self).visit(parse(expression).body[0]).values

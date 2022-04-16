@@ -110,7 +110,8 @@ class ModuleTransformer(object):
         for function_def in function_defs:
             function_def_stub = create_ast_stub(__DEF__,
                                                 wrap_str_param(function_def.extra.function_name),
-                                                f'{function_def.node.lineno}')
+                                                f'{function_def.node.lineno}',
+                                                frame='__FRAME__()')
 
             # Create a stubber.
             function_def_stubber = FunctionDefStubber(self._module)
@@ -142,7 +143,8 @@ class ModuleTransformer(object):
             # Create sufix stub.
             suffix_stub = create_ast_stub(__UNDEF__,
                                           wrap_str_param(function_def.extra.function_name),
-                                          line_no=f'{function_def.node.lineno}')
+                                          line_no=f'{function_def.node.lineno}',
+                                          frame='__FRAME__()')
 
             # Stub.
             self._module = function_def_stubber.stub_function_def(function_def.node, function_def.container,

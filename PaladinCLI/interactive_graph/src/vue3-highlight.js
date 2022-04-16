@@ -19,7 +19,7 @@
           codeNode.textContent = binding.value;
         }
 
-        hljs__default['default'].highlightBlock(codeNode);
+        hljs__default['default'].highlightElement(codeNode);
       }
     });
   }

@@ -2,11 +2,11 @@ import argparse
 import csv
 import traceback
 
-import PaladinCLI
+from PaladinCLI.interactive_graph.paladin_debug_server import PaladinDebugServer
+from archive.archive import Archive
+from archive.archive_evaluator import archive_evaluator
 from engine.engine import PaLaDiNEngine
-from interactive_debugger import interactive_debugger
-from source_provider import SourceProvider
-from PaladinCLI.interactive_graph.interactive_graph import InteractiveGraph
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -19,9 +19,9 @@ def parse_args():
                         help='Should print PaLaDiNized code to the screen')
     parser.add_argument('--output-file', type=str, default='', help='Output file path of the PaLaDiNized code')
     parser.add_argument('--csv', default='', type=str, help='Should output archive results to a csv file')
-    parser.add_argument('--run-graph', default=False, dest='run_graph', action='store',
-                        help='Should run the dynamic graph of the PaLaDiNized run.')
-    parser.add_argument('--graph-port', default=9999, type=int,
+    parser.add_argument('--run-debug-server', default=False, dest='run_debug_server', action='store',
+                        help='Should run PaLaDiN-Debug server')
+    parser.add_argument('--port', default=9999, type=int,
                         help='The port no of the server in which the dynamic graph runs on.')
     args = parser.parse_args()
 
@@ -31,9 +31,11 @@ def parse_args():
     return args
 
 
+# noinspection PyBroadException
 def main():
     args = parse_args()
-
+    archive = None
+    thrown_exception = None
     with open(args.input_file, 'r') as f:
         source_code = f.read()
         paladinized_code = PaLaDiNEngine.transform(source_code)
@@ -47,56 +49,38 @@ def main():
                 fo.writelines('\n' * 3)
                 fo.write(paladinized_code)
 
-        # noinspection PyBroadException
         try:
             if args.run:
-                result, archive = PaLaDiNEngine.execute_with_paladin(paladinized_code, args.input_file)
+                result, archive, thrown_exception = PaLaDiNEngine.execute_with_paladin(source_code,
+                                                                                       paladinized_code,
+                                                                                       args.input_file)
                 print(result)
-            # handle_run_exceptions(archive, result)
 
-        except:  # Plot a graph.
+        except BaseException:  # Plot a graph.
             traceback.print_exc()
 
         finally:
-            ig = InteractiveGraph(archive)
+            archive_evaluator.test(archive, thrown_exception.source_code_line_no, thrown_exception.archive_time)
 
-            if args.run_graph:
+            if args.run_debug_server:
                 try:
-                    ig.run_collapsible_tree(source_code, port=args.graph_port)
+                    server = PaladinDebugServer.create(source_code, archive, thrown_exception)
+                    server.run(args.port)
                 except KeyboardInterrupt:
                     pass
                 except BaseException:
                     traceback.print_exc()
             if args.csv != '':
                 print('Creating CSV')
-                with open(args.csv, 'w+') as fo:
-                    writer = csv.writer(fo)
-                    header, rows = archive.to_table()
-                    writer.writerow(header)
-                    writer.writerows(rows)
+                dump_to_csv(archive, args.csv)
 
 
-def handle_run_exceptions(archive, result):
-    if isinstance(result, tuple) and issubclass(result[0], BaseException):
-
-        exception_type, exception, tb = result
-        # Extract the frame in which the exception was thrown.
-        for frame_summary in reversed(traceback.extract_tb(tb)):
-            if any([_ for _ in PaLaDiNEngine.PALADIN_STUBS_LIST if _ == frame_summary.name]) or \
-                    'stubs.py' in frame_summary.filename:
-                # Skip inner functions.
-                continue
-
-            exception_line_no = frame_summary.lineno
-            break
-
-        # Match original line no.
-        original_line_no = SourceProvider.get_line_no(frame_summary.line)
-        debugger = \
-            interactive_debugger.InteractiveDebugger(archive,
-                                                     f"Exception in {frame_summary.name}: {10}",
-                                                     10)
-        debugger.cmdloop()
+def dump_to_csv(archive: Archive, csv_file_path: str) -> None:
+    with open(csv_file_path, 'w+') as fo:
+        writer = csv.writer(fo)
+        header, rows = archive.to_table()
+        writer.writerow(header)
+        writer.writerows(rows)
 
 
 if __name__ == '__main__':

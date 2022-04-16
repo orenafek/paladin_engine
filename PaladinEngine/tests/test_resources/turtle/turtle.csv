@@ -1,0 +1,52 @@
+container_id,field,stub_name,key,rtype,value,expression,line_no,time,extra
+4516573360,main,__DEF__,4769341200,function,main,main,9,0,
+4768931264,read_excel,__FC__,4769505392,function,4769340096,pd.read_excel('/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/turtle/irobot_kelet.xlsx'),93,1,"args = /Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/turtle/irobot_kelet.xlsx, kwargs = "
+4768931264,df,__AS__,4774320064,DataFrame,4769340096,df = pd.read_excel('/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/turtle/irobot_kelet.xlsx'),93,2,
+4769340096,dropna,__FC__,4769340624,function,4774877696,df.dropna(),96,3,"args = , kwargs = "
+4774877696,transpose,__FC__,4774878368,function,4774877792,df.transpose(),98,5,"args = , kwargs = "
+4515850336,print,__FC__,4774876976,function,4514178448,print(df),100,7,"args =                1    2
+Unnamed: 0     X    Y
+Unnamed: 1   3.0  6.0
+Unnamed: 2   3.0  7.0
+Unnamed: 3   3.0  8.0
+Unnamed: 4   3.0  9.0
+Unnamed: 5   4.0  9.0
+Unnamed: 6   5.0  8.0
+Unnamed: 7   6.0  8.0
+Unnamed: 8   7.0  8.0
+Unnamed: 9   8.0  8.0
+Unnamed: 10  8.0  7.0
+Unnamed: 11  8.0  6.0
+Unnamed: 12  5.0  6.0
+Unnamed: 13  7.0  5.0
+Unnamed: 14  6.0  5.0
+Unnamed: 15  5.0  5.0
+Unnamed: 16  4.0  5.0
+Unnamed: 17  3.0  5.0, kwargs = "
+4775520336,tolist,__FC__,4774876496,function,4774925376,df.values.tolist(),102,8,"args = , kwargs = "
+4768931264,int,__FC__,4774876688,function,3,int(x[0]),102,9,"args = 3.0, kwargs = "
+4768931264,walls,__AS__,4774876832,list,4774961088,"walls = [(int(x[0]), int(x[1])) for x in df.values.tolist()[1:]]",93,43,
+4768931264,start,__AS__,4774971280,tuple,4768945408,"start = (4, 7)",93,44,
+4768931264,robot_pos,__AS__,4774971376,tuple,4768945408,robot_pos = start,93,45,
+4768931264,robot_dir,__AS__,4774971664,tuple,4768937600,"robot_dir = (1, 0)",93,46,
+4768899248,IrobotClean,__DEF__,4774971808,function,IrobotClean,IrobotClean,9,47,
+4768899248,walls,__ARG__,4774972048,list,4774961088,walls,9,48,
+4768931264,start_pos,__AS__,4774971424,tuple,4768933632,"start_pos = (0, 0)",55,49,
+4768931264,current_pos,__AS__,4774971088,tuple,4768933632,current_pos = start_pos,55,50,
+4768931264,direction,__AS__,4774994080,tuple,4768937600,"direction = (1, 0)",55,51,
+4768931264,Edges,__AS__,4774993984,dict,4774986048,Edges = {},55,52,
+4768931264,visited,__AS__,4774994416,set,4774992352,visited = {start_pos},55,53,
+4768899376,has_unexplored,__DEF__,4774994608,function,has_unexplored,has_unexplored,9,54,
+4768899376,visited,__ARG__,4774994752,set,4774992352,visited,9,55,
+4768899376,edges,__ARG__,4774994896,dict,4774986048,edges,9,56,
+4768931264,l,__AS__,4774994992,list,4774973632,"l = [(x + 1, y), (x, y - 1), (x - 1, y), (x, y + 1)]",41,57,
+4768931264,has_unexplored,__FC__,4774995184,function,True,"has_unexplored(visited, Edges)",64,58,"args = {(0, 0)}, {}, kwargs = "
+4768752560,add_v,__DEF__,4774995328,function,add_v,add_v,9,59,
+4768752560,x,__ARG__,4774995472,tuple,4768933632,x,9,60,
+4768752560,y,__ARG__,4774995616,tuple,4768937600,y,9,61,
+4768752560,add_v,__UNDEF__,4774995712,function,add_v,add_v,9,62,
+4768931264,add_v,__FC__,4774995904,function,4768781312,"add_v(current_pos, direction)",65,63,"args = (0, 0), (1, 0), kwargs = "
+4768931264,next_pos,__AS__,4774996048,tuple,4768781312,"next_pos = add_v(current_pos, direction)",65,64,
+4774992352,add,__FC__,4774996144,function,4514178448,visited.add(next_pos),68,65,"args = (1, 0), kwargs = "
+4516000560,Move,__DEF__,4774996288,function,Move,Move,9,66,
+4516000560,walls,__ARG__,4774996432,list,4774961088,walls,9,67,

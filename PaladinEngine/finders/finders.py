@@ -490,6 +490,9 @@ class AssignmentFinder(GenericFinder):
 
         return target_string
 
+    def visit_Call(self, node: ast.Call):
+        return ast2str(node)
+
     def visit_Assign(self, node):
         extras = []
 

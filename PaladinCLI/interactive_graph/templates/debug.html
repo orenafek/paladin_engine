@@ -1,3 +1,4 @@
+<!--suppress CheckEmptyScriptTag -->
 <!DOCTYPE html>
 <!--suppress ALL -->
 <meta charset="utf-8">
@@ -9,11 +10,8 @@
     <script>hljs.initHighlightingOnLoad();</script>
     <script src="//cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.8.0/dist/highlightjs-line-numbers.min.js"></script>
     <script>hljs.initLineNumbersOnLoad();</script>
-    <script src="https://unpkg.com/vue@next"></script>
     <script src="https://d3js.org/d3.v3.min.js"></script>
-    <script src="https://unpkg.com/vue@next"></script>
-    <script src="/scripts/vue3-highlight.js"></script>
-
+    <script src="/static/index.js"></script>
     <style type="text/css">
         body {
             background-color: #282727;
@@ -25,215 +23,114 @@
             align-content: center;
             align-items: center;
         }
+
+        .collapsible_archive_table_div {
+            max-width: 1400px;
+            max-height: 400px;
+            overflow: scroll
+        }
     </style>
 </head>
 <body>
 
 <div id="header">
     <h1 style="position: center">Welcome to PaLaDiN Archive Debugger!</h1>
-    <h3>Select a line to start debuging:</h3>
-    <div class="flex-container">
-        <div style="line-height: 1px; height: 550px; overflow-y: scroll;">
-            <div v-for="(line, index) in source_code">
-                            <pre v-highlightjs @click="select_line_no(index + 1)">
-                                <code class="python" :id="'code_' + index">
-                                 $$[ index + 1 ]$$ $$[ line ]$$
-                            </code></pre>
-            </div>
+    <div v-if="exception_line_no != null"
+         v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, archive time: ${exception_archive_time}`"
+         style="color: red;"/>
+</div>
+<h3>Select a line to start debuging:</h3>
+<div class="flex-container">
+    <div style="line-height: 1px; height: 550px; overflow-y: scroll;">
+        <div v-for="(line, index) in source_code">
+            <highlighted @click="select_line_no(index + 1)" :code="`${ index + 1} ${ line }`" :id="'code_' + index"/>
         </div>
+    </div>
+    <br/>
+    <div>
+        <h3>Create a time window:</h3>
         <br/>
-        <div id="div_line_debug" style="visibility: hidden">
+        <input type="number" id="time_window_from" placeholder="Start Time">
+        <input type="number" id="time_window_to" placeholder="End Time"/>
+        <button @click="create_time_window()">
+            Create time window
+        </button>
+        <div id="time_window_archive_table" style="visibility: hidden;" class="collapsible_archive_table_div">
             <table>
-                <tr>
-                    <td>
-                        <pre v-highlightjs><code>$$[ line_no_to_debug ]$$</code></pre>
-                    </td>
-                    <td>
-                    <pre v-if="line_to_debug != null" v-highlightjs>
-                        <code style="overflow: hidden;">$$[ line_to_debug ]$$</code>
-                    </pre>
-                    </td>
-                </tr>
-                <tr>
-                    <td> Archive entries for line:</td>
-                    <td>
-                        <table id="archive_entries_table">
-                            <thead>
-                            <td v-if="archive_entries.length > 0"
-                                v-for="k in Object.keys(archive_entries[0])" v-html="capitalize(k)"/>
-                            </thead>
-                            <tr v-for="entry in archive_entries">
-                                <td v-for="value, key in entry">
-                                    <pre v-if="(key != 'value' && key != 'container_id') || entry['type'] != 'ptr'">
-                                        <highlighted :code="value"></highlighted>
-                                    </pre>
-                                    <div v-else>
-                                        <div>
-                                            <pre v-highlightjs @click="retrieve_object(value, entry['type'], entry['time'])"><code>$$[ value ]$$</code></pre>
-                                        </div>
-                                        <div>
-                                            <div v-if="retrieved_objects[value, entry['time']] != {}">
-                                                <pre v-highlightjs><code> $$[ retrieved_objects[value, entry['time']] ]$$ </code></pre>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
+                <theaed>
+                    <td v-if="time_window.length > 0"
+                        v-for="k in Object.keys(time_window[0])"
+                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
+                </theaed>
+                <tbody>
+                <tr v-for="entry in time_window">
+                    <td v-for="value, key in entry">
+                        <highlighted :code="value"/>
                     </td>
                 </tr>
-            </table>
-        </div>
-        <div>
-            <table>
-                <tr>
-                    <td> Select a var to follow:</td>
-                    <td>
-                        <table>
-                            <thead>
-                            <td v-if="vars_to_follow.length > 0" v-for="k in Object.keys(vars_to_follow[0])"
-                                v-html="capitalize(k)"/>
-
-                            </thead>
-                            <tr v-for="(target, target_index) in vars_to_follow">
-                                <td v-for="(value, key, index) in target" :id="key + '_' + target_index">
-                                    <pre v-highlightjs><code>$$[ value ]$$</code></pre>
-                                </td>
-                                <td>
-                                    <button :id="target.id" @click="follow_var">follow</button>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-        </div>
-        <div id="div_followed_var_history" style="visibility: hidden">
-            <table>
-                <tr>
-                    <td>History of
-                        <highlighted :code="var_id_to_follow"></highlighted>
-                        :
-                    </td>
-                    <td>
-                        <table>
-                            <thead>
-                            <td v-if="var_id_to_follow != null && var_history[var_id_to_follow].length > 0"
-                                v-for="k in Object.keys(var_history[var_id_to_follow][0])" v-html="capitalize(k)">
-                            </td>
-                            </thead>
-                            <tr v-if="var_id_to_follow != null" v-for="entry in var_history[var_id_to_follow]">
-                                <td v-for="value in Object.values(entry)">
-                                    <pre v-highlightjs><code>$$[ value ]$$</code></pre>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
+                </tbody>
             </table>
         </div>
     </div>
+    <div id="span_line_debug" style="visibility: hidden">
+        <table>
+            <thead>
+            <td>
+                <highlighted v-if="line_to_debug != null" :code="line_no_to_debug"/>
+            </td>
+            <td>
+                <highlighted v-if="line_to_debug != null" :code="line_to_debug"/>
+            </td>
+            </thead>
+        </table>
+        <h3>Archive entries for line:</h3>
+        <div class="collapsible_archive_table_div">
+            <table>
+                <theaed>
+                    <td v-if="archive_entries.length > 0"
+                        v-for="k in Object.keys(archive_entries[0])"
+                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
+                </theaed>
+                <tbody>
+                <tr v-for="entry in archive_entries">
+                    <td v-for="value, key in entry">
+                        <highlighted :code="value"/>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        </table>
+    </div>
+    <div>
+        <table>
+
+        </table>
+        <!--        <table>-->
+        <!--            <tr>-->
+        <!--                <td> Select a var to follow:</td>-->
+        <!--                <td>-->
+        <!--                    <table>-->
+        <!--                        <thead>-->
+        <!--                        <td v-if="vars_to_follow.length > 0" v-for="k in Object.keys(vars_to_follow[0])"-->
+        <!--                            v-html="capitalize(k)"/>-->
+
+        <!--                        </thead>-->
+        <!--                        <tr v-for="(target, target_index) in vars_to_follow">-->
+        <!--                            <td v-for="(value, key, index) in target" :id="key + '_' + target_index">-->
+        <!--                                <highlighted :code="value"/>-->
+        <!--                            </td>-->
+        <!--                            <td>-->
+        <!--                                <button @click="objectLifetime(target['container_id'])">follow container</button>-->
+        <!--                                <button @click="objectLifetime(target['value'])">follow value</button>-->
+        <!--                            </td>-->
+        <!--                        </tr>-->
+        <!--                    </table>-->
+        <!--                </td>-->
+        <!--            </tr>-->
+        <!--        </table>-->
+    </div>
+
 </div>
 
 </body>
-
-<script type="module">
-    import {request} from "/scripts/request.js";
-    import {capitalizeFirstLetter} from "/scripts/string_utils.js";
-
-    const debug_info = {
-        components: {
-            highlighted: {
-                props: ['code'],
-                template: `<pre v-highlightjs><code> {{ code }} </code></pre>`
-            },
-        },
-        data: function () {
-            return {
-                source_code: [],
-                line_no_to_debug: -1,
-                archive_entries: [],
-                vars_to_follow: [],
-                var_history: {},
-                var_id_to_follow: null,
-                line_to_debug: null,
-                retrieved_objects: {}
-            }
-        },
-        created: async function () {
-            this.source_code = (await request('debug_info', {'info': 'source_code'}))['result']['source_code'];
-        },
-        compilerOptions: {
-            delimiters: ['$$[', ']$$']
-        },
-        methods: {
-            update_element_visibility: function (element_id, visibility) {
-                document.getElementById(element_id).style.visibility = visibility ? 'visible' : 'hidden';
-            },
-            update_div_line_debug_visibility: function (visibility) {
-                this.update_element_visibility('div_line_debug', visibility);
-            },
-
-            update_div_followed_var_history_visibility: function (visibility) {
-                this.update_element_visibility('div_followed_var_history', visibility);
-            },
-
-
-            select_line_no: async function (line_no) {
-                this.line_no_to_debug = line_no;
-                this.archive_entries = new Object(
-                    (await request('debug_info',
-                        await {
-                            'line_no_to_debug': await this.line_no_to_debug,
-                            'info': 'archive_entries'
-                        }
-                    ))['result']['archive_entries']);
-                this.vars_to_follow = new Object(
-                    (await request('debug_info',
-                        await {
-                            'line_no_to_debug': await this.line_no_to_debug,
-                            'info': 'vars_to_follow'
-                        }))['result']['vars_to_follow']);
-                this.line_to_debug = new Object(await request('debug_info',
-                    {
-                        'line_no': this.line_no_to_debug,
-                        'info': 'get_line'
-                    }))['result']['line'];
-
-                this.update_div_line_debug_visibility(true);
-                this.update_div_followed_var_history_visibility(false);
-            },
-
-            follow_var: async function (event) {
-                const clicked_button_key = event.target.id;
-                this.var_history[clicked_button_key] = new Object(
-                    (await request('debug_info',
-                        {
-                            'info': 'var_assignments',
-                            'var_id_to_follow': clicked_button_key.toString()
-                        }))['result']['var_assignments']);
-                this.var_id_to_follow = clicked_button_key;
-                this.update_div_followed_var_history_visibility(true);
-            },
-
-            retrieve_object: async function (object_id, object_type, time) {
-                this.retrieved_objects[object_id, time] = new Object((await request('debug_info',
-                    {
-                        'info': 'retrieve_object',
-                        'object_id': object_id,
-                        'object_type': object_type,
-                        'time': time
-                    }))['result']['object']);
-            },
-            capitalize: capitalizeFirstLetter,
-
-            source_code_hover_event: function (id) {
-                document.getElementById(id).style.textDecoration = 'underline';
-            }
-        }
-    }
-
-    const debug_info_vue_app = Vue.createApp(debug_info);
-    debug_info_vue_app.use(Vue3Highlightjs);
-    debug_info_vue_app.mount('#header');
-</script>
