@@ -13,7 +13,7 @@ def parse_args():
     run_group = parser.add_mutually_exclusive_group(required=True)
     run_group.add_argument('--run', default=True, dest='run', action='store_true', help='Should run PaLaDiNized file')
     run_group.add_argument('--no-run', default=False, dest='run', action='store_false',
-                           help='Should run PaLaDiNized file')
+                           help='Should not run PaLaDiNized file')
     parser.add_argument('--print-code', default=False, dest='print_code', action='store',
                         help='Should print PaLaDiNized code to the screen')
     parser.add_argument('--output-file', type=str, default='', help='Output file path of the PaLaDiNized code')
