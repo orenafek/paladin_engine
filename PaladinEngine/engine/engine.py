@@ -5,12 +5,15 @@
     :since: 05/04/19
 """
 import ast
+import dataclasses
 import inspect
 import pickle
+import re
 import sys
 import traceback
 from types import CodeType
 
+from typing import *
 from archive.archive import Archive
 from ast_common.ast_common import ast2str
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
@@ -19,7 +22,7 @@ from source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
 from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
-    __DEF__, __UNDEF__, __AC__, __PIS__
+    __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__
 
 
 class PaLaDiNEngine(object):
@@ -32,10 +35,54 @@ class PaLaDiNEngine(object):
         Paladin's conversion engine.
     """
 
+    @dataclasses.dataclass
+    class PaladinRunExceptionData(object):
+        """
+            Data for an exception the occures during a PaLaDiNized run of a code.
+        """
+        source_code_line_no: int
+        paladinized_code_line_no: int
+        exception_msg: str
+        source_line: str
+        archive_time: int
+
+        @staticmethod
+        def create(source_code: str, paladinized_code: str, sys_exc_info,
+                   archive_time: int) -> 'PaLaDiNEngine.PaladinRunExceptionData':
+            run_line_no = None
+            exc_info: traceback = sys_exc_info[2]
+            while exc_info:
+                run_line_no = exc_info.tb_lineno
+                exc_info = exc_info.tb_next
+
+            original_lines = source_code.split('\n')
+            paladinized_lines = paladinized_code.split('\n')
+
+            paladinized_line = paladinized_lines[run_line_no - 1]
+
+            if __IS_STUBBED__(paladinized_line):
+                # The line itself is not as it was in the original file, therefore look for the line no. in it.
+                line_no = int(
+                    re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
+                matched_line = (line_no, original_lines[line_no - 1])  # original_lines start from 0
+            else:
+                matched_lines = [(no + 1, l) for no, l in enumerate(original_lines) if
+                                 paladinized_lines[run_line_no - 1] == l]
+                # TODO: What to do if there are more (or less) than 1?
+                assert len(matched_lines) == 1
+
+                matched_line = matched_lines[0]
+            return PaLaDiNEngine.PaladinRunExceptionData(source_code_line_no=matched_line[0],
+                                                         paladinized_code_line_no=run_line_no - 1,
+                                                         exception_msg=str(sys_exc_info[1]),
+                                                         source_line=matched_line[1],
+                                                         archive_time=archive_time)
+
     __INSTANCE = PaLaDiNEngine()
 
     # List of stubs that can be added to the PaLaDiNized code
-    PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__, __ARG__, __DEF__, __UNDEF__, __AC__, __PIS__]
+    PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__, __ARG__, __DEF__, __UNDEF__, __AC__,
+                          __PIS__, __PALADIN_LIST__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -61,10 +108,11 @@ class PaLaDiNEngine(object):
         return compile(source_code, PALADIN_ERROR_FILE_PATH, mode=PaLaDiNEngine.__COMPILATION_MODE)
 
     @staticmethod
-    def execute_with_paladin(source_code, original_file_name: str):
+    def execute_with_paladin(source_code: str, paladinized_code: str, original_file_name: str):
         """
             Execute a source code with the paladin environment.
         :param source_code:
+        :param paladinized_code:
         :return:
         """
         # Set the variables for the run.
@@ -82,10 +130,12 @@ class PaLaDiNEngine(object):
         # Clear args.
         sys.argv[1:] = []
         try:
-            return exec(source_code, variables), archive
+            return exec(paladinized_code, variables), archive, None
 
-        except BaseException as e:
-            return sys.exc_info(), archive
+        except BaseException:
+            return None, archive, PaLaDiNEngine.PaladinRunExceptionData.create(source_code, paladinized_code,
+                                                                               sys.exc_info(),
+                                                                               archive.time)
 
     @staticmethod
     def __collect_imports_to_execution():
@@ -102,13 +152,15 @@ class PaLaDiNEngine(object):
         t = ModuleTransformer(module)
         m = module
         try:
+            # t = t.transform_lists()
+            # m = t.module
             t = t.transform_loop_invariants()
+            m = t.module
+            t = t.transform_function_calls()
             m = t.module
             t = t.transform_attribute_accesses()
             m = t.module
             t = t.transform_assignments()
-            m = t.module
-            t = t.transform_function_calls()
             m = t.module
             t = t.transform_for_loops_to_while_loops()
             m = t.module
@@ -149,6 +201,7 @@ class PaLaDiNEngine(object):
     @staticmethod
     def import_line(import_path):
         return f'from {import_path} import {", ".join([stub.__name__ for stub in PaLaDiNEngine.PALADIN_STUBS_LIST])}'
+
 
 def main():
     # Read source file.

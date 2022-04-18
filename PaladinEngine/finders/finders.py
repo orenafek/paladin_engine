@@ -1,4 +1,3 @@
-import ast
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, Optional, List, Type, Any
@@ -9,32 +8,16 @@ from conf.engine_conf import *
 from stubs.stubs import StubArgumentType, all_stubs, SubscriptVisitResult
 
 
+@dataclass
 class StubEntry(object):
     """
         A triple of an element to stub, its container and the attr name in which it is held.
     """
-
-    def __init__(self, node, attr_name, container, extra=None):
-        self._node = node
-        self._attr_name = attr_name
-        self._container = container
-        self._extra = extra
-
-    @property
-    def node(self):
-        return self._node
-
-    @property
-    def attr_name(self):
-        return self._attr_name
-
-    @property
-    def container(self):
-        return self._container
-
-    @property
-    def extra(self):
-        return self._extra
+    node: ast.AST
+    attr_name: str
+    line_no: int
+    container: ast.AST
+    extra: object = None
 
     def __str__(self):
         return f'node = {self.node}\n' \
@@ -44,9 +27,8 @@ class StubEntry(object):
 
 
 class SliceStubEntry(StubEntry):
-
-    def __init__(self, node, attr_name, container, indices):
-        super().__init__(node, attr_name, container)
+    def __init__(self, node, attr_name, line_no, container, indices):
+        super().__init__(node, attr_name, line_no, container)
         self._indices = indices
 
     @property
@@ -111,7 +93,7 @@ class GenericFinder(ABC, ast.NodeVisitor):
                     extra = super().visit(child_node)
                     # If there is an extra information, this child node should be stored for later reference.
                     if self._should_store_entry(extra):
-                        self._store_entry(StubEntry(child_node, attr_name, node, extra))
+                        self._store_entry(StubEntry(child_node, attr_name, child_node.lineno, node, extra))
                     else:
                         # This child_entry is not interesting for storing, but continue searching in its descendants.
                         self.generic_visit(child_node)
@@ -508,6 +490,9 @@ class AssignmentFinder(GenericFinder):
 
         return target_string
 
+    def visit_Call(self, node: ast.Call):
+        return ast2str(node)
+
     def visit_Assign(self, node):
         extras = []
 
@@ -708,6 +693,14 @@ class FunctionDefFinder(GenericFinder):
         return self._generic_visit_with_extras(node, extra)
 
 
+class ListFinder(GenericFinder):
+    def types_to_find(self):
+        return ast.List
+
+    def visit_List(self, node: ast.List) -> Any:
+        return node
+
+
 class AttributeAccessFinder(GenericFinder):
 
     def __init__(self):
@@ -733,7 +726,6 @@ class AttributeAccessFinder(GenericFinder):
     #
     #     while isinstance(extra.value_extra, AttributeAccessFinder.AttributeExtra):
 
-
     def visit_Attribute(self, node: ast.Attribute):
         return self._generic_visit_with_extras(node,
                                                AttributeAccessFinder.AttributeExtra(
@@ -746,6 +738,7 @@ class AttributeAccessFinder(GenericFinder):
     #         return super(GenericFinder, self).visit(node)
     #
     #     return node
+
 
 class DanglingPaLaDiNDefinition(Exception):
     """

@@ -6,19 +6,14 @@
 """
 import ast
 
-from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, DecoratorFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
-    AttributeAccessFinder
+    PaladinPostConditionFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
+    AttributeAccessFinder, ListFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
-    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber
+    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, ListStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
     __UNDEF__, __AC__, __PIS__
-
-
-class ModuleTransformer(object):
-    ...
 
 
 class ModuleTransformer(object):
@@ -30,7 +25,7 @@ class ModuleTransformer(object):
         self._module = module
         self.__temp_var_counter = 0
 
-    def transform_loop_invariants(self) -> ModuleTransformer:
+    def transform_loop_invariants(self) -> 'ModuleTransformer':
         pidf = PaladinForLoopInvariantsFinder()
         pidf.visit(self._module)
         loops = pidf.find()
@@ -48,7 +43,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_for_loops_to_while_loops(self) -> ModuleTransformer:
+    def transform_for_loops_to_while_loops(self) -> 'ModuleTransformer':
         plf = PaladinForLoopFinder()
         plf.visit(self._module)
         for_loop_entries = plf.find()
@@ -69,7 +64,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_assignments(self) -> ModuleTransformer:
+    def transform_assignments(self) -> 'ModuleTransformer':
         try:
             # Find all assignments.
             assignments_finder = AssignmentFinder()
@@ -92,7 +87,7 @@ class ModuleTransformer(object):
                                                locals='locals()',
                                                globals='globals()',
                                                frame='__FRAME__()',
-                                               line_no=f'{ass.lineno}')
+                                               line_no=f'{stub_entry.line_no}')
 
                     # Create a stubber.
                     ass_stubber = AssignmentStubber(self._module)
@@ -106,7 +101,7 @@ class ModuleTransformer(object):
             print(e)
             raise e
 
-    def transform_function_def(self) -> ModuleTransformer:
+    def transform_function_def(self) -> 'ModuleTransformer':
         # Find all function definitions.
         function_def_finder = FunctionDefFinder()
         function_def_finder.visit(self._module)
@@ -115,7 +110,8 @@ class ModuleTransformer(object):
         for function_def in function_defs:
             function_def_stub = create_ast_stub(__DEF__,
                                                 wrap_str_param(function_def.extra.function_name),
-                                                f'{function_def.node.lineno}')
+                                                f'{function_def.node.lineno}',
+                                                frame='__FRAME__()')
 
             # Create a stubber.
             function_def_stubber = FunctionDefStubber(self._module)
@@ -147,7 +143,8 @@ class ModuleTransformer(object):
             # Create sufix stub.
             suffix_stub = create_ast_stub(__UNDEF__,
                                           wrap_str_param(function_def.extra.function_name),
-                                          line_no=f'{function_def.node.lineno}')
+                                          line_no=f'{function_def.node.lineno}',
+                                          frame='__FRAME__()')
 
             # Stub.
             self._module = function_def_stubber.stub_function_def(function_def.node, function_def.container,
@@ -157,7 +154,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_paladin_post_condition(self) -> ModuleTransformer:
+    def transform_paladin_post_condition(self) -> 'ModuleTransformer':
         # Find all PaLaDiN post conditions.
         paladin_post_condition_finder = PaladinPostConditionFinder()
         paladin_post_condition_finder.visit(self._module)
@@ -179,7 +176,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_function_calls(self) -> ModuleTransformer:
+    def transform_function_calls(self) -> 'ModuleTransformer':
         try:
             # Find all function calls.
             function_call_finder = FunctionCallFinder()
@@ -222,8 +219,8 @@ class ModuleTransformer(object):
 
                 s = f'{__FC__.__name__}(' + ', '.join(new_call_params) + ')'
                 # Remove \n to not break strings in the middle.
-                s= s.replace('\n','')
-                #s = __FC__.__name__ + '(' + ", ".join(new_call_params) + ')'
+                s = s.replace('\n', '')
+                # s = __FC__.__name__ + '(' + ", ".join(new_call_params) + ')'
                 # Create a stub.
                 stubbed_call = str2ast(s).value
 
@@ -241,9 +238,9 @@ class ModuleTransformer(object):
         finally:
             return self
 
-    def transform_attribute_accesses(self) -> ModuleTransformer:
+    def transform_attribute_accesses(self) -> 'ModuleTransformer':
         try:
-            # Find all function calls.
+            # Find all attribute accesses.
             attribute_finder = AttributeAccessFinder()
             attribute_finder.visit(self.module)
             attribute_accesses = attribute_finder.find()
@@ -267,19 +264,45 @@ class ModuleTransformer(object):
                                                     wrap_str_param(ast2str(attr_acc.node)),
                                                     locals='locals()',
                                                     globals='globals()',
-                                                    line_no=attr_acc.node.lineno)
+                                                    line_no=attr_acc.line_no)
 
                     self.module = attribute_access_stubber.stub_attribute_access(
                         attr_acc.node,
                         attr_acc.container,
                         attr_acc.attr_name,
-                        attr_acc_stub
+                        attr_acc_stub.value
                     )
 
                 # Find all function calls.
                 attribute_finder = AttributeAccessFinder()
                 attribute_finder.visit(self.module)
                 attribute_accesses = attribute_finder.find()
+
+        except BaseException as e:
+            print(e)
+
+        finally:
+            return self
+
+    def transform_lists(self) -> 'ModuleTransformer':
+        try:
+            # Find all attribute accesses.
+            lists_finder = ListFinder()
+            lists_finder.visit(self.module)
+            lists = lists_finder.find()
+
+            # Create a stubber.
+            list_stubber = ListStubber(self.module)
+
+            while lists:
+                l = lists[0]
+
+                self.module = list_stubber.stub_list(l.node, l.container, l.attr_name)
+
+                # Find all lists.
+                lists_finder = ListFinder()
+                lists_finder.visit(self.module)
+                lists = lists_finder.find()
 
         except BaseException as e:
             print(e)
@@ -298,22 +321,3 @@ class ModuleTransformer(object):
     @module.setter
     def module(self, value):
         self._module = value
-
-
-class PaladinPostConditionTransformer(ast.NodeTransformer):
-    def visit_FunctionDef(self, node):
-        # Extract decorators.
-        for decorator in node.decorator_list:
-            if self._decorator_predicate(node, decorator):
-                self.__decorators[node] = DecoratorFinder.Decorator(node, decorator)
-        self.generic_visit(node)
-
-        # noinspection PyUnusedLocal, PyMethodMayBeStatic
-
-    def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
-        """
-            A predicate to filter found decorators.
-        :param decorator:  A decorator object.
-        :return: True if the decorator should be added.
-        """
-        return DecoratorFinder.Decorator(func, decorator).name == PaladinPostCondition.__name__
