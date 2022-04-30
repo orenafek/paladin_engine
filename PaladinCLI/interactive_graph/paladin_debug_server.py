@@ -10,6 +10,8 @@ from flask_cors import CORS
 
 from PaladinEngine.engine.engine import PaLaDiNEngine
 from archive.archive import Archive
+from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator, QUERY_DSL_WORDS
+from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
 from common.common import ISP
 
 NAME = 'PaLaDiN Debug Server'
@@ -19,6 +21,7 @@ SCRIPTS_FOLDER = STATIC_FOLDER.joinpath('scripts')
 STYLES_FOLDER = STATIC_FOLDER.joinpath('styles')
 JSON_FILE_NAME = 'input_graph_tree.json'
 SOURCE_CODE: str = ''
+EVALUATOR: Optional[ArchiveEvaluator] = None
 ARCHIVE: Optional[Archive] = None
 
 # FIXME: Currently for debugging purposes.
@@ -48,11 +51,12 @@ class PaladinDebugServer(FlaskView):
     def create(cls, source_code: str,
                archive: Archive,
                thrown_exception: Optional[Tuple[int, str]] = None) -> 'PaladinDebugServer':
-        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE
+        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE, EVALUATOR
         server = PaladinDebugServer()
         SOURCE_CODE = source_code
         THROWN_EXCEPTION = thrown_exception
         ARCHIVE = archive
+        EVALUATOR = ArchiveEvaluator(ARCHIVE)
         return server
 
     def run(self, port: int = 9999):
@@ -176,6 +180,15 @@ class PaladinDebugServer(FlaskView):
         return PaladinDebugServer.create_response(
             PaladinDebugServer._present_archive_entries(
                 ARCHIVE.get_all_assignments_in_time_range(from_time, to).items()))
+
+    @route('/debug_info/query/<string:query>/<int:start_time>/<int:end_time>/<int:line_no>')
+    def query(self, query: str, start_time: int, end_time: int, line_no: int):
+        pdslp = PaladinDSLParser.create(ARCHIVE, start_time, end_time, line_no)
+        return PaladinDebugServer.create_response(pdslp.parse(query))
+
+    @route('/debug_info/query_dsl_words')
+    def query_dsl_words(self):
+        return PaladinDebugServer.create_response(QUERY_DSL_WORDS)
 
     @route('/debug_info', methods=['POST'])
     def debug_info(self):

@@ -5,9 +5,12 @@ import Highlighted from "./highlighted.vue";
 export default {
   name: "ArchiveTable",
   props: {entries: Array},
-  components: [{highlighted: Highlighted}],
+  components: {highlighted: Highlighted},
   compilerOptions: {
     delimiters: ['$$[', ']$$']
+  },
+  methods:{
+    capitalizeFirstLetter
   }
 }
 </script>
@@ -20,7 +23,7 @@ export default {
     </tr>
     <tr v-for="entry in entries">
       <td v-for="value, key in entry">
-        $$[ value ]$$
+        <highlighted :code="value" />
       </td>
     </tr>
   </table>

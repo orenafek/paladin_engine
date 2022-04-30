@@ -3,15 +3,19 @@ import {capitalizeFirstLetter} from "./string_utils";
 import Tree from "vue3-tree";
 import * as Vue from "vue/dist/vue.esm-bundler.js";
 import Vue3Highlightjs from "./vue3-highlight";
-import Highlighted from "./components/highlighted.vue";
-import {escapeHTMLTags} from "./components/highlighted.vue";
+import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
 import ArchiveTable from "./components/archive_entries_table.vue";
-import TableLite from "vue3-table-lite";
+import Codemirror from "codemirror-editor-vue3";
+import {CodeMirror} from "codemirror-editor-vue3";
+
+import "codemirror/mode/python/python.js";
+import "codemirror/theme/darcula.css";
 
 const debug_info = {
     components: {
         highlighted: Highlighted,
         archiveTable: ArchiveTable,
+        Codemirror,
         Tree
     },
     data: function () {
@@ -29,7 +33,18 @@ const debug_info = {
             var_id_to_follow: null,
             line_to_debug: null,
             retrieved_objects: {},
-            time_window: []
+            time_window: [],
+            query_code: "",
+            codemirror_options: {
+                mode: "text/x-python",
+                theme: "darcula",
+                lineNumbers: false,
+                smartIndent: true,
+                indentUnit: 2,
+                foldGutter: true,
+                styleActiveLine: true,
+                query_dsl_words: async () => (await request_debug_info("query_dsl_words")).join(", ")
+            }
         }
     },
     created: async function () {
@@ -88,8 +103,23 @@ const debug_info = {
 
             this.time_window = await request_debug_info('time_window', from, to);
             this.update_element_visibility('time_window_archive_table', true);
+        },
+
+        run_query: async function () {
+            const query_result = await request_debug_info("query",
+                ...([this.query_code].concat(["query_start_time", "query_end_time", "query_line_no"].map(
+                        arg => document.getElementById(arg).value))
+                ));
+
+            document.getElementById("query_result").value =
+                Object.keys(query_result).length > 0 ? JSON.stringify(query_result) : "No faults in lines.";
+        },
+
+        onChange: function(val, cm){
+            this.query_code = val;
         }
     }
+
 }
 
 document.addEventListener("DOMContentLoaded", () => {

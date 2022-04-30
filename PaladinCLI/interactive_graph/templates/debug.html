@@ -48,6 +48,21 @@
     </div>
     <br/>
     <div>
+        <h3> Run Query: </h3>
+        <h4> Query DSL words:</h4>
+        <div v-text="query_dsl_words"></div>
+        <br/>
+        <Codemirror id="query_input" placeholder="Type your query here" :options="codemirror_options" :height="auto"
+                    :width="600" style="font-size: 14pt" @change="onChange"></Codemirror>
+        <input id="query_start_time" type="number" placeholder="start"/>
+        <input id="query_end_time" type="number" placeholder="end"/>
+        <input id="query_line_no" type="number" placeholder="line number"/>
+        <button @click="run_query">Run</button>
+        <br/>
+        <textarea id="query_result" placeholder="Your results will appear in here"
+                  style="height: auto; max-height: 200px; width: auto"></textarea>
+    </div>
+    <div>
         <h3>Create a time window:</h3>
         <br/>
         <input type="number" id="time_window_from" placeholder="Start Time">
@@ -85,20 +100,21 @@
         </table>
         <h3>Archive entries for line:</h3>
         <div class="collapsible_archive_table_div">
-            <table>
-                <theaed>
-                    <td v-if="archive_entries.length > 0"
-                        v-for="k in Object.keys(archive_entries[0])"
-                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
-                </theaed>
-                <tbody>
-                <tr v-for="entry in archive_entries">
-                    <td v-for="value, key in entry">
-                        <highlighted :code="value"/>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
+            <archive-Table :entries="archive_entries"></archive-Table>
+<!--            <table>-->
+<!--                <theaed>-->
+<!--                    <td v-if="archive_entries.length > 0"-->
+<!--                        v-for="k in Object.keys(archive_entries[0])"-->
+<!--                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>-->
+<!--                </theaed>-->
+<!--                <tbody>-->
+<!--                <tr v-for="entry in archive_entries">-->
+<!--                    <td v-for="value, key in entry">-->
+<!--                        <highlighted :code="value"/>-->
+<!--                    </td>-->
+<!--                </tr>-->
+<!--                </tbody>-->
+<!--            </table>-->
         </div>
         </table>
     </div>
