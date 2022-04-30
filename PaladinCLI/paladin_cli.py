@@ -4,6 +4,8 @@ import traceback
 
 from PaladinCLI.interactive_graph.paladin_debug_server import PaladinDebugServer
 from archive.archive import Archive
+from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
+from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
 from engine.engine import PaLaDiNEngine
 
 
