@@ -1,6 +1,7 @@
+import ast
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional, List, Type, Any
+from typing import Union, Optional, List, Type, Any, NamedTuple
 
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
@@ -740,15 +741,38 @@ class AttributeAccessFinder(GenericFinder):
     #     return node
 
 
-class DanglingPaLaDiNDefinition(Exception):
-    """
-        An exception for a dangling PaLaDin assertion.
-    """
-    pass
+class AugAssignFinder(GenericFinder):
+    AugAssignExtra = NamedTuple('AugAssignExtra', [('op_str', str)])
+    OPS = {
+        ast.Add: "+",
+        ast.Sub: "-",
+        ast.Mult: "*",
+        ast.MatMult: "@",
+        ast.Div: "/",
+        ast.Mod: "%",
+        ast.Pow: "**",
+        ast.LShift: "<<",
+        ast.RShift: ">>",
+        ast.BitOr: "|",
+        ast.BitXor: "^",
+        ast.BitAnd: "&",
+        ast.FloorDiv: "//"
+    }
 
+    def types_to_find(self):
+        return ast.AugAssign
 
-class NotVisitedException(Exception):
-    """
-        An exception for when trying to operate on objects that should be visited first.
-    """
-    pass
+    def visit_AugAssign(self, node: ast.AugAssign) -> Any:
+        return AugAssignFinder.AugAssignExtra(op_str=AugAssignFinder.OPS[type(node.op)])
+
+    class DanglingPaLaDiNDefinition(Exception):
+        """
+            An exception for a dangling PaLaDin assertion.
+        """
+        pass
+
+    class NotVisitedException(Exception):
+        """
+            An exception for when trying to operate on objects that should be visited first.
+        """
+        pass

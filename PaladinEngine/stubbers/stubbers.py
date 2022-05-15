@@ -4,6 +4,7 @@ from ast import *
 from typing import Union
 
 from ast_common.ast_common import str2ast, ast2str
+from finders.finders import AugAssignFinder
 from stubs.stubs import __PALADIN_LIST__
 from utils.utils import assert_not_raise
 
@@ -615,7 +616,6 @@ class AttributeAccessStubber(Stubber):
         # Call the super constructor.
         super().__init__(root_module)
 
-
     def stub_attribute_access(self, node: ast.Attribute,
                               container: ast.AST,
                               container_attr_name: str,
@@ -628,19 +628,35 @@ class AttributeAccessStubber(Stubber):
 
 
 class ListStubber(Stubber):
-    def __init__(self, root_module) -> None:
-        """
-            Constructor
-        :param root_module: (ast.module) The module that contains the list.
-        """
-        # Call the super constructor.
-        super().__init__(root_module)
-
     def stub_list(self, node: ast.List, container: ast.AST, container_attr_name: str):
-
         stub = str2ast(f'{__PALADIN_LIST__.__name__}([{", ".join([ast2str(i) for i in node.elts])}])').value
 
         stub_record = Stubber._ListReplacingStubRecord(node, container, container_attr_name, stub)
-        #stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name, stub)
+        # stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name, stub)
         self.root_module = self._stub(stub_record)
         return self.root_module
+
+
+class AugAssignStubber(Stubber):
+
+    def __init__(self, root_module) -> None:
+        super().__init__(root_module)
+        self.temp_var_base = 'PALADIN_TEMP_AUG_ASSIGN_VAR__'
+        self.temp_var_seed = 0
+
+    def stub_aug_assigns(self, node: ast.AugAssign, container: ast.AST, container_attr_name: str,
+                         extra: AugAssignFinder.AugAssignExtra):
+        temp_var = self.next_temp_var
+        temp_op_and_assign = str2ast(
+            f'{temp_var} = {ast2str(node.target)} {extra.op_str} {ast2str(node.value)}')
+        temp_reassign = str2ast(f'{ast2str(node.target)} = {temp_var}')
+        stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name,
+                                                   [temp_op_and_assign, temp_reassign])
+        self.root_module = self._stub(stub_record)
+        return self.root_module
+
+    @property
+    def next_temp_var(self):
+        temp_var = self.temp_var_base + f'{self.temp_var_seed}'
+        self.temp_var_seed += 1
+        return temp_var

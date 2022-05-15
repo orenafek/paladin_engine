@@ -284,7 +284,7 @@ def __FC__(expression: str, function,
 
 def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
     # Access field (or method).
-    field = obj.__getattribute__(attr)
+    field = obj.__getattribute__(attr) if type(obj) is not type else obj.__getattribute__(obj, attr)
 
     if archive._should_record:
         archive.store_new \
