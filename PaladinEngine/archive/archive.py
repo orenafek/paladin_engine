@@ -125,11 +125,6 @@ class Archive(object):
         self._time += 1
         return self._time
 
-    @property
-    def current_time(self):
-        self.time += 1
-        return self.time
-
     def store(self, record_key: Record.RecordKey, record_value: Record.RecordValue):
         if not self._should_record:
             return self

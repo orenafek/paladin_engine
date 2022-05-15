@@ -17,7 +17,17 @@
 ### New Temporal Operators
 
 - Before: A Happened Before B
-   ```math
-  B(ϕ, ψ) := ∃i >= 0, ω_i ⊨ ψ, ∃k, 0 <= k <= i, ω_k ⊨ ϕ <==>
-  B(ϕ, ψ) := U(¬G(¬ϕ), ψ)
+   ```
+      B(ϕ, ψ) := ∃i, ∃k, 0 <= k <= i, ω_i ⊨ ψ ==> ω_k ⊨ ϕ
+      Also:
+      B(ϕ, ψ) == U(¬G(¬ϕ), ψ)
+  ```
+- After: A Happened After B
+  ```
+    A(ϕ, ψ) == B(ψ, ϕ)
+  ```
+  
+- All Future: From now on, A always happen.
+  ```
+    ₣(ϕ) := G(X(ϕ))
   ```

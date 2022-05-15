@@ -94,8 +94,7 @@ class ArchiveEvaluator(object):
             """
             return \
                 [(t, v) for t, v in sorted(values[expression].items(), key=lambda p: p[0], reverse=True) if
-                 t < self.time][
-                    0]
+                 t <= self.time][0]
 
         def __create_constant(self, expression: str, mapper: ExpressionMapper) -> Constant:
             time, value = self.__extract_value(expression, mapper)

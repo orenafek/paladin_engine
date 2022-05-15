@@ -136,7 +136,7 @@ class Until(BiLateralOperator):
 class Or(BiLateralOperator):
     @property
     def name(self):
-        return "O"
+        return "∨"
 
     def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
         if type(arg1) is bool and type(arg2) is bool:
@@ -172,10 +172,37 @@ class Not(UniLateralOperator):
 class And(BiLateralOperator):
     @property
     def name(self):
-        return "A"
+        return "∧"
 
     def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
         return Not().eval(Or().eval(Not().eval(arg1), Not().eval(arg2)))
+
+
+class Before(BiLateralOperator):
+    @property
+    def name(self) -> str:
+        return "B"
+
+    def eval(self, arg1, arg2):
+        return Until().eval(Not().eval(Globally().eval(Not().eval(arg1))), arg2)
+
+
+class After(BiLateralOperator):
+    @property
+    def name(self) -> str:
+        return "A"
+
+    def eval(self, arg1, arg2):
+        return Before().eval(arg2, arg1)
+
+
+class AllFuture(UniLateralOperator):
+    @property
+    def name(self) -> str:
+        return "₣"
+
+    def eval(self, arg):
+        return Globally().eval(Next().eval(arg))
 
 
 UniLateralOperator.ALL = UniLateralOperator.__subclasses__()

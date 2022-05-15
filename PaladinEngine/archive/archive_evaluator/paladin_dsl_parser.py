@@ -1,5 +1,6 @@
 import ast
 import functools
+import itertools
 from abc import ABC, abstractmethod
 
 from pyparsing import *
@@ -70,7 +71,7 @@ class PaladinDSLParser(object):
         resolved_names = self._resolve_names(extractor.names, self.line_no)
         resolved_attributes = self._resolve_attributes(extractor.attributes, self.line_no)
 
-        for t in range(self.start_time, self.end_time + 1):
+        for t in range(max(0, self.start_time), min(self.archive._time - 1, self.end_time + 1)):
             replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
 
             result = eval(ast2str(replacer.visit(ast.parse(query))))
@@ -90,6 +91,24 @@ class PaladinDSLParser(object):
 
     def _resolve_attributes(self, attributes: Set[str], line_no: int) -> ExpressionMapper:
         return {attr: self.archive.find_by_line_no(attr, line_no)[attr] for attr in attributes}
+
+    def parse_and_summarize(self, query: str):
+        parsed = self.parse(query)
+        presentable_and_filtered = {i[0]: (i[1][0], ", ".join([f'{x[0]} -> {x[1]} [{x[2]}]' for x in i[1][1]])) for i in
+                                    parsed.items() if not i[1][0]}
+
+        return {str(i[1][0]): i[0] for i in sorted(
+            {val: tuple(PaladinDSLParser._to_ranges(
+                [k for k in presentable_and_filtered if presentable_and_filtered[k] == val])) for val
+                in set(presentable_and_filtered.values())}.items())}
+
+    @staticmethod
+    def _to_ranges(iterable):
+        iterable = sorted(set(iterable))
+        for key, group in itertools.groupby(enumerate(iterable),
+                                            lambda t: t[1] - t[0]):
+            group = list(group)
+            yield group[0][1], group[-1][1]
 
 
 if __name__ == '__main__':
