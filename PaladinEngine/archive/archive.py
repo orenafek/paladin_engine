@@ -263,11 +263,13 @@ class Archive(object):
 
     def filter(self, filters: Union[Rvf, Iterable[Rvf]]) -> Dict[Rk, List[Rv]]:
         return {k: v for (k, v) in self.records.items() for vv in v
-                if (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))}
+                if
+                (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))}
 
     def flatten_and_filter(self, filters: Union[Rvf, Iterable[Rvf]]) -> List[Tuple[Rk, List[Rv]]]:
         return [(k, vv) for (k, v) in self.records.items() for vv in v
-                if (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))]
+                if
+                (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))]
 
     def get_by_line_no(self, line_no: int) -> Dict[Rk, List[Rv]]:
         return self.filter(lambda vv: vv.line_no == line_no)
@@ -345,6 +347,8 @@ class Archive(object):
             if rv.line_no == line_no:
                 if current_def_rv:
                     return current_def_rv.key.container_id
+                else:
+                    return rv.key.container_id
                 # TODO: Should we continue or raise an error? This case should happen when the line_no comes before
                 #  no __DEF__.
                 continue
@@ -352,7 +356,7 @@ class Archive(object):
         # TODO: Raise an error?
         return -1
 
-    def find_by_line_no(self, expression: str, line_no: int) -> Dict[int, List[Rv]]:
+    def find_by_line_no(self, expression: str, line_no: int, time: int = -1) -> Dict[int, List[Rv]]:
         """
         Find the values of an expression in the archive through out its time, where the names are bounded to a scope
         of a line no.
@@ -361,6 +365,7 @@ class Archive(object):
         :return:
         """
         scope = self.get_scope_by_line_no(line_no)
+        archive = self
 
         def _find_by_name_and_container_id(name: str, container_id: int):
             return [rv for rk, lrv in self.records.items() for rv in lrv if
@@ -379,10 +384,26 @@ class Archive(object):
             def visit_Attribute(self, node: Attribute) -> Any:
                 # Resolve value (lhs of "lhs.rhs").
                 self.visit(node.value)
+                value_str = ast2str(node.value)
+                attr_str = ast2str(node)
+                self.values[attr_str] = {}
 
                 # Add attribute's value.
-                self.values[ast2str(node)] = {t: v.__getattribute__(node.attr) for t, v in
-                                              self.values[ast2str(node.value)].items()}
+                for t, v in self.values[value_str].items():
+                    if type(v) is int:
+                        # v is probably an object id.
+                        obj = archive.build_object(v, time)
+                        if obj == {}:
+                            # TODO: I don't know what to do here...
+                            pass
+                        if len(obj) > 1:
+                            # TODO: Or here...
+                            pass
+                        attr = obj[0][node.attr]
+                    else:
+                        attr = v.__getattribute__(node.attr)
+
+                    self.values[attr_str][t] = attr
 
             def visit_Name(self, node: Name) -> Any:
                 self.values[node.id] = {rv.time: rv.value for rv in _find_by_name_and_container_id(node.id, scope)}

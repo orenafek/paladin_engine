@@ -524,10 +524,10 @@ class AssignmentFinder(GenericFinder):
                 return node.value
 
             def visit_Tuple(self, node):
-                return [self.visit(elem) for elem in node.elts]
+                return ", ".join([self.visit(elem) for elem in node.elts])
 
             def visit_Name(self, node):
-                return node.id, StubArgumentType.NAME
+                return node.id
 
             def visit_Attribute(self, node):
                 return ast2str(node)  # , StubArgumentType.NAME

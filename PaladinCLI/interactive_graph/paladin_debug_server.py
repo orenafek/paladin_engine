@@ -181,10 +181,12 @@ class PaladinDebugServer(FlaskView):
             PaladinDebugServer._present_archive_entries(
                 ARCHIVE.get_all_assignments_in_time_range(from_time, to).items()))
 
-    @route('/debug_info/query/<string:query>/<int:start_time>/<int:end_time>/<int:line_no>')
-    def query(self, query: str, start_time: int, end_time: int, line_no: int):
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<int:line_no>',
+           defaults={'where_query': ''})
+    @route('/debug_info/query/<string:select_query>/<string:where_query>/<int:start_time>/<int:end_time>/<int:line_no>')
+    def query(self, select_query: str, where_query: str, start_time: int, end_time: int, line_no: int):
         pdslp = PaladinDSLParser.create(ARCHIVE, start_time, end_time, line_no)
-        return PaladinDebugServer.create_response(pdslp.parse_and_summarize(query))
+        return PaladinDebugServer.create_response(pdslp.parse_and_summarize(select_query, where_query))
 
     @route('/debug_info/query_dsl_words')
     def query_dsl_words(self):

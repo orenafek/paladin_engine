@@ -23,6 +23,7 @@ from source_provider import SourceProvider
 # noinspection PyUnresolvedReferences
 from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
     __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__
+import signal
 
 
 class PaLaDiNEngine(object):
@@ -48,12 +49,16 @@ class PaLaDiNEngine(object):
 
         @staticmethod
         def create(source_code: str, paladinized_code: str, sys_exc_info,
-                   archive_time: int) -> 'PaLaDiNEngine.PaladinRunExceptionData':
-            run_line_no = None
-            exc_info: traceback = sys_exc_info[2]
-            while exc_info:
-                run_line_no = exc_info.tb_lineno
-                exc_info = exc_info.tb_next
+                   archive_time: int, exception_line_no: int = -1) -> 'PaLaDiNEngine.PaladinRunExceptionData':
+
+            if exception_line_no == -1:
+                run_line_no = None
+                exc_info: traceback = sys_exc_info[2]
+                while exc_info:
+                    run_line_no = exc_info.tb_lineno
+                    exc_info = exc_info.tb_next
+            else:
+                run_line_no = exception_line_no
 
             original_lines = source_code.split('\n')
             paladinized_lines = paladinized_code.split('\n')
@@ -129,8 +134,30 @@ class PaLaDiNEngine(object):
         sys.argv[0] = original_file_name
         # Clear args.
         sys.argv[1:] = []
+
+        class PaladinTimeoutError(TimeoutError):
+            def __init__(self, line_no: int, *args, **kwargs):
+                super(PaladinTimeoutError, self).__init__(args, kwargs)
+                self.line_no = line_no
+
         try:
-            return exec(paladinized_code, variables), archive, None
+            def handler(signum, frame):
+                current_frame = frame
+                while current_frame and 'PALADIN' not in str(current_frame):
+                    current_frame = current_frame.f_back
+
+                raise PaladinTimeoutError(current_frame.f_lineno,
+                                          f'Program exceeded timeout, stopped on: {current_frame.f_lineno}')
+
+            signal.signal(signal.SIGALRM, handler)
+            #signal.alarm(2)
+
+            return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
+
+        except PaladinTimeoutError as e:
+            return None, archive, PaLaDiNEngine.PaladinRunExceptionData.create(source_code, paladinized_code,
+                                                                               sys.exc_info(),
+                                                                               archive.time, e.line_no)
 
         except BaseException:
             return None, archive, PaLaDiNEngine.PaladinRunExceptionData.create(source_code, paladinized_code,

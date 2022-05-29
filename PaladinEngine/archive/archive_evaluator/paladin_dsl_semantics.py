@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
+
+from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
+from ast_common.ast_common import str2ast
 
 SemanticsArgType = Union[bool, EvalResult]
 
@@ -203,6 +206,43 @@ class AllFuture(UniLateralOperator):
 
     def eval(self, arg):
         return Globally().eval(Next().eval(arg))
+
+
+class First(UniLateralOperator):
+
+    @property
+    def name(self) -> str:
+        return "Q"
+
+    def eval(self, arg: SemanticsArgType):
+        if type(arg) is bool:
+            """
+                Q(T) = T
+                Q(F) = F
+            """
+            return arg
+
+        first = min(filter(lambda k: arg[k][0] != False, arg))
+        if not first:
+            return False
+
+        return {first: arg[first]}
+
+class Last(UniLateralOperator):
+
+    @property
+    def name(self) -> str:
+        return "Z"
+
+    def eval(self, arg):
+        if type(arg) is bool:
+            return arg
+
+        first = max(filter(lambda k: arg[k][0] != False, arg))
+        if not first:
+            return False
+
+        return {first: arg[first]}
 
 
 UniLateralOperator.ALL = UniLateralOperator.__subclasses__()

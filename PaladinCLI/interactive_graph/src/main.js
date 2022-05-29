@@ -34,7 +34,8 @@ const debug_info = {
             line_to_debug: null,
             retrieved_objects: {},
             time_window: [],
-            query_code: "",
+            query_select: "",
+            query_where: "",
             codemirror_options: {
                 mode: "text/x-python",
                 theme: "darcula",
@@ -107,16 +108,19 @@ const debug_info = {
 
         run_query: async function () {
             const query_result = await request_debug_info("query",
-                ...([this.query_code].concat(["query_start_time", "query_end_time", "query_line_no"].map(
-                        arg => document.getElementById(arg).value))
+                ...([this.query_select].concat([this.query_where !== "" ? this.query_where : "True"].concat(["query_start_time", "query_end_time", "query_line_no"].map(
+                        arg => document.getElementById(arg).value)))
                 ));
 
             document.getElementById("query_result").value =
                 Object.keys(query_result).length > 0 ? JSON.stringify(query_result) : "No faults in lines.";
         },
 
-        onChange: function(val, cm){
-            this.query_code = val;
+        onQuerySelectChange: function (val, cm) {
+            this.query_select = val != null ? val : "";
+        },
+        onQueryWhereChange: function (val, cm) {
+            this.query_where = val != null && val !== "" ? val : "";
         }
     }
 

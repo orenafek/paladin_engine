@@ -160,13 +160,13 @@ class TestEngine:
     @pytest.mark.skip(reason="")
     def test_lib1_syntax(self):
         TestEngine.basic_test(
-            '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/lab1/src/lambda_calc'
+            '/tests/test_resources/examples/lab1/src/lambda_calc'
             '/syntax.py', verbose=True)
 
     #@pytest.mark.skip(reason="")
     def test_lib1_semantics(self):
         TestEngine.basic_test(
-            '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/lab1/src/lambda_calc'
+            '/tests/test_resources/examples/lab1/src/lambda_calc'
             '/semantics.py', verbose=True)
 
     #@pytest.mark.skip(reason="")
