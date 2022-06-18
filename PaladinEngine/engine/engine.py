@@ -67,8 +67,14 @@ class PaLaDiNEngine(object):
 
             if __IS_STUBBED__(paladinized_line):
                 # The line itself is not as it was in the original file, therefore look for the line no. in it.
-                line_no = int(
-                    re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
+                if __FC__.__name__ in paladinized_line:
+                    # TODO: This is a patch for __FC__ that can't add "line_no=" in it because it expects *args and **kwargs after it.
+                    # TODO: Currently assuming that __FC__(expression, func_name, locals, globals, frame, line_no, *args, **kwargs)
+                    line_no = int(paladinized_line.split(',')[5].strip().strip(')'))
+                else:
+                    line_no = int(
+                        re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
+
                 matched_line = (line_no, original_lines[line_no - 1])  # original_lines start from 0
             else:
                 matched_lines = [(no + 1, l) for no, l in enumerate(original_lines) if
@@ -150,7 +156,6 @@ class PaLaDiNEngine(object):
                                           f'Program exceeded timeout, stopped on: {current_frame.f_lineno}')
 
             signal.signal(signal.SIGALRM, handler)
-            #signal.alarm(2)
 
             return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
 
@@ -189,9 +194,9 @@ class PaLaDiNEngine(object):
             m = t.module
             # t = t.transform_attribute_accesses()
             # m = t.module
-            t = t.transform_assignments()
-            m = t.module
             t = t.transform_for_loops_to_while_loops()
+            m = t.module
+            t = t.transform_assignments()
             m = t.module
             t = t.transform_function_def()
             m = t.module

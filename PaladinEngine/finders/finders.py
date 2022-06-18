@@ -524,7 +524,7 @@ class AssignmentFinder(GenericFinder):
                 return node.value
 
             def visit_Tuple(self, node):
-                return ", ".join([self.visit(elem) for elem in node.elts])
+                return ", ".join([str(self.visit(elem)) for elem in node.elts])
 
             def visit_Name(self, node):
                 return node.id
