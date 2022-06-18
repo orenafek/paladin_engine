@@ -157,7 +157,7 @@ class Or(BiLateralOperator):
 
             return arg1
 
-        return {t: (r1[0] or r2[0], r1[1] + r2[1]) for t, r1 in arg1.items() for t2, r2 in arg2.items()}
+        return {t: (r1[0] or r2[0], r1[1] + r2[1]) for t, r1 in arg1.items() for t2, r2 in arg2.items() if t == t2}
 
 
 class Not(UniLateralOperator):
@@ -228,6 +228,7 @@ class First(UniLateralOperator):
 
         return {first: arg[first]}
 
+
 class Last(UniLateralOperator):
 
     @property
@@ -243,6 +244,41 @@ class Last(UniLateralOperator):
             return False
 
         return {first: arg[first]}
+
+
+class Where(BiLateralOperator):
+
+    @property
+    def name(self) -> str:
+        return "W"
+
+    def eval(self, selector, condition):
+        """
+        :param selector:  Select clause.
+        :param condition: Where clause.
+        :return:
+        """
+        if isinstance(condition, bool):
+            if condition:
+                return selector
+
+            # TODO: Should be False?
+            return {}
+
+        return {k: v for k, v in selector.items() if condition[k][0]}
+
+
+class SetUnion(BiLateralOperator):
+
+    @property
+    def name(self) -> str:
+        return "++"
+
+    def eval(self, arg1: EvalResult, arg2: EvalResult):
+        if isinstance(arg1, bool) or isinstance(arg2, bool):
+            raise TypeError("Cannot run Union if any of its operands are bool.")
+
+        return {k:v for k, v in list(arg1.items()) + list(arg2.items()) if v[0]}
 
 
 UniLateralOperator.ALL = UniLateralOperator.__subclasses__()
