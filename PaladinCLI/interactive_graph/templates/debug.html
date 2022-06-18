@@ -51,20 +51,21 @@
         <h3> Run Query: </h3>
         <h4> Select: </h4>
         <Codemirror id="query_select" placeholder="Selection" :options="codemirror_options" :height="auto" :width="600"
-                    style="font-size: 14pt;" @change="onQuerySelectChange"></Codemirror>
+                    style="font-size: 14pt;" @change="onQuerySelectChange" v-model:value="query_select"></Codemirror>
 
         <h4> Where:</h4>
         <div v-text="query_dsl_words"></div>
         <br/>
         <Codemirror id="query_where" placeholder="Type your query here" :options="codemirror_options" :height="auto"
-                    :width="600" style="font-size: 14pt" @change="onQueryWhereChange"></Codemirror>
-        <input id="query_start_time" type="number" placeholder="start"/>
-        <input id="query_end_time" type="number" placeholder="end"/>
-        <input id="query_line_no" type="number" placeholder="line number"/>
+                    :width="600" style="font-size: 14pt" @change="onQueryWhereChange" v-model:value="query_where" ref="qw_cm"></Codemirror>
+        <input v-model="query_start_time" type="number" placeholder="start"/>
+        <input v-model="query_end_time" type="number" placeholder="end"/>
+        <input v-model="query_line_no" type="number" placeholder="line number"/>
         <button @click="run_query">Run</button>
         <br/>
         <textarea id="query_result" placeholder="Your results will appear in here"
                   style="height: auto; max-height: 200px; width: auto"></textarea>
+        <tabular :value="tabular_query_result"></tabular>
     </div>
     <div>
         <h3>Create a time window:</h3>

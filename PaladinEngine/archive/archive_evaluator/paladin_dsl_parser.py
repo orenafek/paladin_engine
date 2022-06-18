@@ -1,10 +1,11 @@
 import ast
 import functools
 import itertools
+import json
 from abc import ABC, abstractmethod
 
+import pyparsing
 from pyparsing import *
-
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
@@ -59,8 +60,13 @@ class PaladinDSLParser(object):
 
     @classmethod
     def _raw_query(cls):
-        return Suppress('[[') + SkipTo(']]').setParseAction(
-            lambda q: (lambda p: p._eval_raw_query(q.asList()[0]))) + Suppress(']]')
+        """
+            A Raw query is either in the form [[<expression>]]@<scope (line number)> or [[<expression>]].
+        :return:
+        """
+        return (Suppress('[[') + SkipTo(']]') + Suppress(']]') + pyparsing.Optional(Suppress(
+            '@') + pyparsing_common.integer, default=None)).setParseAction(
+            lambda q: (lambda p: p._eval_raw_query(q.asList()[0], q.asList()[1])))
 
     def create_timer_for_filter(self):
         """
@@ -78,19 +84,22 @@ class PaladinDSLParser(object):
         # The results have filtered (not empty and not maxed).
         return filter(lambda t: filter_results[t][0], filter_results.keys())
 
-    def _eval_raw_query(self, query: str):
+    def _eval_raw_query(self, query: str, scope: Optional[int] = None):
         # Extract names to resolve from the archive.
         extractor = ArchiveEvaluator.SymbolExtractor()
         extractor.visit(str2ast(query))
 
         results = {}
 
+        if scope is None:
+            scope = self.line_no
         for t in self.timer:
-            resolved_names = self._resolve_names(extractor.names, self.line_no, t)
-            resolved_attributes = self._resolve_attributes(extractor.attributes, self.line_no, t)
+            resolved_names = self._resolve_names(extractor.names, scope, t)
+            resolved_attributes = self._resolve_attributes(extractor.attributes, scope, t)
 
             replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
             try:
+                # TODO: Can AST object be compiled and then evaled (without turning to string)?
                 result = eval(ast2str(replacer.visit(ast.parse(query))))
             except IndexError:
                 result = None
@@ -120,6 +129,7 @@ class PaladinDSLParser(object):
         self._timer = value
 
     def parse_and_summarize(self, select_query: str, where_query: Optional[str] = ''):
+        # TODO: Remove where query.
         # Set timer for filtering by where.
         self.timer = self.create_timer_for_filter()
 
@@ -133,12 +143,15 @@ class PaladinDSLParser(object):
 
         # Parse the select query.
         parsed_select = self.parse(select_query)
+        if not parsed_select:
+            return {}
 
         presentable_and_filtered = {i[0]: (str(i[1][0]), ", ".join([f'{x[0]} -> {x[1]} [{x[2]}]' for x in i[1][1]])) for
                                     i in
                                     parsed_select.items() if i[1][0] != True}
 
-        return {str(i[1][0]): i[0] for i in sorted(
+        # TODO: Change format to fit into tabular vue component.
+        return {json.dumps(i[1][0]): i[0] for i in sorted(
             {val: tuple(PaladinDSLParser._to_ranges(
                 [k for k in presentable_and_filtered if presentable_and_filtered[k] == val])) for val
                 in set(presentable_and_filtered.values())}.items())}

@@ -10,13 +10,15 @@ import {CodeMirror} from "codemirror-editor-vue3";
 
 import "codemirror/mode/python/python.js";
 import "codemirror/theme/darcula.css";
+import tabular from "./components/tabular.vue";
 
 const debug_info = {
     components: {
         highlighted: Highlighted,
         archiveTable: ArchiveTable,
         Codemirror,
-        Tree
+        Tree,
+        tabular
     },
     data: function () {
         return {
@@ -36,6 +38,10 @@ const debug_info = {
             time_window: [],
             query_select: "",
             query_where: "",
+            query_start_time: 0,
+            query_end_time: 0,
+            query_line_no: 0,
+            tabular_query_result: {},
             codemirror_options: {
                 mode: "text/x-python",
                 theme: "darcula",
@@ -55,6 +61,13 @@ const debug_info = {
         this.exception_source_line = exception != null ? exception['exception_source_line'] : null;
         this.exception_msg = exception != null ? exception['exception_msg'] : null;
         this.exception_archive_time = exception != null ? exception['exception_archive_time'] : null;
+        if (localStorage['AppQuery']) {
+            Object.assign(this, JSON.parse(localStorage['AppQuery']));
+        }
+
+        window.addEventListener("beforeunload", () => {
+            localStorage['AppQuery'] = JSON.stringify(Object.fromEntries(Object.entries(this.$data).filter(([k, v]) => k.startsWith("query_"))));
+        });
     },
     compilerOptions: {
         delimiters: ['$$[', ']$$']
@@ -108,19 +121,20 @@ const debug_info = {
 
         run_query: async function () {
             const query_result = await request_debug_info("query",
-                ...([this.query_select].concat([this.query_where !== "" ? this.query_where : "True"].concat(["query_start_time", "query_end_time", "query_line_no"].map(
-                        arg => document.getElementById(arg).value)))
-                ));
+                ...[this.query_select, this.query_where !== "" ? this.query_where : "True",
+                    this.query_start_time, this.query_end_time, this.query_line_no]);
+
+            this.tabular_query_result = query_result;
 
             document.getElementById("query_result").value =
                 Object.keys(query_result).length > 0 ? JSON.stringify(query_result) : "No faults in lines.";
         },
 
         onQuerySelectChange: function (val, cm) {
-            this.query_select = val != null ? val : "";
+            //this.query_select = val != null ? val : "";
         },
         onQueryWhereChange: function (val, cm) {
-            this.query_where = val != null && val !== "" ? val : "";
+            //this.query_where = val != null && val !== "" ? val : "";
         }
     }
 
@@ -129,7 +143,7 @@ const debug_info = {
 document.addEventListener("DOMContentLoaded", () => {
     const debug_info_vue_app = Vue.createApp(debug_info);
     debug_info_vue_app.use(Vue3Highlightjs);
-    debug_info_vue_app.mount('#header');
+    window.app = debug_info_vue_app.mount('#header');
     escapeHTMLTags();
 });
 
