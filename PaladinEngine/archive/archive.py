@@ -331,27 +331,23 @@ class Archive(object):
         # Get all records by time.
         record_values_by_time = [rv for _, rv in self.flat_and_sort_by_time()]
 
-        current_def_rv = None
-        previous_def_rv = None
-
+        rv_stack = []
         for rv in record_values_by_time:
             if rv.key.stub_name == '__DEF__':
-                previous_def_rv = current_def_rv
-                current_def_rv = rv
+                rv_stack.append(rv)
                 continue
 
             if rv.key.stub_name == '__UNDEF__':
-                current_def_rv = previous_def_rv
+                rv_stack.pop()
                 continue
 
             if rv.line_no == line_no:
-                if current_def_rv:
-                    return current_def_rv.key.container_id
+                if len(rv_stack) > 0:
+                    return rv_stack[-1].key.container_id
                 else:
                     return rv.key.container_id
                 # TODO: Should we continue or raise an error? This case should happen when the line_no comes before
                 #  no __DEF__.
-                continue
 
         # TODO: Raise an error?
         return -1
@@ -393,9 +389,9 @@ class Archive(object):
                     if type(v) is int:
                         # v is probably an object id.
                         obj = archive.build_object(v, time)
-                        if obj == {}:
+                        if obj == []:
                             # TODO: I don't know what to do here...
-                            pass
+                            continue
                         if len(obj) > 1:
                             # TODO: Or here...
                             pass
