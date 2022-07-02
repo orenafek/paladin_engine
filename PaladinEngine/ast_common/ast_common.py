@@ -1,4 +1,5 @@
 import ast
+import typing
 
 
 def ast2str(node: ast.AST, lstrip: bool = True, rstrip: bool = True) -> str:
@@ -19,6 +20,11 @@ def ast2str(node: ast.AST, lstrip: bool = True, rstrip: bool = True) -> str:
 
 def str2ast(s: str):
     return ast.parse(s).body[0]
+
+
+def is_of(s: str, t: typing.Type) -> bool:
+    parsed = str2ast(s)
+    return type(parsed) is ast.Expr and isinstance(parsed.value, t)
 
 
 def wrap(s: str, w: str, wrap_left: bool = True, wrap_right: bool = True) -> str:

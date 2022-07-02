@@ -34,6 +34,7 @@ class PaladinDebugServer(FlaskView):
         stub: str
         container_id: int
         field: str
+        line_no: int
         expression: str
         value: object
         type: type
@@ -228,6 +229,7 @@ class PaladinDebugServer(FlaskView):
                 key.stub_name,
                 key.container_id,
                 key.field,
+                value.line_no,
                 value.expression,
                 value.value if ISP(value.value) else str(value.value),
                 value.rtype.__name__ if ISP(value.rtype) else 'ptr',

@@ -2,18 +2,17 @@ import ast
 import functools
 import itertools
 import json
-from abc import ABC, abstractmethod
 
 import pyparsing
 from pyparsing import *
+
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
-from ast_common.ast_common import str2ast, ast2str
 from archive.archive_evaluator.paladin_dsl_semantics import *
+from ast_common.ast_common import ast2str, is_of
 
 
 class PaladinDSLParser(object):
+    SCOPE_SIGN = '@'
 
     def __init__(self, unilateral_keywords: List[UniLateralOperator],
                  bilateral_keywords: List[BiLateralOperator], archive: Archive, start_time: int,
@@ -65,7 +64,7 @@ class PaladinDSLParser(object):
         :return:
         """
         return (Suppress('[[') + SkipTo(']]') + Suppress(']]') + pyparsing.Optional(Suppress(
-            '@') + pyparsing_common.integer, default=None)).setParseAction(
+            PaladinDSLParser.SCOPE_SIGN) + pyparsing_common.integer, default=None)).setParseAction(
             lambda q: (lambda p: p._eval_raw_query(q.asList()[0], q.asList()[1])))
 
     def create_timer_for_filter(self):
@@ -89,10 +88,13 @@ class PaladinDSLParser(object):
         extractor = ArchiveEvaluator.SymbolExtractor()
         extractor.visit(str2ast(query))
 
-        results = {}
-
         if scope is None:
             scope = self.line_no
+
+        # Split query into sub queries.
+        queries = list(map(lambda q: q.strip(), query.split(',')))
+        #results = {q: {} for q in queries}
+        results = {}
         for t in self.timer:
             resolved_names = self._resolve_names(extractor.names, scope, t)
             resolved_attributes = self._resolve_attributes(extractor.attributes, scope, t)
@@ -102,8 +104,12 @@ class PaladinDSLParser(object):
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
                 result = eval(ast2str(replacer.visit(ast.parse(query))))
             except IndexError:
-                result = None
-            results[t] = (result, replacer.replacements)
+                result = [None] * len(queries)
+            # for q, r in zip(queries, result):
+            #     results[q][t] = r, replacer.replacements
+            results[t] = (
+                {f'{q}{PaladinDSLParser.SCOPE_SIGN}{scope}': r for q, r in zip(queries, result)},
+                replacer.replacements)
 
         return results
 
@@ -146,15 +152,18 @@ class PaladinDSLParser(object):
         if not parsed_select:
             return {}
 
-        presentable_and_filtered = {i[0]: (str(i[1][0]), ", ".join([f'{x[0]} -> {x[1]} [{x[2]}]' for x in i[1][1]])) for
-                                    i in
-                                    parsed_select.items() if i[1][0] != True}
+        presentable = {i[0]: (i[1][0], ", ".join([f'{x[0]} -> {x[1]} [{x[2]}]' for x in i[1][1]]))
+                           for i in parsed_select.items()}
 
-        # TODO: Change format to fit into tabular vue component.
-        return {json.dumps(i[1][0]): i[0] for i in sorted(
-            {val: tuple(PaladinDSLParser._to_ranges(
-                [k for k in presentable_and_filtered if presentable_and_filtered[k] == val])) for val
-                in set(presentable_and_filtered.values())}.items())}
+        grouped_presentable = PaladinDSLParser._group(presentable)
+
+        return json.dumps(grouped_presentable)
+
+        # # TODO: Change format to fit into tabular vue component.
+        # return {json.dumps(i[1][0]): i[0] for i in sorted(
+        #     {val: tuple(PaladinDSLParser._to_ranges(
+        #         [k for k in presentable if presentable[k] == val])) for val
+        #         in set(presentable.values())}.items())}
 
     @staticmethod
     def _to_ranges(iterable):
@@ -164,10 +173,28 @@ class PaladinDSLParser(object):
             group = list(group)
             yield group[0][1], group[-1][1]
 
+    @staticmethod
+    def _group(d: Dict):
+        keys = list(d.keys())
+        key_range = []
+        v = d[keys[0]]
+        grouped = {}
+        for k in keys:
+            if d[k] == v:
+                key_range.append(k)
+                continue
+
+            grouped[str((min(key_range), max(key_range)))] = v
+            v = d[k]
+            key_range = [k]
+
+        return grouped
+
 
 if __name__ == '__main__':
     parser = PaladinDSLParser(
         unilateral_keywords=[Globally(), Next(), Finally()],
         bilateral_keywords=[Until()], archive=None, start_time=1, end_time=1229, line_no=92)
     parser.grammar.runTests(
-        ['[[e < self.V - 1]]', 'G([[e == 4]])', 'U([[e < self.V - 1]], [[e == 4]])', 'U(G([[e < self.V - 1]]), [[9]])'])
+        ['[[e < self.V - 1]]', 'G([[e == 4]])', 'U([[e < self.V - 1]], [[e == 4]])',
+         'U(G([[e < self.V - 1]]), [[9]])'])
