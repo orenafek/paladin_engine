@@ -278,8 +278,8 @@ class SetUnion(BiLateralOperator):
         if isinstance(arg1, bool) or isinstance(arg2, bool):
             raise TypeError("Cannot run Union if any of its operands are bool.")
 
-        return {k:v for k, v in list(arg1.items()) + list(arg2.items()) if v[0]}
-
+        return {k1: ({**res1, **res2}, rep1 + rep2) for (k1, (res1, rep1)), (k2, (res2, rep2)) in
+                zip(arg1.items(), arg2.items()) if k1 == k2}
 
 UniLateralOperator.ALL = UniLateralOperator.__subclasses__()
 BiLateralOperator.ALL = BiLateralOperator.__subclasses__()
