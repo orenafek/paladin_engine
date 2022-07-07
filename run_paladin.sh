@@ -1,3 +1,4 @@
-export PYTHONPATH=${PYTHONPATH}:`pwd`/PaladinEngine
+D=$(realpath $(dirname $0))
+export PYTHONPATH=${PYTHONPATH}:$D:$D/PaladinEngine
 
-python3 PaladinCLI/paladin_cli.py "$@"
+python3 $D/PaladinCLI/paladin_cli.py "$@"

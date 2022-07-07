@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import *
 
-from flask import Flask, render_template, request, send_file
+from flask import Flask, request, send_file, send_from_directory
 from flask_classful import FlaskView, route
 from flask_cors import CORS
 
@@ -15,10 +15,11 @@ from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
 from common.common import ISP
 
 NAME = 'PaLaDiN Debug Server'
-TEMPLATE_FOLDER = Path.cwd().joinpath('interactive_graph').joinpath('templates')
-STATIC_FOLDER = Path.cwd().joinpath('interactive_graph').joinpath('static')
-SCRIPTS_FOLDER = STATIC_FOLDER.joinpath('scripts')
-STYLES_FOLDER = STATIC_FOLDER.joinpath('styles')
+HERE = Path(__file__).parent
+TEMPLATE_FOLDER = HERE / 'templates'
+STATIC_FOLDER = HERE / 'static'
+SCRIPTS_FOLDER = STATIC_FOLDER / 'scripts'
+STYLES_FOLDER = STATIC_FOLDER / 'styles'
 JSON_FILE_NAME = 'input_graph_tree.json'
 SOURCE_CODE: str = ''
 EVALUATOR: Optional[ArchiveEvaluator] = None
@@ -86,27 +87,27 @@ class PaladinDebugServer(FlaskView):
     @route('/', methods=['GET', 'POST'])
     def index(self):
         if request.method == 'GET':
-            return render_template('index.html')
+            return send_from_directory(TEMPLATE_FOLDER, 'index.html')
         if request.method == 'POST':
             return self.search()
 
     @route('/debug', methods=['GET', 'POST'])
     def debug(self):
         if request.method == 'GET':
-            return render_template('debug.html')
+            return send_from_directory(TEMPLATE_FOLDER, 'debug.html')
 
     @route('/input_graph_tree.json')
     def input_graph_tree(self):
-        with open(os.path.join(TEMPLATE_FOLDER, JSON_FILE_NAME), 'r') as f:
+        with open(TEMPLATE_FOLDER / JSON_FILE_NAME, 'r') as f:
             return f.read()
 
     @route('/scripts/<string:path>')
     def get_script(self, path):
-        return send_file(str(SCRIPTS_FOLDER.joinpath(path)), 'text/javascript')
+        return send_file(SCRIPTS_FOLDER / path, 'text/javascript')
 
     @route('/styles/<string:path>')
     def get_stylesheet(self, path):
-        return send_file(str(STYLES_FOLDER.joinpath(path)), 'text/css')
+        return send_file(STYLES_FOLDER / path, 'text/css')
 
     @route('/debug_info/source_code')
     @route('/debug_info/source_code/<int:line>')
