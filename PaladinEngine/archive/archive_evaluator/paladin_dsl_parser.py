@@ -2,16 +2,17 @@ import ast
 import functools
 import itertools
 import json
+import operator
 
 import pyparsing
 from pyparsing import *
-
 from archive.archive import Archive
 from archive.archive_evaluator.paladin_dsl_semantics import *
 from ast_common.ast_common import ast2str, is_of
 
 
 class PaladinDSLParser(object):
+    SLIDER_SIGN = '$'
     SCOPE_SIGN = '@'
 
     def __init__(self, unilateral_keywords: List[UniLateralOperator],
@@ -48,7 +49,10 @@ class PaladinDSLParser(object):
             for k in bilateral_keywords
         ]
 
-        query <<= cls._raw_query() | functools.reduce(ParserElement.__or__, unilateral_queries + bilateral_queries)
+        q = cls._raw_query() | cls._compound_query()
+
+        query <<= q | functools.reduce(ParserElement.__or__,
+                                       unilateral_queries + bilateral_queries)
 
         return query
 
@@ -66,6 +70,14 @@ class PaladinDSLParser(object):
         return (Suppress('[[') + SkipTo(']]') + Suppress(']]') + pyparsing.Optional(Suppress(
             PaladinDSLParser.SCOPE_SIGN) + pyparsing_common.integer, default=None)).setParseAction(
             lambda q: (lambda p: p._eval_raw_query(q.asList()[0], q.asList()[1])))
+
+    @classmethod
+    def _compound_query(cls):
+        return (Suppress('{{') + ZeroOrMore(
+            (SkipTo('[[') + cls._raw_query())) + SkipTo(
+            '}}') + Suppress('}}')).setParseAction(
+            lambda q: (lambda p: p._eval_compound_query(q.asList()))
+        )
 
     def create_timer_for_filter(self):
         """
@@ -93,7 +105,7 @@ class PaladinDSLParser(object):
 
         # Split query into sub queries.
         queries = list(map(lambda q: q.strip(), query.split(',')))
-        #results = {q: {} for q in queries}
+        # results = {q: {} for q in queries}
         results = {}
         for t in self.timer:
             resolved_names = self._resolve_names(extractor.names, scope, t)
@@ -103,6 +115,8 @@ class PaladinDSLParser(object):
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
                 result = eval(ast2str(replacer.visit(ast.parse(query))))
+                if not isinstance(result, tuple):
+                    result = (result,)
             except IndexError:
                 result = [None] * len(queries)
             # for q, r in zip(queries, result):
@@ -112,6 +126,24 @@ class PaladinDSLParser(object):
                 replacer.replacements)
 
         return results
+
+    def _eval_compound_query(self, compound_query: list[str]):
+        evaluated = [q(self) if callable(q) else q for q in compound_query]
+        timers = [{*r.keys()} for r in evaluated if isinstance(r, dict)]
+        assert all([timer == timers[0] for timer in timers])
+
+        results = {}
+        for t in timers[0]:
+            query = ' '.join([str(list(r[t][0].values())[0]) if isinstance(r, dict) else r for r in evaluated])
+            results[t] = (
+                {query: eval(query)},
+                functools.reduce(operator.add, [r[t][1] for r in evaluated if isinstance(r, dict)])
+            )
+
+        return results
+
+    def _eval_time_slider_query(self, query: Callable, time_to_slide: int):
+        return {k + time_to_slide: v for k, v in query(self).items()}
 
     def _resolve_names(self, names: Set[str], line_no: int, time: int) -> ExpressionMapper:
         """
@@ -153,7 +185,7 @@ class PaladinDSLParser(object):
             return {}
 
         presentable = {i[0]: (i[1][0], ", ".join([f'{x[0]} -> {x[1]} [{x[2]}]' for x in i[1][1]]))
-                           for i in parsed_select.items()}
+                       for i in parsed_select.items()}
 
         grouped_presentable = PaladinDSLParser._group(presentable)
 
@@ -193,8 +225,13 @@ class PaladinDSLParser(object):
 
 if __name__ == '__main__':
     parser = PaladinDSLParser(
-        unilateral_keywords=[Globally(), Next(), Finally()],
-        bilateral_keywords=[Until()], archive=None, start_time=1, end_time=1229, line_no=92)
+        unilateral_keywords=[op() for op in UniLateralOperator.ALL],
+        bilateral_keywords=[op() for op in BiLateralOperator.ALL], archive=None, start_time=1, end_time=1229,
+        line_no=92)
     parser.grammar.runTests(
-        ['[[e < self.V - 1]]', 'G([[e == 4]])', 'U([[e < self.V - 1]], [[e == 4]])',
-         'U(G([[e < self.V - 1]]), [[9]])'])
+        [
+            'W(G([[a]]@4), G([[a]]@4))',
+            'W(++([[i, j]]@9, [[i, j]]@22), [[i > 0]]@9)',
+            'W(++([[i,j, total_slices]]@9, [[i, j, total_slices]]@29), {{[[total_slices]]@10 == [[total_slices]]@29}})'
+        ]
+    )
