@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 
-from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
-from ast_common.ast_common import str2ast
 
 SemanticsArgType = Union[bool, EvalResult]
 
@@ -265,7 +263,9 @@ class Where(BiLateralOperator):
             # TODO: Should be False?
             return {}
 
-        return {k: v for k, v in selector.items() if condition[k][0]}
+        # condition[t][0] is a dict in the form: {"query": <result **SHOULD BE** True/False>}.
+        # Therefore the filter part of this dict comp. verifies that every "query" in condition[t][0] is set to True.
+        return {k: v for k, v in selector.items() if all([*condition[k][0].values()])}
 
 
 class SetUnion(BiLateralOperator):
@@ -280,6 +280,7 @@ class SetUnion(BiLateralOperator):
 
         return {k1: ({**res1, **res2}, rep1 + rep2) for (k1, (res1, rep1)), (k2, (res2, rep2)) in
                 zip(arg1.items(), arg2.items()) if k1 == k2}
+
 
 UniLateralOperator.ALL = UniLateralOperator.__subclasses__()
 BiLateralOperator.ALL = BiLateralOperator.__subclasses__()
