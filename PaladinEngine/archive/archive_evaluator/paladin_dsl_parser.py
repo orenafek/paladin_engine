@@ -6,9 +6,11 @@ import operator
 
 import pyparsing
 from pyparsing import *
+
 from archive.archive import Archive
+from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.paladin_dsl_semantics import *
-from ast_common.ast_common import ast2str, is_of
+from ast_common.ast_common import ast2str, str2ast
 
 
 class PaladinDSLParser(object):

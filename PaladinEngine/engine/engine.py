@@ -9,21 +9,19 @@ import dataclasses
 import inspect
 import pickle
 import re
+import signal
 import sys
 import traceback
 from types import CodeType
 
-from typing import *
-from archive.archive import Archive
 from ast_common.ast_common import ast2str
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
 from module_transformer.module_transformator import ModuleTransformer
-from source_provider import SourceProvider
+from source_provider.source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
 from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
     __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__
-import signal
 
 
 class PaLaDiNEngine(object):

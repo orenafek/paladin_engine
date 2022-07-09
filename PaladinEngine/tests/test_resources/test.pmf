@@ -1,3 +1,0 @@
-def Coordinate: Object[number: int]
-
-def Point: Object[x: Coordinate, y: Coordinate]
