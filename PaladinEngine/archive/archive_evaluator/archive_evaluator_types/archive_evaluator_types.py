@@ -9,6 +9,6 @@ class Replacement(NamedTuple):
     time: int
 
 
-EvalResult = Dict[int, Tuple[bool, Optional[List[Replacement]]]]
+EvalResult = Dict[int, Tuple[Dict[str, object], Optional[List[Replacement]]]]
 
 EvalFunction = Callable[[int, int, int, int], EvalResult]

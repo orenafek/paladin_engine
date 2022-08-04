@@ -9,13 +9,13 @@ from pyparsing import *
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import *
 from archive.archive_evaluator.paladin_dsl_semantics import *
 from ast_common.ast_common import ast2str, str2ast
 
 
 class PaladinDSLParser(object):
-    SLIDER_SIGN = '$'
-    SCOPE_SIGN = '@'
+
 
     def __init__(self, unilateral_keywords: List[UniLateralOperator],
                  bilateral_keywords: List[BiLateralOperator], archive: Archive, start_time: int,
@@ -70,7 +70,7 @@ class PaladinDSLParser(object):
         :return:
         """
         return (Suppress('[[') + SkipTo(']]') + Suppress(']]') + pyparsing.Optional(Suppress(
-            PaladinDSLParser.SCOPE_SIGN) + pyparsing_common.integer, default=None)).setParseAction(
+            SCOPE_SIGN) + pyparsing_common.integer, default=None)).setParseAction(
             lambda q: (lambda p: p._eval_raw_query(q.asList()[0], q.asList()[1])))
 
     @classmethod
@@ -124,7 +124,7 @@ class PaladinDSLParser(object):
             # for q, r in zip(queries, result):
             #     results[q][t] = r, replacer.replacements
             results[t] = (
-                {f'{q}{PaladinDSLParser.SCOPE_SIGN}{scope}': r for q, r in zip(queries, result)},
+                {f'{q}{SCOPE_SIGN}{scope}': r for q, r in zip(queries, result)},
                 replacer.replacements)
 
         return results
@@ -187,11 +187,9 @@ class PaladinDSLParser(object):
             return {}
 
         presentable = {i[0]: (i[1][0], ", ".join([f'{x[0]} -> {x[1]} [{x[2]}]' for x in i[1][1]]))
-                       for i in parsed_select.items()}
+                       for i in PaladinDSLParser._group(parsed_select).items()}
 
-        grouped_presentable = PaladinDSLParser._group(presentable)
-
-        return json.dumps(grouped_presentable)
+        return json.dumps(presentable)
 
         # # TODO: Change format to fit into tabular vue component.
         # return {json.dumps(i[1][0]): i[0] for i in sorted(

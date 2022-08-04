@@ -1,6 +1,12 @@
+import re
 from abc import ABC, abstractmethod
+from copy import deepcopy
+from dataclasses import dataclass
+
+import more_itertools
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import *
 
 SemanticsArgType = Union[bool, EvalResult]
 
@@ -16,6 +22,58 @@ def first_satisfaction(formula: EvalResult) -> Union[int, bool]:
 
 def last_satisfaction(formula: EvalResult) -> Union[int, bool]:
     return first_satisfaction({t: r for (t, r) in reversed(formula.items())})
+
+
+class SemanticsUtils(object):
+
+    @staticmethod
+    def selectors(res: SemanticsArgType) -> List[str]:
+        if isinstance(res, bool):
+            return []
+
+        first_result_selectors = list(res[list(res.keys())[0]][0].keys())
+
+        assert all(list(res[k][0].keys()) == first_result_selectors for k in res)
+
+        return first_result_selectors
+
+    @staticmethod
+    def joined_times(r1: SemanticsArgType, r2: SemanticsArgType) -> Set[int]:
+        if isinstance(r1, bool) or isinstance(r2, bool):
+            return set()
+
+        return set(r1.keys()).union(r2.keys())
+
+    @staticmethod
+    def remove_none_prefix(r: SemanticsArgType) -> SemanticsArgType:
+        if isinstance(r, bool):
+            return r
+
+        return {k: r[k] for k in list(list(r.keys())[more_itertools.first([_k for _k in r.keys() if
+                                                                           any(r[_k][0][s] is not None for s in
+                                                                               r[_k][0].keys())])::])}
+
+    @staticmethod
+    def _selector_re() -> str:
+        return fr"(?P<name>\w+)(?P<sign>{SCOPE_SIGN})(?P<scope>\d+)"
+
+    @staticmethod
+    def extract_name(selector: str):
+        return SemanticsUtils.separate_selector(selector)[0]
+
+    @staticmethod
+    def separate_selector(selector: str):
+        matched = re.match(SemanticsUtils._selector_re(), selector).groupdict()
+        return matched['name'], matched['sign'], matched['scope']
+
+    @staticmethod
+    def replace_selector_name(selector: str, new_name: str):
+        name, sign, scope = SemanticsUtils.separate_selector(selector)
+        return f'{new_name}{sign}{scope}'
+
+    @staticmethod
+    def displayable_time(t: int):
+        return t if t >= 0 else EMPTY_TIME
 
 
 class Operator(ABC):
@@ -280,6 +338,183 @@ class SetUnion(BiLateralOperator):
 
         return {k1: ({**res1, **res2}, rep1 + rep2) for (k1, (res1, rep1)), (k2, (res2, rep2)) in
                 zip(arg1.items(), arg2.items()) if k1 == k2}
+
+
+class Align(BiLateralOperator):
+    @dataclass
+    class AlignmentHeuristic(object):
+        func: Callable
+        pattern: str
+
+        def __call__(self, *args, **kwargs):
+            return self.func(*args, **kwargs), self.pattern
+
+    ALIGNMENT_HEURISTICS = [
+        AlignmentHeuristic(lambda r1, r2: lambda r: r, 'r -> r'),
+        AlignmentHeuristic(lambda r1, r2: lambda r: r - (r2 - r1), 'r - r1'),
+        AlignmentHeuristic(lambda r1, r2: lambda r: r * (r2 / r1), 'r * (r / r1)')
+    ]
+
+    def __init__(self):
+        super(BiLateralOperator, self).__init__()
+
+        self._heuristic_iterator = iter(Align.ALIGNMENT_HEURISTICS)
+        self._current_heuristic = None
+
+    def next_heuristic(self, r1, r2):
+        if self._current_heuristic != Align.ALIGNMENT_HEURISTICS[1]:
+            self._current_heuristic = next(self._heuristic_iterator)
+
+        return self._current_heuristic(r1, r2)
+
+    @property
+    def name(self) -> str:
+        return "Align"
+
+    def eval(self, r1: SemanticsArgType, r2: SemanticsArgType):
+        if isinstance(r1, bool) or isinstance(r2, bool):
+            raise TypeError("Cannot run Align if any of its operands are bool.")
+
+        r1_selectors, r2_selectors = SemanticsUtils.selectors(r1), SemanticsUtils.selectors(r2)
+
+        all_selectors = list(r1_selectors) + list(r2_selectors)
+        results = {k: ({k: None for k in all_selectors}, []) for k in SemanticsUtils.joined_times(r1, r2)}
+
+        r1_clipped = SemanticsUtils.remove_none_prefix(r1)
+        r2_clipped = SemanticsUtils.remove_none_prefix(r2)
+
+        heuristic, heuristic_pattern = self.next_heuristic(None, None)
+
+        for s1, s2 in zip(r1_selectors, r2_selectors):
+            assert SemanticsUtils.extract_name(s1) == SemanticsUtils.extract_name(s2)
+            for t1, t2 in zip(r1_clipped, r2_clipped):
+                res1 = r1[t1][0][s1]
+                res2 = heuristic(r2[t2][0][s2])
+                updated_results = {s1: res1, s2: res2}
+
+                # The values are the same.
+                if res1 != res2:
+                    # There is a difference between the values of the selector of r1 and r2.
+                    # Create a heuristic with both values.
+                    heuristic, heuristic_pattern = self.next_heuristic(res1, res2)
+                    updated_results[SemanticsUtils.replace_selector_name(s2, heuristic_pattern)] = heuristic(res2)
+
+                results[t1][0].update(**updated_results)
+                results[t1][1].extend(set(results[t1][1]).union(r1[t1][1]).union(r2[t1][1]))
+
+        return results
+
+
+class Meld(BiLateralOperator):
+
+    @property
+    def name(self) -> str:
+        return "Meld"
+
+    @dataclass
+    class _MeldData(object):
+        data: Tuple[Any]
+        time: int
+        comp_data: Tuple[Any]
+        replacements: List
+
+        def __eq__(self, o: 'Meld._MeldData') -> bool:
+            if not isinstance(o, Meld._MeldData):
+                return False
+
+            return self.comp_data == o.comp_data
+
+        @classmethod
+        def empty(cls):
+            return cls(tuple(), -1, tuple(), [])
+
+    def eval(self, r1, r2):
+        if isinstance(r1, bool) or isinstance(r2, bool):
+            raise TypeError("Cannot run Meld if any of its operands are bool.")
+
+        r1_selectors, r2_selectors = SemanticsUtils.selectors(r1), SemanticsUtils.selectors(r2)
+
+        # Make sure that the user has requested for the same selectors.
+        r1_selectors_no_scope = [SemanticsUtils.extract_name(s) for s in r1_selectors]
+        r2_selectors_no_scope = [SemanticsUtils.extract_name(s) for s in r2_selectors]
+
+        assert r1_selectors_no_scope == r2_selectors_no_scope
+
+        results = {}
+
+        r1_clipped = SemanticsUtils.remove_none_prefix(r1)
+        r2_clipped = SemanticsUtils.remove_none_prefix(r2)
+
+        res1 = [Meld._MeldData(
+            data=tuple(r1[t][0][s] for s in r1_selectors),
+            time=t,
+            comp_data=tuple(r1[t][0][s] for s in r1_selectors),
+            replacements=r1[t][1]
+        ) for t in r1_clipped]
+
+        res2 = [Meld._MeldData(
+            data=tuple(r2[t][0][s] for s in r2_selectors),
+            time=t,
+            comp_data=tuple(r2[t][0][s] for s in r2_selectors),
+            replacements=r2[t][1]
+        ) for t in r2_clipped]
+
+        indices = Meld._create_indices(res1, res2)
+
+        prev1 = prev2 = None
+        empty = Meld._MeldData.empty()
+        for i1, i2 in indices:
+            r1 = res1[i1] if i1 != prev1 else empty
+            r2 = res2[i2] if i2 != prev2 else empty
+
+            prev1, prev2 = i1, i2
+
+            d = dict(list(zip(r1_selectors, r1.data + ('-',) * len(r1_selectors))) + list(
+                zip(r2_selectors, r2.data + ('-',) * len(r2_selectors))))
+
+            results[SemanticsUtils.displayable_time(r1.time),
+                    SemanticsUtils.displayable_time(r2.time)] = (d, set(r1.replacements).union(r2.replacements))
+
+        return results
+
+    @staticmethod
+    def _create_indices(a1: List['_MeldData'], a2: List['_MeldData']):
+        diff_mat = Meld._create_diff_mat(a1, a2)
+        reversed_indices = []
+        i, j = len(a1) - 1, len(a2) - 1
+        while i > 0 and j > 0:
+            i, j = diff_mat[i][j][1]
+            reversed_indices.append((i, j))
+
+        if i > 0:
+            # TODO: Deal with i > 0 and with j > 0
+            reversed_indices.extend([])
+        return reversed(reversed_indices)
+
+    @staticmethod
+    def _create_diff_mat(a1: List['_MeldData'], a2: List['_MeldData']):
+        deletion_weight = insert_weight = 1
+
+        diff_mat = [[(0, (-1, -1))] * (len(a2) + 1) for _ in [*a1, None]]
+
+        for i in range(len(a1)):
+            for j in range(len(a2)):
+                if j == 0:
+                    diff_mat[i][j] = (i * deletion_weight, (-1, -1))
+
+                elif i == 0:
+                    diff_mat[i][j] = (j * insert_weight, (-1, -1))
+
+                else:
+                    if a1[i] == a2[j]:
+                        diff_mat[i][j] = (diff_mat[i - 1][j - 1][0], (i - 1, j - 1))
+                    else:
+                        del_price = diff_mat[i - 1][j][0] + deletion_weight
+                        ins_price = diff_mat[i][j - 1][0] + insert_weight
+
+                        diff_mat[i][j] = (del_price, (i - 1, j)) if del_price < ins_price else (ins_price, (i, j - 1))
+
+        return diff_mat
 
 
 UniLateralOperator.ALL = UniLateralOperator.__subclasses__()
