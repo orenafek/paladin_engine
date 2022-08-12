@@ -1,13 +1,12 @@
 import ast
-import inspect
 import re
+import sys
 from dataclasses import dataclass
 from typing import Optional, Union, TypeVar
-import sys
+
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
 from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION
-from interactive_debugger.interactive_debugger import InteractiveDebugger
 
 archive = Archive()
 
@@ -57,16 +56,10 @@ def __FLI__(locals, globals):
             assert result < all(values)
     except BaseException:
         pass
-        # InteractiveDebugger(simple_archive, f'For Loop invariant: {error_line}\nhas been broken.', 21).cmdloop()
 
 
 def handle_broken_commitment(condition, frame, line_no):
-    frame_info = inspect.getframeinfo(frame)
-
-    error_line = f'Commitment: {condition} has been broken.'
-    # Initialize PaLaDinInteractiveDebugger.
-    interactive_debugger = InteractiveDebugger(archive, error_line, line_no)
-    interactive_debugger.cmdloop()
+    pass
 
 
 def __POST_CONDITION__(condition: str, frame: dict, locals, globals):
@@ -284,7 +277,7 @@ def __FC__(expression: str, function,
 
 def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
     # Access field (or method).
-    field = obj.__getattribute__(attr)
+    field = obj.__getattribute__(attr) if type(obj) is not type else obj.__getattribute__(obj, attr)
 
     if archive._should_record:
         archive.store_new \

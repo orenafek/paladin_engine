@@ -9,16 +9,15 @@ import dataclasses
 import inspect
 import pickle
 import re
+import signal
 import sys
 import traceback
 from types import CodeType
 
-from typing import *
-from archive.archive import Archive
 from ast_common.ast_common import ast2str
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
 from module_transformer.module_transformator import ModuleTransformer
-from source_provider import SourceProvider
+from source_provider.source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
 from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
@@ -48,12 +47,16 @@ class PaLaDiNEngine(object):
 
         @staticmethod
         def create(source_code: str, paladinized_code: str, sys_exc_info,
-                   archive_time: int) -> 'PaLaDiNEngine.PaladinRunExceptionData':
-            run_line_no = None
-            exc_info: traceback = sys_exc_info[2]
-            while exc_info:
-                run_line_no = exc_info.tb_lineno
-                exc_info = exc_info.tb_next
+                   archive_time: int, exception_line_no: int = -1) -> 'PaLaDiNEngine.PaladinRunExceptionData':
+
+            if exception_line_no == -1:
+                run_line_no = None
+                exc_info: traceback = sys_exc_info[2]
+                while exc_info:
+                    run_line_no = exc_info.tb_lineno
+                    exc_info = exc_info.tb_next
+            else:
+                run_line_no = exception_line_no
 
             original_lines = source_code.split('\n')
             paladinized_lines = paladinized_code.split('\n')
@@ -62,8 +65,14 @@ class PaLaDiNEngine(object):
 
             if __IS_STUBBED__(paladinized_line):
                 # The line itself is not as it was in the original file, therefore look for the line no. in it.
-                line_no = int(
-                    re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
+                if __FC__.__name__ in paladinized_line:
+                    # TODO: This is a patch for __FC__ that can't add "line_no=" in it because it expects *args and **kwargs after it.
+                    # TODO: Currently assuming that __FC__(expression, func_name, locals, globals, frame, line_no, *args, **kwargs)
+                    line_no = int(paladinized_line.split(',')[5].strip().strip(')'))
+                else:
+                    line_no = int(
+                        re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
+
                 matched_line = (line_no, original_lines[line_no - 1])  # original_lines start from 0
             else:
                 matched_lines = [(no + 1, l) for no, l in enumerate(original_lines) if
@@ -129,8 +138,29 @@ class PaLaDiNEngine(object):
         sys.argv[0] = original_file_name
         # Clear args.
         sys.argv[1:] = []
+
+        class PaladinTimeoutError(TimeoutError):
+            def __init__(self, line_no: int, *args, **kwargs):
+                super(PaladinTimeoutError, self).__init__(args, kwargs)
+                self.line_no = line_no
+
         try:
-            return exec(paladinized_code, variables), archive, None
+            def handler(signum, frame):
+                current_frame = frame
+                while current_frame and 'PALADIN' not in str(current_frame):
+                    current_frame = current_frame.f_back
+
+                raise PaladinTimeoutError(current_frame.f_lineno,
+                                          f'Program exceeded timeout, stopped on: {current_frame.f_lineno}')
+
+            signal.signal(signal.SIGALRM, handler)
+
+            return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
+
+        except PaladinTimeoutError as e:
+            return None, archive, PaLaDiNEngine.PaladinRunExceptionData.create(source_code, paladinized_code,
+                                                                               sys.exc_info(),
+                                                                               archive.time, e.line_no)
 
         except BaseException:
             return None, archive, PaLaDiNEngine.PaladinRunExceptionData.create(source_code, paladinized_code,
@@ -154,15 +184,17 @@ class PaLaDiNEngine(object):
         try:
             # t = t.transform_lists()
             # m = t.module
+            t = t.transform_aug_assigns()
+            m = t.module
             t = t.transform_loop_invariants()
             m = t.module
             t = t.transform_function_calls()
             m = t.module
-            t = t.transform_attribute_accesses()
+            # t = t.transform_attribute_accesses()
+            # m = t.module
+            t = t.transform_for_loops_to_while_loops()
             m = t.module
             t = t.transform_assignments()
-            m = t.module
-            t = t.transform_for_loops_to_while_loops()
             m = t.module
             t = t.transform_function_def()
             m = t.module

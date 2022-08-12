@@ -9,9 +9,9 @@ import ast
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
-    AttributeAccessFinder, ListFinder
+    AttributeAccessFinder, ListFinder, AugAssignFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
-    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, ListStubber
+    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, ListStubber, AugAssignStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
     __UNDEF__, __AC__, __PIS__
 
@@ -303,6 +303,27 @@ class ModuleTransformer(object):
                 lists_finder = ListFinder()
                 lists_finder.visit(self.module)
                 lists = lists_finder.find()
+
+        except BaseException as e:
+            print(e)
+
+        finally:
+            return self
+
+    def transform_aug_assigns(self) -> 'ModuleTransformer':
+        try:
+            # Find all aug assigns.
+            aug_assign_finder = AugAssignFinder()
+            aug_assign_finder.visit(self.module)
+
+            aug_assigns = aug_assign_finder.find()
+
+            # Create a stubber.
+            aug_assign_stubber = AugAssignStubber(self.module)
+
+            for aug_assign in aug_assigns:
+                self.module = aug_assign_stubber.stub_aug_assigns(aug_assign.node, aug_assign.container,
+                                                                  aug_assign.attr_name, aug_assign.extra)
 
         except BaseException as e:
             print(e)

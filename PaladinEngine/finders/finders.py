@@ -1,6 +1,7 @@
+import ast
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional, List, Type, Any
+from typing import Union, Optional, List, Type, Any, NamedTuple
 
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
@@ -523,10 +524,10 @@ class AssignmentFinder(GenericFinder):
                 return node.value
 
             def visit_Tuple(self, node):
-                return [self.visit(elem) for elem in node.elts]
+                return ", ".join([str(self.visit(elem)) for elem in node.elts])
 
             def visit_Name(self, node):
-                return node.id, StubArgumentType.NAME
+                return node.id
 
             def visit_Attribute(self, node):
                 return ast2str(node)  # , StubArgumentType.NAME
@@ -740,15 +741,38 @@ class AttributeAccessFinder(GenericFinder):
     #     return node
 
 
-class DanglingPaLaDiNDefinition(Exception):
-    """
-        An exception for a dangling PaLaDin assertion.
-    """
-    pass
+class AugAssignFinder(GenericFinder):
+    AugAssignExtra = NamedTuple('AugAssignExtra', [('op_str', str)])
+    OPS = {
+        ast.Add: "+",
+        ast.Sub: "-",
+        ast.Mult: "*",
+        ast.MatMult: "@",
+        ast.Div: "/",
+        ast.Mod: "%",
+        ast.Pow: "**",
+        ast.LShift: "<<",
+        ast.RShift: ">>",
+        ast.BitOr: "|",
+        ast.BitXor: "^",
+        ast.BitAnd: "&",
+        ast.FloorDiv: "//"
+    }
 
+    def types_to_find(self):
+        return ast.AugAssign
 
-class NotVisitedException(Exception):
-    """
-        An exception for when trying to operate on objects that should be visited first.
-    """
-    pass
+    def visit_AugAssign(self, node: ast.AugAssign) -> Any:
+        return AugAssignFinder.AugAssignExtra(op_str=AugAssignFinder.OPS[type(node.op)])
+
+    class DanglingPaLaDiNDefinition(Exception):
+        """
+            An exception for a dangling PaLaDin assertion.
+        """
+        pass
+
+    class NotVisitedException(Exception):
+        """
+            An exception for when trying to operate on objects that should be visited first.
+        """
+        pass

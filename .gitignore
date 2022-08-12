@@ -1,0 +1,10 @@
+.idea
+__pycache__
+node_modules
+**/.DS_Store
+PaladinEngine/tests/test_resources/examples/**/*.csv
+PaladinEngine/tests/test_resources/examples/**/*_output.py
+**/node_modules
+PaladinUI/paladin_server/static/index.js*
+*-lock.json
+*.js.map
