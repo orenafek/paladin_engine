@@ -155,6 +155,8 @@ class PaLaDiNEngine(object):
 
             signal.signal(signal.SIGALRM, handler)
 
+            signal.alarm(3)
+
             return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
 
         except PaladinTimeoutError as e:

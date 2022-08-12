@@ -5,11 +5,12 @@
     :since: 24/05/19
 """
 import ast
+from typing import List
 
 from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
-    AttributeAccessFinder, ListFinder, AugAssignFinder
+    AttributeAccessFinder, ListFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
     FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, ListStubber, AugAssignStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
@@ -105,7 +106,7 @@ class ModuleTransformer(object):
         # Find all function definitions.
         function_def_finder = FunctionDefFinder()
         function_def_finder.visit(self._module)
-        function_defs = function_def_finder.find()
+        function_defs: List[StubEntry] = function_def_finder.find()
 
         for function_def in function_defs:
             function_def_stub = create_ast_stub(__DEF__,
@@ -140,17 +141,22 @@ class ModuleTransformer(object):
                                            line_no=f'{function_def.node.lineno}')
                 prefix_stubs.append(arg_stub)
 
-            # Create sufix stub.
+            # Create suffix stub.
             suffix_stub = create_ast_stub(__UNDEF__,
                                           wrap_str_param(function_def.extra.function_name),
                                           line_no=f'{function_def.node.lineno}',
                                           frame='__FRAME__()')
 
+            # Find all return statements.
+            return_statement_finder = ReturnStatementsFinder()
+            return_statement_finder.visit(function_def.node)
+            return_statements = return_statement_finder.find()
+
             # Stub.
             self._module = function_def_stubber.stub_function_def(function_def.node, function_def.container,
                                                                   function_def.attr_name,
                                                                   prefix_stubs,
-                                                                  suffix_stub)
+                                                                  suffix_stub, return_statements)
 
         return self
 
