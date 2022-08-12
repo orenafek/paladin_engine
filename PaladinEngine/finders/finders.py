@@ -765,14 +765,24 @@ class AugAssignFinder(GenericFinder):
     def visit_AugAssign(self, node: ast.AugAssign) -> Any:
         return AugAssignFinder.AugAssignExtra(op_str=AugAssignFinder.OPS[type(node.op)])
 
-    class DanglingPaLaDiNDefinition(Exception):
-        """
-            An exception for a dangling PaLaDin assertion.
-        """
-        pass
 
-    class NotVisitedException(Exception):
-        """
-            An exception for when trying to operate on objects that should be visited first.
-        """
-        pass
+class DanglingPaLaDiNDefinition(Exception):
+    """
+        An exception for a dangling PaLaDin assertion.
+    """
+    pass
+
+
+class NotVisitedException(Exception):
+    """
+        An exception for when trying to operate on objects that should be visited first.
+    """
+    pass
+
+
+class ReturnStatementsFinder(GenericFinder):
+    def types_to_find(self) -> Union:
+        return ast.Return
+
+    def visit_Return(self, node: ast.Return) -> Any:
+        return self._generic_visit_with_extras(node, object())

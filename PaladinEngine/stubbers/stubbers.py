@@ -1,10 +1,10 @@
 import ast
 from abc import ABC, abstractmethod
 from ast import *
-from typing import Union
+from typing import Union, List
 
 from ast_common.ast_common import str2ast, ast2str
-from finders.finders import AugAssignFinder
+from finders.finders import AugAssignFinder, StubEntry, ReturnStatementsFinder
 from stubs.stubs import __PALADIN_LIST__
 from utils.utils import assert_not_raise
 
@@ -569,36 +569,28 @@ class FunctionCallStubber(Stubber):
 class FunctionDefStubber(Stubber):
     TEMP_RETURN_ASSIGMENT_VAR_NAME = '__TEMP__'
 
-    def stub_function_def(self, node: ast.FunctionDef, container: ast.AST, attr_name, prefix_stub=None,
-                          suffix_stub=None) -> Module:
+    def stub_function_def(self, node: ast.FunctionDef, container: ast.AST, attr_name, prefix_stub,
+                          return_stub, return_stub_entries: List[StubEntry]) -> Module:
 
-        if prefix_stub:
-            if isinstance(prefix_stub, list):
-                node.body = prefix_stub + node.body
-            else:
-                node.body = [prefix_stub] + node.body
+        if isinstance(prefix_stub, list):
+            node.body = prefix_stub + node.body
+        else:
+            node.body = [prefix_stub] + node.body
 
-        if suffix_stub:
-            if not isinstance(suffix_stub, list):
-                suffix_stub = [suffix_stub]
+        # If there is no return statement at the end, add one.
+        if node.body != [] and not isinstance(node.body[::-1][0], ast.Return):
+            return_none_stub = ast.parse('return None').body[0]
+            assert isinstance(return_none_stub, ast.Return)
+            node.body += [return_stub, return_none_stub]
 
-            last_body_statement = node.body[len(node.body) - 1]
-
-            if isinstance(last_body_statement, ast.Return):
-                # Extract the return statement into a temporary var.
-                return_value_temp_assignment_stub = str2ast(
-                    f'{FunctionDefStubber.TEMP_RETURN_ASSIGMENT_VAR_NAME} = {ast2str(last_body_statement.value)}')
-                last_return_statement = str2ast(f'return {FunctionDefStubber.TEMP_RETURN_ASSIGMENT_VAR_NAME}')
-
-                node.body = node.body[0:node.body.index(last_body_statement)] + [
-                    return_value_temp_assignment_stub] + suffix_stub + [last_return_statement]
-            else:
-                node.body = node.body + suffix_stub
-
-        # Create a stub record.
+        # Stub prefix and last return statement (if needed).
         stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, node)
-
         self.root_module = self._stub(stub_record)
+
+        # Append a return stub for each return statement.
+        for rs in return_stub_entries:
+            self.root_module = self._stub(
+                Stubber._BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub))
 
         return self.root_module
 
@@ -660,3 +652,14 @@ class AugAssignStubber(Stubber):
         temp_var = self.temp_var_base + f'{self.temp_var_seed}'
         self.temp_var_seed += 1
         return temp_var
+
+
+class EnfOfFunctionReturnStatementStubber(Stubber):
+
+    def __init__(self, root_module) -> None:
+        super().__init__(root_module)
+
+    def stub_end_of_function_return_statement(self, node: ast.FunctionDef, rtrn: ast.Return):
+        stub_record = Stubber._AfterStubRecord(node.body[::-1][0], node, 'body', rtrn)
+        self.root_module = self._stub(stub_record)
+        return self.root_module
