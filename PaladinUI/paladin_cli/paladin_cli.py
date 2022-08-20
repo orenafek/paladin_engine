@@ -10,10 +10,10 @@ from engine.engine import PaLaDiNEngine
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file', type=str, help='Input .py file to PaLaDiNize')
-    run_group = parser.add_mutually_exclusive_group(required=True)
-    run_group.add_argument('--run', default=True, dest='run', action='store_true', help='Should run PaLaDiNized file')
-    run_group.add_argument('--no-run', default=False, dest='run', action='store_false',
-                           help='Should not run PaLaDiNized file')
+    run_group = parser.add_argument_group()
+    run_group.add_argument('--run', default=False, dest='run', action='store_true', help='Should run PaLaDiNized file')
+    run_group.add_argument('-to', '--timeout', type=int, nargs='?', action='store', default=-1,
+                           help='Add timeout to the program in seconds')
     parser.add_argument('--print-code', default=False, dest='print_code', action='store',
                         help='Should print PaLaDiNized code to the screen')
     parser.add_argument('--output-file', type=str, default='', help='Output file path of the PaLaDiNized code')
@@ -52,7 +52,8 @@ def main():
             if args.run:
                 result, archive, thrown_exception = PaLaDiNEngine.execute_with_paladin(source_code,
                                                                                        paladinized_code,
-                                                                                       args.input_file)
+                                                                                       args.input_file,
+                                                                                       args.timeout)
                 print(result)
 
         except BaseException:  # Plot a graph.
