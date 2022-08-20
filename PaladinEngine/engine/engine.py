@@ -65,13 +65,16 @@ class PaLaDiNEngine(object):
 
             if __IS_STUBBED__(paladinized_line):
                 # The line itself is not as it was in the original file, therefore look for the line no. in it.
-                if __FC__.__name__ in paladinized_line:
-                    # TODO: This is a patch for __FC__ that can't add "line_no=" in it because it expects *args and **kwargs after it.
-                    # TODO: Currently assuming that __FC__(expression, func_name, locals, globals, frame, line_no, *args, **kwargs)
-                    line_no = int(paladinized_line.split(',')[5].strip().strip(')'))
-                else:
+                try:
                     line_no = int(
                         re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
+                except BaseException as e:
+                    if __FC__.__name__ in paladinized_line:
+                        # TODO: This is a patch for __FC__ that can't add "line_no=" in it because it expects *args and **kwargs after it.
+                        # TODO: Currently assuming that __FC__(expression, func_name, locals, globals, frame, line_no, *args, **kwargs)
+                        line_no = int(paladinized_line.split(',')[5].strip().strip(')'))
+                    else:
+                        raise e
 
                 matched_line = (line_no, original_lines[line_no - 1])  # original_lines start from 0
             else:
@@ -117,7 +120,7 @@ class PaLaDiNEngine(object):
         return compile(source_code, PALADIN_ERROR_FILE_PATH, mode=PaLaDiNEngine.__COMPILATION_MODE)
 
     @staticmethod
-    def execute_with_paladin(source_code: str, paladinized_code: str, original_file_name: str):
+    def execute_with_paladin(source_code: str, paladinized_code: str, original_file_name: str, timeout: int=-1):
         """
             Execute a source code with the paladin environment.
         :param source_code:
@@ -155,7 +158,8 @@ class PaLaDiNEngine(object):
 
             signal.signal(signal.SIGALRM, handler)
 
-            signal.alarm(3)
+            if timeout > 0:
+                signal.alarm(timeout)
 
             return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
 
