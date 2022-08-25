@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from ast import *
 from typing import Union, List
 
-from ast_common.ast_common import str2ast, ast2str
+from ast_common.ast_common import str2ast, ast2str, find_closest_parent
 from finders.finders import AugAssignFinder, StubEntry, ReturnStatementsFinder
 from stubs.stubs import __PALADIN_LIST__
 from utils.utils import assert_not_raise
@@ -554,8 +554,10 @@ class FunctionDefStubber(Stubber):
 
         # Append a return stub for each return statement.
         for rs in return_stub_entries:
-            self.root_module = self._stub(
-                Stubber._BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub))
+            # Filter return statements of inner functions.
+            if find_closest_parent(rs.node, node, ast.FunctionDef) == node:
+                self.root_module = self._stub(
+                    Stubber._BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub))
 
         return self.root_module
 
