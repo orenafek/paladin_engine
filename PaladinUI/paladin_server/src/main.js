@@ -6,7 +6,8 @@ import Vue3Highlightjs from "./vue3-highlight";
 import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
 import ArchiveTable from "./components/archive_entries_table.vue";
 import Codemirror from "codemirror-editor-vue3";
-import {CodeMirror} from "codemirror-editor-vue3";
+
+import LoadingSpinner from "./components/loading_spinner.vue";
 
 import "codemirror/mode/python/python.js";
 import "codemirror/theme/darcula.css";
@@ -18,6 +19,7 @@ const debug_info = {
         archiveTable: ArchiveTable,
         Codemirror,
         Tree,
+        loadingSpinner: LoadingSpinner,
         tabular
     },
     data: function () {
@@ -41,6 +43,7 @@ const debug_info = {
             query_start_time: 0,
             query_end_time: 0,
             query_line_no: 0,
+            is_query_done: false,
             tabular_query_result: {},
             codemirror_options: {
                 mode: "text/x-python",
@@ -128,14 +131,11 @@ const debug_info = {
 
             document.getElementById("query_result").value =
                 Object.keys(query_result).length > 0 ? JSON.stringify(query_result) : "No faults in lines.";
+
+            this.is_query_done = true;
+            return true;
         },
 
-        onQuerySelectChange: function (val, cm) {
-            //this.query_select = val != null ? val : "";
-        },
-        onQueryWhereChange: function (val, cm) {
-            //this.query_where = val != null && val !== "" ? val : "";
-        }
     }
 
 }
