@@ -4,7 +4,7 @@ import "codemirror/mode/python/python.js";
 import "codemirror/theme/darcula.css";
 import "codemirror/addon/scroll/simplescrollbars";
 import "codemirror/addon/scroll/simplescrollbars.css";
-import tabular from "./components/tabular.vue";
+import Codemirror from "codemirror-editor-vue3";
 import { Splitpanes, Pane } from 'splitpanes';
 import 'splitpanes/dist/splitpanes.css';
 
@@ -13,13 +13,14 @@ import {capitalizeFirstLetter} from "./string_utils";
 import Vue3Highlightjs from "./vue3-highlight";
 import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
 import ArchiveTable from "./components/archive_entries_table.vue";
-import Codemirror from "codemirror-editor-vue3";
+import tabular from "./components/tabular.vue";
+import { persistField, LocalStore } from "./infra/store";
 
 import LoadingSpinner from "./components/loading_spinner.vue";
 import './main.css';
 
 
-const debug_info = {
+const mainComponent = {
     components: {
         highlighted: Highlighted,
         archiveTable: ArchiveTable,
@@ -31,6 +32,9 @@ const debug_info = {
     },
     data: function () {
         return {
+            layout: {
+                panes: [{size: 30}]
+            },
             exception_line_no: null,
             exception_line: null,
             exception_msg: null,
@@ -45,13 +49,14 @@ const debug_info = {
             line_to_debug: null,
             retrieved_objects: {},
             time_window: [],
-            query_select: "",
-            query_where: "",
-            query_start_time: 0,
-            query_end_time: 0,
-            query_line_no: 0,
+            query: {
+                select: "",
+                startTime: 0,
+                endTime: 10000,
+                lineNo: 0
+            },
             is_query_done: false,
-            tabular_query_result: {},
+            queryResult: {},
             codemirror_options: {
                 mode: "text/x-python",
                 theme: "darcula",
@@ -71,13 +76,10 @@ const debug_info = {
         this.exception_source_line = exception != null ? exception['exception_source_line'] : null;
         this.exception_msg = exception != null ? exception['exception_msg'] : null;
         this.exception_archive_time = exception != null ? exception['exception_archive_time'] : null;
-        if (localStorage['AppQuery']) {
-            Object.assign(this, JSON.parse(localStorage['AppQuery']));
-        }
-
-        window.addEventListener("beforeunload", () => {
-            localStorage['AppQuery'] = JSON.stringify(Object.fromEntries(Object.entries(this.$data).filter(([k, v]) => k.startsWith("query_"))));
-        });
+    },
+    mounted() {
+        persistField(this, 'query', new LocalStore('app:query'));
+        persistField(this.layout, 'panes', new LocalStore('app:layout.panes'));
     },
     compilerOptions: {
         delimiters: ['$$[', ']$$']
@@ -131,26 +133,25 @@ const debug_info = {
 
         run_query: async function () {
             const query_result = await request_debug_info("query",
-                ...[this.query_select, this.query_where !== "" ? this.query_where : "True",
-                    this.query_start_time, this.query_end_time, this.query_line_no]);
+                ...[this.query.select, "True" /** @todo deprecated */,
+                    this.query.startTime, this.query.endTime, this.query.lineNo]);
 
-            this.tabular_query_result = query_result;
-
-            document.getElementById("query_result").value =
-                Object.keys(query_result).length > 0 ? JSON.stringify(query_result) : "No faults in lines.";
+            this.queryResult = query_result;
 
             this.is_query_done = true;
             return true;
         },
 
+        store_layout_panes(ev) {
+            this.layout.panes = ev.map(x => ({size: x.size}));
+        }
     }
 
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const debug_info_vue_app = Vue.createApp(debug_info);
-    debug_info_vue_app.use(Vue3Highlightjs);
-    window.app = debug_info_vue_app.mount('#app');
+    const appProto = Vue.createApp(mainComponent).use(Vue3Highlightjs);
+    window.app = appProto.mount('#app');
     escapeHTMLTags();
 });
 

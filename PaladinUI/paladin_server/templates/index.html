@@ -20,8 +20,8 @@
     <h1 style="position: center">PaLaDiN: Time-travel Debugger</h1>
 </div>
 <div id="main">
-<splitpanes class="default-theme">
-<pane>
+<splitpanes class="default-theme" ref="mainSplit" @resize="store_layout_panes">
+<pane :size="layout.panes[0].size">
     <Codemirror id="source-editor" ref="sourceEditor" class="original-style"
                 :value="source_code.join('\n')"
                 :options="{mode: 'python', theme: 'darcula', scrollbarStyle: 'overlay'}"></Codemirror>
@@ -34,19 +34,21 @@
     </div>
     <div>
         <h3> Run Query: </h3>
-        <Codemirror id="query_select" placeholder="Selection" :options="codemirror_options" :height="auto" :width="600"
-                    style="font-size: 14pt;" @change="onQuerySelectChange" v-model:value="query_select"></Codemirror>
-
-        <input v-model="query_start_time" type="number" placeholder="start"/>
-        <input v-model="query_end_time" type="number" placeholder="end"/>
-        <input v-model="query_line_no" type="number" placeholder="line number"/>
+        <div>
+            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto" :width="600"
+                        style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
+        </div>
+        <input v-model="query.startTime" type="number" placeholder="start"/>
+        <input v-model="query.endTime" type="number" placeholder="end"/>
+        <input v-model="query.lineNo" type="number" placeholder="line number"/>
         <loading-spinner :submit_button_text="'Run'" v-model:is_loaded="is_query_done"
                          @loading-button-click="run_query"></loading-spinner>
         <!--        <button @click="run_query">Run</button>-->
         <br/>
-        <textarea id="query_result" placeholder="Your results will appear in here"
+        <textarea placeholder="Your results will appear in here"
+                  :value="queryResult ? JSON.stringify(queryResult) : ''"
                   style="height: auto; max-height: 200px; width: auto"></textarea>
-        <tabular :value="tabular_query_result"></tabular>
+        <tabular :value="queryResult"></tabular>
     </div>
     <div>
         <h3>Create a time window:</h3>
