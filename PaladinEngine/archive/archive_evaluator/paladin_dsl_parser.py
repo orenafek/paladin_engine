@@ -106,7 +106,7 @@ class PaladinDSLParser(object):
             scope = self.line_no
 
         # Split query into sub queries.
-        queries = list(map(lambda q: q.strip(), query.split(',')))
+        queries = list(map(lambda q: q.strip(), query.split('$')))
         # results = {q: {} for q in queries}
         results = {}
         for t in self.timer:
@@ -117,8 +117,7 @@ class PaladinDSLParser(object):
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
                 result = eval(ast2str(replacer.visit(ast.parse(query))))
-                if not isinstance(result, tuple):
-                    result = (result,)
+                result = (result,)
             except IndexError:
                 result = [None] * len(queries)
             # for q, r in zip(queries, result):
