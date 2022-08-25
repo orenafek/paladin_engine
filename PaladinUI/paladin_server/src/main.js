@@ -1,17 +1,23 @@
-import {request_debug_info} from "./request"
-import {capitalizeFirstLetter} from "./string_utils";
 import Tree from "vue3-tree";
 import * as Vue from "vue/dist/vue.esm-bundler.js";
+import "codemirror/mode/python/python.js";
+import "codemirror/theme/darcula.css";
+import "codemirror/addon/scroll/simplescrollbars";
+import "codemirror/addon/scroll/simplescrollbars.css";
+import tabular from "./components/tabular.vue";
+import { Splitpanes, Pane } from 'splitpanes';
+import 'splitpanes/dist/splitpanes.css';
+
+import {request_debug_info} from "./request"
+import {capitalizeFirstLetter} from "./string_utils";
 import Vue3Highlightjs from "./vue3-highlight";
 import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
 import ArchiveTable from "./components/archive_entries_table.vue";
 import Codemirror from "codemirror-editor-vue3";
 
 import LoadingSpinner from "./components/loading_spinner.vue";
+import './main.css';
 
-import "codemirror/mode/python/python.js";
-import "codemirror/theme/darcula.css";
-import tabular from "./components/tabular.vue";
 
 const debug_info = {
     components: {
@@ -20,7 +26,8 @@ const debug_info = {
         Codemirror,
         Tree,
         loadingSpinner: LoadingSpinner,
-        tabular
+        tabular,
+        Splitpanes, Pane
     },
     data: function () {
         return {
@@ -143,7 +150,7 @@ const debug_info = {
 document.addEventListener("DOMContentLoaded", () => {
     const debug_info_vue_app = Vue.createApp(debug_info);
     debug_info_vue_app.use(Vue3Highlightjs);
-    window.app = debug_info_vue_app.mount('#header');
+    window.app = debug_info_vue_app.mount('#app');
     escapeHTMLTags();
 });
 

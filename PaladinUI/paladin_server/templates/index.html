@@ -12,53 +12,31 @@
     <script>hljs.initLineNumbersOnLoad();</script>
     <script src="https://d3js.org/d3.v3.min.js"></script>
     <script src="/static/index.js"></script>
-    <style type="text/css">
-        body {
-            background-color: #282727;
-            color: white;
-        }
-
-        thead {
-            color: #efc081;
-            align-content: center;
-            align-items: center;
-        }
-
-        .collapsible_archive_table_div {
-            max-width: 1400px;
-            max-height: 400px;
-            overflow: scroll
-        }
-    </style>
 </head>
 <body>
 
+<div id="app">
 <div id="header">
-    <h1 style="position: center">Welcome to PaLaDiN Archive Debugger!</h1>
+    <h1 style="position: center">PaLaDiN: Time-travel Debugger</h1>
+</div>
+<div id="main">
+<splitpanes class="default-theme">
+<pane>
+    <Codemirror id="source-editor" ref="sourceEditor" class="original-style"
+                :value="source_code.join('\n')"
+                :options="{mode: 'python', theme: 'darcula', scrollbarStyle: 'overlay'}"></Codemirror>
+</pane>
+<pane id="query-pane">
+<div class="flex-container">
     <div v-if="exception_line_no != null"
          v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, archive time: ${exception_archive_time}`"
-         style="color: red;"/>
-</div>
-<h3>Select a line to start debuging:</h3>
-<div class="flex-container">
-    <div style="line-height: 1px; height: 550px; overflow-y: scroll;">
-        <div v-for="(line, index) in source_code">
-            <highlighted @click="select_line_no(index + 1)" :code="`${ index + 1} ${ line }`" :id="'code_' + index"/>
-        </div>
+         style="color: red;">
     </div>
-    <br/>
     <div>
         <h3> Run Query: </h3>
-        <h4> Select: </h4>
         <Codemirror id="query_select" placeholder="Selection" :options="codemirror_options" :height="auto" :width="600"
                     style="font-size: 14pt;" @change="onQuerySelectChange" v-model:value="query_select"></Codemirror>
 
-        <h4> Where:</h4>
-        <div v-text="query_dsl_words"></div>
-        <br/>
-        <Codemirror id="query_where" placeholder="Type your query here" :options="codemirror_options" :height="auto"
-                    :width="600" style="font-size: 14pt" @change="onQueryWhereChange" v-model:value="query_where"
-                    ref="qw_cm"></Codemirror>
         <input v-model="query_start_time" type="number" placeholder="start"/>
         <input v-model="query_end_time" type="number" placeholder="end"/>
         <input v-model="query_line_no" type="number" placeholder="line number"/>
@@ -80,11 +58,11 @@
         </button>
         <div id="time_window_archive_table" style="visibility: hidden;" class="collapsible_archive_table_div">
             <table>
-                <theaed>
+                <thead>
                     <td v-if="time_window.length > 0"
                         v-for="k in Object.keys(time_window[0])"
                         v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
-                </theaed>
+                </thead>
                 <tbody>
                 <tr v-for="entry in time_window">
                     <td v-for="value, key in entry">
@@ -110,11 +88,11 @@
         <div class="collapsible_archive_table_div">
             <archive-Table :entries="archive_entries"></archive-Table>
             <!--            <table>-->
-            <!--                <theaed>-->
+            <!--                <thead>-->
             <!--                    <td v-if="archive_entries.length > 0"-->
             <!--                        v-for="k in Object.keys(archive_entries[0])"-->
             <!--                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>-->
-            <!--                </theaed>-->
+            <!--                </thead>-->
             <!--                <tbody>-->
             <!--                <tr v-for="entry in archive_entries">-->
             <!--                    <td v-for="value, key in entry">-->
@@ -156,5 +134,9 @@
     </div>
 
 </div>
+</pane>
+</splitpanes>
+</div> <!-- #main -->
+</div> <!-- #app -->
 
 </body>
