@@ -1,4 +1,6 @@
+<!--suppress CheckEmptyScriptTag -->
 <!DOCTYPE html>
+<!--suppress ALL -->
 <meta charset="utf-8">
 <head>
     <title>Paladin</title>
@@ -8,402 +10,151 @@
     <script>hljs.initHighlightingOnLoad();</script>
     <script src="//cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.8.0/dist/highlightjs-line-numbers.min.js"></script>
     <script>hljs.initLineNumbersOnLoad();</script>
-    <script src="https://unpkg.com/vue@next"></script>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="/static/index.js"></script>
+    <style type="text/css">
+        body {
+            background-color: #282727;
+            color: white;
+        }
 
+        thead {
+            color: #efc081;
+            align-content: center;
+            align-items: center;
+        }
 
+        .collapsible_archive_table_div {
+            max-width: 1400px;
+            max-height: 400px;
+            overflow: scroll
+        }
+    </style>
 </head>
-
-<style>
-
-    .node {
-        cursor: pointer;
-    }
-
-    .node circle {
-        fill: #fff;
-        stroke: steelblue;
-        stroke-width: 1.5px;
-    }
-
-    .node text {
-        font: 10px sans-serif;
-    }
-
-    .link {
-        fill: none;
-        stroke: #ccc;
-        stroke-width: 3px;
-    }
-
-    table, th, td {
-        border: 1px solid black;
-    }
-
-    .left, .right {
-        height: 50%;
-        width: 60%;
-        position: fixed;
-        overflow-x: hidden;
-        padding-top: 20px;
-    }
-
-    .left {
-        left: 0;
-    }
-
-    .right {
-        right: 0;
-        white-space: pre-wrap;
-    }
-
-    .hljs-ln-numbers {
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -khtml-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-
-        text-align: center;
-        color: #ccc;
-        border-right: none;
-        border: none;
-        vertical-align: top;
-        padding-right: 5px;
-
-        /* your custom style here */
-    }
-
-    /* for block of code */
-    .hljs-ln-code {
-        padding-left: 10px;
-        border: none;
-    }
-
-</style>
 <body>
-<script src="https://d3js.org/d3.v3.min.js"></script>
 
+<div id="header">
+    <h1 style="position: center">Welcome to PaLaDiN Archive Debugger!</h1>
+    <div v-if="exception_line_no != null"
+         v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, archive time: ${exception_archive_time}`"
+         style="color: red;"/>
+</div>
+<h3>Select a line to start debuging:</h3>
+<div class="flex-container">
+    <div style="line-height: 1px; height: 550px; overflow-y: scroll;">
+        <div v-for="(line, index) in source_code">
+            <highlighted @click="select_line_no(index + 1)" :code="`${ index + 1} ${ line }`" :id="'code_' + index"/>
+        </div>
+    </div>
+    <br/>
+    <div>
+        <h3> Run Query: </h3>
+        <h4> Select: </h4>
+        <Codemirror id="query_select" placeholder="Selection" :options="codemirror_options" :height="auto" :width="600"
+                    style="font-size: 14pt;" @change="onQuerySelectChange" v-model:value="query_select"></Codemirror>
 
-<div class="left">
-    <div id="hover_box"
-         style="
-            background-color: lightskyblue;
-            height: 300px;
-            width: 250px;
-            ">
+        <h4> Where:</h4>
+        <div v-text="query_dsl_words"></div>
+        <br/>
+        <Codemirror id="query_where" placeholder="Type your query here" :options="codemirror_options" :height="auto"
+                    :width="600" style="font-size: 14pt" @change="onQueryWhereChange" v-model:value="query_where"
+                    ref="qw_cm"></Codemirror>
+        <input v-model="query_start_time" type="number" placeholder="start"/>
+        <input v-model="query_end_time" type="number" placeholder="end"/>
+        <input v-model="query_line_no" type="number" placeholder="line number"/>
+        <loading-spinner :submit_button_text="'Run'" v-model:is_loaded="is_query_done"
+                         @loading-button-click="run_query"></loading-spinner>
+        <!--        <button @click="run_query">Run</button>-->
+        <br/>
+        <textarea id="query_result" placeholder="Your results will appear in here"
+                  style="height: auto; max-height: 200px; width: auto"></textarea>
+        <tabular :value="tabular_query_result"></tabular>
+    </div>
+    <div>
+        <h3>Create a time window:</h3>
+        <br/>
+        <input type="number" id="time_window_from" placeholder="Start Time">
+        <input type="number" id="time_window_to" placeholder="End Time"/>
+        <button @click="create_time_window()">
+            Create time window
+        </button>
+        <div id="time_window_archive_table" style="visibility: hidden;" class="collapsible_archive_table_div">
+            <table>
+                <theaed>
+                    <td v-if="time_window.length > 0"
+                        v-for="k in Object.keys(time_window[0])"
+                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
+                </theaed>
+                <tbody>
+                <tr v-for="entry in time_window">
+                    <td v-for="value, key in entry">
+                        <highlighted :code="value"/>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div id="span_line_debug" style="visibility: hidden">
         <table>
-            <tr>
-                <td>Stub</td>
-                <td id="stub"></td>
-            </tr>
-            <tr>
-                <td>Container Id.</td>
-                <td id="container"></td>
-            </tr>
-            <tr>
-                <td>Field</td>
-                <td id="field"></td>
-            </tr>
-            <tr>
-                <td>Expression</td>
-                <td id="expression"></td>
-            </tr>
-            <tr>
-                <td>Value</td>
-                <td id="value"></td>
-            </tr>
-            <tr>
-                <td>Line no.</td>
-                <td id="line_no"></td>
-            </tr>
+            <thead>
+            <td>
+                <highlighted v-if="line_to_debug != null" :code="line_no_to_debug"/>
+            </td>
+            <td>
+                <highlighted v-if="line_to_debug != null" :code="line_to_debug"/>
+            </td>
+            </thead>
         </table>
-        <table id="bpp">
-            <tr>
-                <td>
-                    <div>Search:</div>
-                </td>
-                <td><input type="text" ref="expr_to_search" placeholder="Start typing to search" @input="search"/></td>
-            </tr>
-            <tr>
-                <td>
-                    <div style="background-color: red; width:200px;">
-                        Result : $$[ search_result ]$$
-                    </div>
+        <h3>Archive entries for line:</h3>
+        <div class="collapsible_archive_table_div">
+            <archive-Table :entries="archive_entries"></archive-Table>
+            <!--            <table>-->
+            <!--                <theaed>-->
+            <!--                    <td v-if="archive_entries.length > 0"-->
+            <!--                        v-for="k in Object.keys(archive_entries[0])"-->
+            <!--                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>-->
+            <!--                </theaed>-->
+            <!--                <tbody>-->
+            <!--                <tr v-for="entry in archive_entries">-->
+            <!--                    <td v-for="value, key in entry">-->
+            <!--                        <highlighted :code="value"/>-->
+            <!--                    </td>-->
+            <!--                </tr>-->
+            <!--                </tbody>-->
+            <!--            </table>-->
+        </div>
+        </table>
+    </div>
+    <div>
+        <table>
 
-                </td>
-            </tr>
         </table>
-        </form>
+        <!--        <table>-->
+        <!--            <tr>-->
+        <!--                <td> Select a var to follow:</td>-->
+        <!--                <td>-->
+        <!--                    <table>-->
+        <!--                        <thead>-->
+        <!--                        <td v-if="vars_to_follow.length > 0" v-for="k in Object.keys(vars_to_follow[0])"-->
+        <!--                            v-html="capitalize(k)"/>-->
+
+        <!--                        </thead>-->
+        <!--                        <tr v-for="(target, target_index) in vars_to_follow">-->
+        <!--                            <td v-for="(value, key, index) in target" :id="key + '_' + target_index">-->
+        <!--                                <highlighted :code="value"/>-->
+        <!--                            </td>-->
+        <!--                            <td>-->
+        <!--                                <button @click="objectLifetime(target['container_id'])">follow container</button>-->
+        <!--                                <button @click="objectLifetime(target['value'])">follow value</button>-->
+        <!--                            </td>-->
+        <!--                        </tr>-->
+        <!--                    </table>-->
+        <!--                </td>-->
+        <!--            </tr>-->
+        <!--        </table>-->
     </div>
 
 </div>
-<div class="right">
 
-    <script>
-        $(document).ready(
-            function () {
-                $('#source_code').load("source_code.txt", function () {
-                    $('pre code').each(function (i, block) {
-                        hljs.highlightBlock(block);
-                        hljs.lineNumbersBlock(block);
-                    });
-                });
-            });
-
-
-    </script>
-
-    <pre>
-        <code id="source_code" style="overflow: hidden;">
-        </code>
-    </pre>
-
-</div>
-<script>
-
-    var margin = {top: 400, right: 120, bottom: 20, left: 120},
-        canvas_height = 700,
-        canvas_width = 960
-    tree_width = canvas_width - margin.right - margin.left,
-        tree_height = canvas_height - margin.top - margin.bottom,
-        tree_level_depth = 180;
-
-    var i = 0,
-        duration = 750,
-        root;
-
-    var tree = d3.layout.tree()
-        .size([tree_height, tree_width]);
-
-    var diagonal = d3.svg.diagonal()
-        .projection(function (d) {
-            return [d.y, d.x];
-        });
-
-    var svg = d3.select("body").append("svg")
-        .attr("width", canvas_width)
-        .attr("height", canvas_height)
-        .append("g")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-    d3.json("input_graph_tree.json", function (error, tree_data) {
-        root = tree_data;
-        root.x0 = tree_height / 2;
-        root.y0 = 0;
-
-        function collapse(d) {
-            if (d.children) {
-                d._children = d.children;
-                d._children.forEach(collapse);
-                d.children = null;
-            }
-        }
-
-        root.children.forEach(collapse);
-        update(root);
-    });
-
-    d3.select(self.frameElement).style("height", "800px");
-
-    function update(source) {
-
-        // Compute the new tree layout.
-        var nodes = tree.nodes(root),
-            links = tree.links(nodes);
-
-        // Normalize for fixed-depth.
-        nodes.forEach(function (d) {
-            d.y = d.depth * tree_level_depth;
-        });
-
-        // Set unique ID for each node
-        var node = svg.selectAll("g.node")
-            .data(nodes, function (d) {
-                return d.id || (d.id = ++i);
-            });
-
-        // Enter any new nodes at the parent's previous position.
-        var new_nodes = node.enter().append("g")
-            .attr("class", "node")
-            .attr("transform", function (d) {
-                return "translate(" + source.y0 + "," + source.x0 + ")";
-            })
-            .on("click", click)
-            .on("mouseover", hover)
-            .on("mouseout", hover);
-
-        new_nodes.append("circle")
-            .attr("r", 1e-6)
-            .style("fill", function (d) {
-                return d._children ? "lightsteelblue" : "#fff";
-            });
-
-        new_nodes.append("text")
-            .attr("x", function (d) {
-                return d.children || d._children ? -10 : 10;
-            })
-            .attr("dy", ".35em")
-            .attr("text-anchor", function (d) {
-                return d.children || d._children ? "end" : "start";
-            })
-            .text(function (d) {
-                return d.name;
-            })
-            .style("fill-opacity", 1e-6);
-
-        // Transition nodes to their new position.
-        var moved_node = node.transition().duration(duration)
-            .attr("transform", function (d) {
-                return "translate(" + d.y + "," + d.x + ")";
-            });
-        moved_node.select("circle")
-            .attr("r", 4.5)
-            .style("fill", function (d) {
-                return d.color
-
-            });
-        moved_node.select("text")
-            .style("fill-opacity", 1);
-
-
-        // Transition exiting nodes to the parent's new position.
-        var hidden_nodes = node.exit().transition().duration(duration)
-            .attr("transform", function (d) {
-                return "translate(" + source.y + "," + source.x + ")";
-            })
-            .remove();
-        hidden_nodes.select("circle")
-            .attr("r", 1e-6);
-        hidden_nodes.select("text")
-            .style("fill-opacity", 1e-6);
-
-
-        // Update the links…
-        var link = svg.selectAll("path.link")
-            .data(links, function (d) {
-                return d.target.id;
-            });
-
-
-        // Enter any new links at the parent's previous position.
-        link.enter().insert("path", "g")
-            .attr("class", "link")
-            .attr("d", function (d) {
-                var o = {x: source.x0, y: source.y0};
-                return diagonal({source: o, target: o});
-            })
-            .append("svg:title")
-            .text(function (d, i) {
-                return d.target.edge_name;
-            });
-
-
-        //Transition links to their new position.
-        link.transition().duration(duration)
-            .attr("d", diagonal);
-
-        // Transition exiting nodes to the parent's new position.
-        link.exit().transition().duration(duration)
-            .attr("d", function (d) {
-                var o = {x: source.x, y: source.y};
-                return diagonal({source: o, target: o});
-            })
-            .remove();
-
-
-        // Stash the old positions for transition.
-        nodes.forEach(function (d) {
-            d.x0 = d.x;
-            d.y0 = d.y;
-        });
-    }
-
-    // Toggle children on click.
-    function click(d) {
-        if (d.children) {
-            d._children = d.children;
-            d.children = null;
-        } else {
-            d.children = d._children;
-            d._children = null;
-        }
-        update(d);
-
-        /* Enable search button. */
-        document.getElementById("search_btn").disabled = false;
-    }
-
-    /* Handle search. */
-    function searchButtonOnClick() {
-
-    }
-
-    // Handle mouse over callback.
-    var box_filled = false;
-
-    function hover(node) {
-        //var hover_box = document.getElementById("hover_box");
-        var ids = ["stub", "expression", "container", "field", "value", "line_no"];
-
-        if (box_filled) {
-            /* Clear the box. */
-            ids.forEach(function (id) {
-                document.getElementById(id).innerText = ""
-            });
-        } else {
-            var values = [node.stub_name, node.expression, node.container, node.field, node.value,
-                node.line_no];
-
-            for (let i = 0; i < ids.length; i++) {
-                document.getElementById(ids[i]).innerText = values[i];
-            }
-        }
-
-        /* Change the flag. */
-        box_filled = !box_filled;
-
-    }
-</script>
 </body>
-
-<script src="https://unpkg.com/vue@next"></script>
-
-<script>
-    async function search_for_expression(expr) {
-        const gResponse = await fetch('http://localhost:8888/search',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({'expression_to_search': expr})
-            });
-
-        const x = await gResponse?.json()
-        return await x?.search_result;
-    }
-
-    const app_div = {
-        data: function () {
-            return {
-                search_result: '',
-                XXX: ''
-            }
-        },
-        created: async function () {
-            this.search_result = ''
-        },
-        compilerOptions: {
-            delimiters: ['$$[', ']$$']
-        },
-        methods: {
-            search: async function (event) {
-                const expr = this.$refs.expr_to_search.value;
-                this.search_result = await search_for_expression(expr);
-
-            }
-        }
-    }
-    Vue.createApp(app_div).mount('#bpp');
-</script>
