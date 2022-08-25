@@ -1,0 +1,67 @@
+body, html {
+    margin: 0; padding: 0;
+    height: 100%;
+}
+
+body {
+    background-color: #282727;
+    color: white;
+    overflow: hidden;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+#app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#app > #header {
+    flex-grow: 0;
+    background: #444;
+    padding-left: 1em;
+}
+
+#app > #header h1 {
+    font-size: 12pt;
+}
+
+#app > #main {
+    flex-basis: 0;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+#app #source-editor {
+    height: 100%;
+}
+
+#app #source-editor .CodeMirror-overlayscroll-vertical > div {
+    opacity: 0.5;
+    margin-right: 3px;
+}
+
+#app #source-editor .CodeMirror-overlayscroll-vertical > div:hover {
+    opacity: 0.75;
+}
+
+#app #query-pane {
+    background: #282727;
+    padding: 8px;
+}
+
+thead {
+    color: #efc081;
+    align-content: center;
+    align-items: center;
+}
+
+.collapsible_archive_table_div {
+    max-width: 1400px;
+    max-height: 400px;
+    overflow: scroll
+}
