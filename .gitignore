@@ -4,7 +4,11 @@ node_modules
 **/.DS_Store
 PaladinEngine/tests/test_resources/examples/**/*.csv
 PaladinEngine/tests/test_resources/examples/**/*_output.py
-**/node_modules
 PaladinUI/paladin_server/static/index.js*
+PaladinCLI/interactive_graph/static/index.js
+**/node_modules
 *-lock.json
 *.js.map
+*.swp
+/out.csv
+/out.py
