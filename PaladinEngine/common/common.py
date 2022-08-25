@@ -8,7 +8,7 @@ def ISP(t: type) -> bool:
 
 
 def POID(v: Any) -> Union[Union[int, float, str, bool, complex], int]:
-    return v if ISP(type(v)) or type(v) is list else id(v)
+    return v if ISP(type(v)) else id(v)
 
 
 def IS_ITERABLE(i: Union[Iterable, object]):

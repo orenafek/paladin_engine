@@ -6,7 +6,7 @@ from typing import Optional, Union, TypeVar
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
-from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION
+from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
 
 archive = Archive()
 
@@ -209,10 +209,23 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         return
 
     value_to_store = POID(value)
-
-    archive.store_new \
+    rv = archive.store_new \
         .key(container_id, field, __AS__.__name__) \
         .value(type(value), value_to_store, expression, line_no)
+
+    def _store_lists_and_tuples(v, t):
+        if t not in [list, tuple]:
+            return None
+
+        for index, item in enumerate(v):
+            irv = archive.store_new \
+                .key(id(v), index, __AS__.__name__) \
+                .value(type(item), item, f'{t}[{index}]', line_no)
+
+            irv.time = rv.time
+            _store_lists_and_tuples(item, type(item))
+
+    _store_lists_and_tuples(value, type(value))
 
 
 def __FC__(expression: str, function,

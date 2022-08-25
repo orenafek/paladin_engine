@@ -1,5 +1,7 @@
 import ast
 import typing
+from _ast import AST
+from typing import Any
 
 
 def ast2str(node: ast.AST, lstrip: bool = True, rstrip: bool = True) -> str:
@@ -41,3 +43,28 @@ def wrap_str_param(s: str):
     # s = s.replace('"','@').replace("'", '@')
     s = s.replace('"', '\"').replace("'", "\'")
     return wrap(s, '\'') if not '\'' in s else wrap(s, '"')
+
+
+def find_closest_parent(n: ast.AST, c: ast.AST, t: type):
+    """
+        Find closest parent of n from an indirect (or direct) container c of n of type t
+    :param n:
+    :param c:
+    :param t:
+    :return:
+    """
+
+    class ChildrenVisitor(ast.NodeVisitor):
+        def __init__(self):
+            self.closest_parent = c
+
+        def visit(self, node: ast.AST):
+            for child in ast.iter_child_nodes(node):
+                if child == n:
+                    self.closest_parent = node if isinstance(node, t) else self.closest_parent
+
+            return self.generic_visit(node)
+
+    cv = ChildrenVisitor()
+    cv.visit(c)
+    return cv.closest_parent
