@@ -57,11 +57,14 @@
         <div v-text="query_dsl_words"></div>
         <br/>
         <Codemirror id="query_where" placeholder="Type your query here" :options="codemirror_options" :height="auto"
-                    :width="600" style="font-size: 14pt" @change="onQueryWhereChange" v-model:value="query_where" ref="qw_cm"></Codemirror>
+                    :width="600" style="font-size: 14pt" @change="onQueryWhereChange" v-model:value="query_where"
+                    ref="qw_cm"></Codemirror>
         <input v-model="query_start_time" type="number" placeholder="start"/>
         <input v-model="query_end_time" type="number" placeholder="end"/>
         <input v-model="query_line_no" type="number" placeholder="line number"/>
-        <button @click="run_query">Run</button>
+        <loading-spinner :submit_button_text="'Run'" v-model:is_loaded="is_query_done"
+                         @loading-button-click="run_query"></loading-spinner>
+        <!--        <button @click="run_query">Run</button>-->
         <br/>
         <textarea id="query_result" placeholder="Your results will appear in here"
                   style="height: auto; max-height: 200px; width: auto"></textarea>
