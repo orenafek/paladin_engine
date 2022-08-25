@@ -44,10 +44,14 @@ module.exports = (env, argv) => ({
         extensions: ['.tsx', '.ts', '.js'],
     },
     externals: {
-        fs: 'commonjs2 fs'
+        fs: '{}'
     },
     plugins: [new VueLoaderPlugin(),
-        new webpack.DefinePlugin({'process': {browser: true, env: {}}}),
+        new webpack.DefinePlugin({
+            'process': {browser: true, env: {}},
+            __VUE_OPTIONS_API__: true,
+            __VUE_PROD_DEVTOOLS__: true
+        }),
         new webpack.ProvidePlugin({'Buffer': 'buffer'})
     ]
 });

@@ -36,17 +36,34 @@ body {
     overflow: hidden;
 }
 
+#app .splitpanes--vertical .splitpanes__pane {
+    transition: none; /* to avoid useless animation on startup */
+}
+
 #app #source-editor {
     height: 100%;
 }
 
-#app #source-editor .CodeMirror-overlayscroll-vertical > div {
+#app #source-editor .CodeMirror-overlayscroll-vertical > div,
+#app #source-editor .CodeMirror-overlayscroll-horizontal > div {
     opacity: 0.5;
+}
+
+#app #source-editor .CodeMirror-overlayscroll-vertical > div:hover,
+#app #source-editor .CodeMirror-overlayscroll-horizontal > div:hover {
+    opacity: 0.75;
+}
+
+#app #source-editor .CodeMirror-overlayscroll-vertical > div {
     margin-right: 3px;
 }
 
-#app #source-editor .CodeMirror-overlayscroll-vertical > div:hover {
-    opacity: 0.75;
+#app #source-editor .CodeMirror-overlayscroll-horizontal > div {
+    margin-bottom: 1px;
+}
+
+#app #source-editor .CodeMirror-scrollbar-filler {
+    background-color: transparent;
 }
 
 #app #query-pane {
