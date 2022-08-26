@@ -17,7 +17,7 @@ import tabular from "./components/tabular.vue";
 import { persistField, LocalStore } from "./infra/store";
 
 import LoadingSpinner from "./components/loading_spinner.vue";
-import './main.css';
+import './main.scss';
 
 
 const mainComponent = {
