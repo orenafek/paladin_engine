@@ -284,7 +284,7 @@ class First(UniLateralOperator):
             """
             return arg
 
-        first = min(filter(lambda k: arg[k][0] != False, arg))
+        first = min(filter(lambda t: all(res is not None for res in arg[t][0]), arg))
         if not first:
             return False
 
@@ -301,11 +301,11 @@ class Last(UniLateralOperator):
         if type(arg) is bool:
             return arg
 
-        first = max(filter(lambda k: arg[k][0] != False, arg))
-        if not first:
+        last = max(filter(lambda t: all([res is not None for res in arg[t][0]]), arg))
+        if not last:
             return False
 
-        return {first: arg[first]}
+        return {last: arg[last]}
 
 
 class Where(BiLateralOperator):
