@@ -206,6 +206,12 @@ class PaladinDSLParser(object):
 
     @staticmethod
     def _group(d: Dict):
+        if d == {}:
+            return {}
+
+        def create_key(key_range):
+            return str((min(key_range), max(key_range)))
+
         keys = list(d.keys())
         key_range = []
         v = d[keys[0]]
@@ -215,10 +221,12 @@ class PaladinDSLParser(object):
                 key_range.append(k)
                 continue
 
-            grouped[str((min(key_range), max(key_range)))] = v
+            grouped[create_key(key_range)] = v
             v = d[k]
             key_range = [k]
 
+        if key_range:
+            grouped[create_key(key_range)] = v
         return grouped
 
 
