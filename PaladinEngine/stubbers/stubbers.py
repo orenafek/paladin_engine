@@ -356,67 +356,32 @@ class LoopStubber(Stubber):
         return self.root_module
 
 
-class ForToWhileLoopStubber(LoopStubber):
-    WHILE_LOOP_TEMPLATE = \
-        "__iter_{iterator_number} = {iterator}.__iter__()\n" + \
-        "while True:\n" + \
-        "    try:\n" + \
-        "        {loop_index} = __iter_{iterator_number}.__next__()\n" + \
-        "    except StopIteration:\n" + \
-        "        break\n" + \
-        "\n" + \
-        "{body}\n"
-
+class ForLoopStubber(LoopStubber):
     ITERATOR_NUMBER = -1
 
     def __init__(self, root_module) -> None:
         super().__init__(root_module)
-        ForToWhileLoopStubber.ITERATOR_NUMBER += 1
+        ForLoopStubber.ITERATOR_NUMBER += 1
 
-    def _create_while_loop_code(self, for_loop_node: ast.For):
-        """
+    def stub_for_loop(self, for_loop_node: ast.For) -> ast.Module:
 
-        :return:
-        """
+        # Create a new target.
+        new_for_target = ast.Name(id=f'__iter_{ForLoopStubber.ITERATOR_NUMBER}')
 
-        # Extract the loop index from the for loop.
-        loop_index = ast2str(for_loop_node.target)
+        # Create a target assignment.
+        for_target_assignment = ast.Assign(targets=[for_loop_node.target], ctx=ast.Store(), value=new_for_target)
 
-        # Extract the collection from the for loop.
-        iterator = ast2str(for_loop_node.iter)
+        # Override target.
+        self._stub(
+            Stubber._ReplacingStubRecord(for_loop_node.target, for_loop_node, 'target', new_for_target))
 
-        SPACE = ' '
+        # Override body.
+        for_loop_node.body.insert(0, for_target_assignment)
 
-        # Extract the body from the for loop.
-        for_loop_body = []
-        try:
-            for for_loop_body_node in for_loop_node.body:
-                spaces_to_add = for_loop_body_node.col_offset - for_loop_node.col_offset
-                source_lines = [f'{SPACE * spaces_to_add}{line}\n'
-                                for line in ast2str(for_loop_body_node, rstrip=False).split('\n')]
-                for_loop_body.append(''.join(source_lines))
+        ast.fix_missing_locations(for_loop_node)
 
-            for_loop_body = ''.join(for_loop_body)
-        except BaseException as e:
-            print(e)
-        # Fill the while loop template.
-        return ForToWhileLoopStubber.WHILE_LOOP_TEMPLATE.format(iterator_number=ForToWhileLoopStubber.ITERATOR_NUMBER,
-                                                                iterator=iterator, loop_index=loop_index,
-                                                                body=for_loop_body)
+        return self.root_module
 
-    def stub_while_loop_instead_of_for_loop(self, for_loop_node,
-                                            container: ast.AST,
-                                            attr_name: str) -> ast.Module:
-        # Create the while loop code.
-        while_loop_code = self._create_while_loop_code(for_loop_node).replace('\t', "    ")
-
-        # Parse to ast.
-        while_loop_ast = ast.parse(while_loop_code).body
-
-        # Create a replacing stub record.
-        replacing_stub_record = Stubber._ReplacingStubRecord(for_loop_node, container, attr_name, while_loop_ast)
-
-        return self._stub(replacing_stub_record)
 
 
 class MethodStubber(Stubber):

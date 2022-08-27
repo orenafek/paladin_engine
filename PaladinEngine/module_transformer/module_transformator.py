@@ -11,7 +11,7 @@ from ast_common.ast_common import ast2str, str2ast, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
     AttributeAccessFinder, ListFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder
-from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForToWhileLoopStubber, \
+from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForLoopStubber, \
     FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, ListStubber, AugAssignStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
     __UNDEF__, __AC__, __PIS__
@@ -44,7 +44,7 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_for_loops_to_while_loops(self) -> 'ModuleTransformer':
+    def transform_for_loops(self) -> 'ModuleTransformer':
         plf = PaladinForLoopFinder()
         plf.visit(self._module)
         for_loop_entries = plf.find()
@@ -52,13 +52,11 @@ class ModuleTransformer(object):
         while for_loop_entries:
             for_loop_entry = for_loop_entries.pop()
 
-            # Create a stuber.
-            stuber = ForToWhileLoopStubber(self._module)
+            # Create a stubber.
+            stubber = ForLoopStubber(self._module)
 
             # Stub.
-            self._module = stuber.stub_while_loop_instead_of_for_loop(for_loop_entry.node,
-                                                                      for_loop_entry.container,
-                                                                      for_loop_entry.attr_name)
+            self._module = stubber.stub_for_loop(for_loop_entry.node)
 
             plf.visit(self._module)
             for_loop_entries = plf.find()
