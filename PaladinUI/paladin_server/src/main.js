@@ -55,7 +55,7 @@ const mainComponent = {
                 endTime: 10000,
                 lineNo: 0
             },
-            is_query_done: false,
+            queryInProgress: false,
             queryResult: {},
             codemirror_options: {
                 mode: "text/x-python",
@@ -132,14 +132,15 @@ const mainComponent = {
         },
 
         run_query: async function () {
-            this.is_query_done = false;
-            const query_result = await request_debug_info("query",
-                ...[this.query.select, "True" /** @todo deprecated */,
-                    this.query.startTime, this.query.endTime, this.query.lineNo]);
-
-            this.queryResult = query_result;
-
-            this.is_query_done = true;
+            this.queryInProgress = true;
+            try {
+                this.queryResult = await request_debug_info("query",
+                    ...[this.query.select, "True" /** @todo deprecated */,
+                        this.query.startTime, this.query.endTime, this.query.lineNo]);
+            }
+            finally {
+                this.queryInProgress = false;
+            }
             return true;
         },
 

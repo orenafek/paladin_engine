@@ -32,6 +32,10 @@ body {
         flex-basis: 0;
         flex-grow: 1;
         overflow: hidden;
+
+        #query-pane {
+            overflow: auto;
+        }
     }
 
     .splitpanes--vertical .splitpanes__pane {
@@ -43,6 +47,17 @@ body {
         
         &::before, &::after {
             background-color: #0005;
+        }
+    }
+
+    #query-pane div.range-spec {
+        float: right;
+        margin-left: 5em;
+        margin-right: 5em;
+
+        span { color: #fff8; font-style: italic; }
+        input {
+            width: 5em;
         }
     }
 
