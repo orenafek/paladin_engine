@@ -132,6 +132,7 @@ const mainComponent = {
         },
 
         run_query: async function () {
+            this.is_query_done = false;
             const query_result = await request_debug_info("query",
                 ...[this.query.select, "True" /** @todo deprecated */,
                     this.query.startTime, this.query.endTime, this.query.lineNo]);
