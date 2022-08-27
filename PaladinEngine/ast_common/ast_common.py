@@ -1,7 +1,8 @@
 import ast
-import typing
-from _ast import AST
-from typing import Any
+from typing import *
+
+LiteralTypes = [int, float, str, bool, complex]
+AnyLiteralType = NewType('AnyLiteralType', Union[int, float, str, bool, complex])
 
 
 def ast2str(node: ast.AST, lstrip: bool = True, rstrip: bool = True) -> str:
@@ -24,9 +25,17 @@ def str2ast(s: str):
     return ast.parse(s).body[0]
 
 
-def is_of(s: str, t: typing.Type) -> bool:
+def is_of(s: str, t: Type) -> bool:
     parsed = str2ast(s)
     return type(parsed) is ast.Expr and isinstance(parsed.value, t)
+
+
+def lit2ast(v: AnyLiteralType) -> Union[ast.Constant, ast.Name, ast.NameConstant]:
+    if type(v) in [int, float, complex, complex]:
+        return ast.Constant(value=v)
+
+    if type(v) is str:
+        return ast.Name(id=v)
 
 
 def wrap(s: str, w: str, wrap_left: bool = True, wrap_right: bool = True) -> str:

@@ -3,8 +3,9 @@ from abc import ABC, abstractmethod
 from ast import *
 from typing import Union, List
 
-from ast_common.ast_common import ast2str, find_closest_parent
+from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param
 from finders.finders import StubEntry
+from stubs.stubs import __FRAME__
 from utils.utils import assert_not_raise
 
 
@@ -468,10 +469,25 @@ class AssignmentStubber(Stubber):
 
 
 class FunctionCallStubber(Stubber):
-    def stub_func(self, node, container, attr_name, stubbed_call):
+    def stub_func(self, node: ast.Call, container: ast.AST, attr_name: str, stub_name: str):
         try:
+            stub_args = [
+                lit2ast(wrap_str_param(ast2str(node))),
+                lit2ast(ast2str(node.func)),
+                ast.Call(func=lit2ast(locals.__name__), args=[], keywords=[]),
+                ast.Call(func=lit2ast(globals.__name__), args=[], keywords=[]),
+                ast.Call(func=lit2ast(__FRAME__.__name__), args=[], keywords=[]),
+                lit2ast(node.lineno)
+            ] + node.args
+
+            stub_kwargs = node.keywords
+
+            stub_func_call = ast.Call(func=lit2ast(stub_name),
+                                      args=stub_args,
+                                      keywords=stub_kwargs)
+
             # Create a stub record.
-            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, stubbed_call)
+            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, stub_func_call)
 
             # Stub.
             self.root_module = self._stub(stub_record)

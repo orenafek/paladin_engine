@@ -2,7 +2,7 @@ import ast
 import re
 import sys
 from dataclasses import dataclass
-from typing import Optional, Union, TypeVar
+from typing import Optional, Union, TypeVar, Tuple, List, Dict
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
@@ -147,7 +147,8 @@ def _separate_to_container_and_field(expression: str, frame, locals: dict, globa
         pass
     if not isinstance(expression_ast, ast.Attribute):
         # There is only an object.
-        return id(frame), expression, eval(expression, globals, locals), True
+        value = eval(expression, globals, locals)
+        return id(frame), expression, POID(value), True
 
     container = eval(ast2str(expression_ast.value), globals, locals)
     field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
@@ -213,20 +214,35 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         .key(container_id, field, __AS__.__name__) \
         .value(type(value), value_to_store, expression, line_no)
 
-    def _store_lists_and_tuples(v, t):
-        if t not in [list, tuple]:
-            return None
+    def _store_inner(v: object) -> None:
+        if type(v) in [list, tuple]:
+            return _store_lists_and_tuples(v)
 
+        if type(v) is dict:
+            return _store_dicts(v)
+
+        return None
+
+    def _store_lists_and_tuples(v: Union[List, Tuple]):
         for index, item in enumerate(v):
             irv = archive.store_new \
                 .key(id(v), index, __AS__.__name__) \
-                .value(type(item), item, f'{t}[{index}]', line_no)
+                .value(type(item), item, f'{type(v)}[{index}]', line_no)
 
             irv.time = rv.time
-            _store_lists_and_tuples(item, type(item))
+            _store_inner(item)
 
-    _store_lists_and_tuples(value, type(value))
+    def _store_dicts(d: Dict):
+        for k, v in d.items():
+            irv = archive.store_new \
+                .key(id(d), POID(k), __AS__.__name__) \
+                .value(type(v), v, f'{id(d)}[{POID(k)}] = {POID(v)}')
 
+            irv.time = rv.time
+            _store_inner(k)
+            _store_inner(v)
+
+    _store_inner(value)
 
 def __FC__(expression: str, function,
            locals: dict, globals: dict, frame, line_no: int,
