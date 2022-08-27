@@ -91,7 +91,7 @@ def IrobotClean(walls):
 
 def main():
     df = pd.read_excel(
-        '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/turtle/irobot_kelet.xlsx')
+        '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/examples/turtle/irobot_kelet.xlsx')
 
     df = df.dropna()
 
