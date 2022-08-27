@@ -38,12 +38,14 @@
             <Codemirror placeholder="Selection" :options="codemirror_options" height="auto" :width="600"
                         style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
         </div>
-        <input v-model="query.startTime" type="number" placeholder="start"/>
-        <input v-model="query.endTime" type="number" placeholder="end"/>
-        <input v-model="query.lineNo" type="number" placeholder="line number"/>
-        <loading-spinner :submit_button_text="'Run'" v-model:is_loaded="is_query_done"
-                         @loading-button-click="run_query"></loading-spinner>
-        <!--        <button @click="run_query">Run</button>-->
+        <loading-spinner :is-loading="queryInProgress"
+                         @loading-button-click="run_query">Run</loading-spinner>
+        <div class="range-spec">
+            <span>Time range: </span>
+            <input v-model="query.startTime" type="number" placeholder="start"/>
+            <input v-model="query.endTime" type="number" placeholder="end"/>
+            <input v-model="query.lineNo" type="number" placeholder="line number"/>
+        </div>
         <br/>
         <textarea placeholder="Your results will appear in here"
                   :value="queryResult ? JSON.stringify(queryResult) : ''"

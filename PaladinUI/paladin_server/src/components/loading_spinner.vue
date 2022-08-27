@@ -1,49 +1,40 @@
 <template>
-  <form @submit.prevent="submitAction" class="vld-parent" ref="formContainer">
-    <button type="submit">{{ submit_button_text }}</button>
-  </form>
+  <button ref="btn" @click="submitAction" :style="{minWidth}">
+    <span class="caption" :class="{isLoading}"><slot></slot></span>
+    <spinner-anim v-if="isLoading"
+      style="--size: 20px; display: inline-block; vertical-align: middle"/>
+  </button>
 </template>
 
+<style scoped>
+button {
+  padding-top: 0;
+  padding-bottom: 0;
+  height: 23px;
+}
+span.caption.isLoading {
+  display: none;
+}
+</style>
+
 <script>
-import {ref} from 'vue';
-// Import the method.
-import {useLoading} from 'vue3-loading-overlay';
-// Import stylesheet
-import 'vue3-loading-overlay/dist/vue3-loading-overlay.css';
-// Init plugin
+import SpinnerAnim from './spinner-anim.vue';
 
 export default {
   name: "LoadingSpinner",
-  props: {submit_button_text: String, is_loaded: Boolean},
-  watch: {
-    is_loaded(newVal, oldVal) {
-      if (newVal) {
-        this.loader.hide();
-      }
-    }
-  },
-  setup() {
-    let fullPage = ref(true);
-    let formContainer = ref(null);
-    let loader = ref(useLoading());
-    return {
-      fullPage,
-      formContainer,
-      loader
-    }
+  props: {isLoading: Boolean},
+  data: () => ({minWidth: undefined}),
+
+  mounted() {
+    this.minWidth = `${this.$refs.btn.getBoundingClientRect().width}px`;
   },
 
   methods: {
-
     async submitAction() {
-      this.loader.show({
-        // Optional parameters
-        container: this.fullPage ? null : this.formContainer.value,
-        canCancel: false,
-      });
       this.$emit('loadingButtonClick');
     }
-  }
+  },
 
+  components: { SpinnerAnim }
 }
 </script>
