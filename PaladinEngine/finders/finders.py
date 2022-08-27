@@ -694,14 +694,6 @@ class FunctionDefFinder(GenericFinder):
         return self._generic_visit_with_extras(node, extra)
 
 
-class ListFinder(GenericFinder):
-    def types_to_find(self):
-        return ast.List
-
-    def visit_List(self, node: ast.List) -> Any:
-        return node
-
-
 class AttributeAccessFinder(GenericFinder):
 
     def __init__(self):

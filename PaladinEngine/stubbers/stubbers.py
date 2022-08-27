@@ -3,9 +3,8 @@ from abc import ABC, abstractmethod
 from ast import *
 from typing import Union, List
 
-from ast_common.ast_common import str2ast, ast2str, find_closest_parent
-from finders.finders import AugAssignFinder, StubEntry, ReturnStatementsFinder
-from stubs.stubs import __PALADIN_LIST__
+from ast_common.ast_common import ast2str, find_closest_parent
+from finders.finders import StubEntry
 from utils.utils import assert_not_raise
 
 
@@ -364,7 +363,6 @@ class ForLoopStubber(LoopStubber):
         ForLoopStubber.ITERATOR_NUMBER += 1
 
     def stub_for_loop(self, for_loop_node: ast.For) -> ast.Module:
-
         # Create a new target.
         new_for_target = ast.Name(id=f'__iter_{ForLoopStubber.ITERATOR_NUMBER}')
 
@@ -381,7 +379,6 @@ class ForLoopStubber(LoopStubber):
         ast.fix_missing_locations(for_loop_node)
 
         return self.root_module
-
 
 
 class MethodStubber(Stubber):
@@ -487,49 +484,6 @@ class FunctionCallStubber(Stubber):
             print(e)
             raise e
 
-    def stub_function_call(self, node: ast.Call, container: ast.AST,
-                           attr_name: str,
-                           function_name: str,
-                           args: str,
-                           kwargs: str,
-                           stub_function_name: str) -> Module:
-        """
-            Stub a function call.
-        :param node:
-        :param container:
-        :param attr_name:
-        :param stub:
-        :return:
-        """
-        # Create the code to replace the function call itself.
-        try:
-            # Create a call node.
-            if args != '':
-                args_string = ', ' + args
-            else:
-                args_string = ''
-
-            if kwargs != '':
-                kwargs_string = ', ' + kwargs
-            else:
-                kwargs_string = ''
-
-            stubbed_call = str2ast(f'{stub_function_name}(\'{function_name}\'{args_string}{kwargs_string})').value
-
-            # Create a stub record.
-            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, stubbed_call)
-
-            # Stub.
-            self.root_module = self._stub(stub_record)
-            assert_not_raise(ast2str, self.root_module)
-
-            # Create a stub record.
-            return self.root_module
-
-        except BaseException as e:
-            print(e)
-            raise e
-
 
 class FunctionDefStubber(Stubber):
     TEMP_RETURN_ASSIGMENT_VAR_NAME = '__TEMP__'
@@ -586,16 +540,6 @@ class AttributeAccessStubber(Stubber):
         return self.root_module
 
 
-class ListStubber(Stubber):
-    def stub_list(self, node: ast.List, container: ast.AST, container_attr_name: str):
-        stub = str2ast(f'{__PALADIN_LIST__.__name__}([{", ".join([ast2str(i) for i in node.elts])}])').value
-
-        stub_record = Stubber._ListReplacingStubRecord(node, container, container_attr_name, stub)
-        # stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name, stub)
-        self.root_module = self._stub(stub_record)
-        return self.root_module
-
-
 class AugAssignStubber(Stubber):
 
     def __init__(self, root_module) -> None:
@@ -603,12 +547,12 @@ class AugAssignStubber(Stubber):
         self.temp_var_base = 'PALADIN_TEMP_AUG_ASSIGN_VAR__'
         self.temp_var_seed = 0
 
-    def stub_aug_assigns(self, node: ast.AugAssign, container: ast.AST, container_attr_name: str,
-                         extra: AugAssignFinder.AugAssignExtra):
+    def stub_aug_assigns(self, node: ast.AugAssign, container: ast.AST, container_attr_name: str):
         temp_var = self.next_temp_var
-        temp_op_and_assign = str2ast(
-            f'{temp_var} = {ast2str(node.target)} {extra.op_str} {ast2str(node.value)}')
-        temp_reassign = str2ast(f'{ast2str(node.target)} = {temp_var}')
+        temp_op_and_assign = ast.Assign(targets=[ast.Name(id=temp_var)], ctx=ast.Store,
+                                        value=ast.BinOp(left=node.target, op=node.op, right=node.value))
+        temp_reassign = ast.Assign(targets=[node.target], ctx=ast.Store, value=ast.Name(id=temp_var))
+
         stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name,
                                                    [temp_op_and_assign, temp_reassign])
         self.root_module = self._stub(stub_record)
