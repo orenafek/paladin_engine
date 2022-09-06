@@ -1,3 +1,4 @@
+import abc
 import ast
 import re
 import sys
@@ -126,7 +127,7 @@ def _separate_to_container_and_func(function, expression: str, frame, vars_dict:
             return eager_dot.group('id'), eager_dot.group('rest')
 
     # If the call was to a __call__ function of an object, the function parameter should be of a class.
-    if type(function) is type:
+    if type(function) in [type, abc.ABCMeta]:
         container_id = id(frame)
     else:
         # Otherwise, the call was made to a function.
@@ -143,12 +144,18 @@ def _separate_to_container_and_field(expression: str, frame, locals: dict, globa
     int, str, object, bool]:
     expression_ast = str2ast(expression).value
     if isinstance(expression_ast, ast.Subscript):
-        # TODO : Handle
-        pass
+        getitem_arg = f'''{slice.__name__}(start={ast2str(expression_ast.slice.lower)},
+                                           stop={ast2str(expression_ast.slice.upper)},
+                                           step={ast2str(expression_ast.slice.step)})
+                       ''' if isinstance(expression_ast.slice, ast.Slice) else eval(ast2str(expression_ast.slice),
+                                                                                    globals, locals)
+        subscript_value = eval(ast2str(expression_ast.value), globals, locals)
+        return id(subscript_value), getitem_arg, eval(expression, globals, locals), True
+
     if not isinstance(expression_ast, ast.Attribute):
         # There is only an object.
         value = eval(expression, globals, locals)
-        return id(frame), expression, POID(value), True
+        return id(frame), expression, value, True
 
     container = eval(ast2str(expression_ast.value), globals, locals)
     field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
@@ -227,7 +234,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         for index, item in enumerate(v):
             irv = archive.store_new \
                 .key(id(v), index, __AS__.__name__) \
-                .value(type(item), item, f'{type(v)}[{index}]', line_no)
+                .value(type(item), POID(item), f'{type(v)}[{index}]', line_no)
 
             irv.time = rv.time
             _store_inner(item)
@@ -243,6 +250,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
             _store_inner(v)
 
     _store_inner(value)
+
 
 def __FC__(expression: str, function,
            locals: dict, globals: dict, frame, line_no: int,
