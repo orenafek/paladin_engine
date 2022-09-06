@@ -1,4 +1,5 @@
 import ast
+import copy
 from abc import ABC, abstractmethod
 from ast import *
 from typing import Union, List
@@ -478,7 +479,7 @@ class FunctionCallStubber(Stubber):
                 ast.Call(func=lit2ast(globals.__name__), args=[], keywords=[]),
                 ast.Call(func=lit2ast(__FRAME__.__name__), args=[], keywords=[]),
                 lit2ast(node.lineno)
-            ] + node.args
+            ] + [ast.fix_missing_locations(a) for a in copy.deepcopy(node.args)]
 
             stub_kwargs = node.keywords
 
