@@ -198,10 +198,15 @@ class Archive(object):
             for rk, v in relevant_records
         }
 
+        # TODO: Patchy...
         if any([isinstance(f, int) for f in d.keys()]):
             if list.__name__ in relevant_records[0][1].expression:
                 return list(d.values())
             elif tuple.__name__ in relevant_records[0][1].expression:
+                return tuple(d.values())
+            elif relevant_records[0][1].rtype == list:
+                return list(d.values())
+            elif relevant_records[0][1].rtype == tuple:
                 return tuple(d.values())
 
         return [dict(zip(keys, values)) for keys, values in product([d.keys()], zip(*d.values()))]
@@ -412,7 +417,7 @@ class Archive(object):
             def visit_Name(self, node: Name) -> Any:
                 self.values[node.id] = {
                     rv.time:
-                        rv.value if ISP(rv.rtype) else archive.build_object(rv.value, rv.time)
+                        rv.value if ISP(rv.rtype) else archive.build_object(rv.value, time)
                     for rv in _find_by_name_and_container_id(node.id, scope)
                 }
 
