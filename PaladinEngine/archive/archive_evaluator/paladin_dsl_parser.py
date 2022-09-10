@@ -16,12 +16,9 @@ from ast_common.ast_common import ast2str, str2ast
 
 class PaladinDSLParser(object):
 
-
-    def __init__(self, unilateral_keywords: List[UniLateralOperator],
-                 bilateral_keywords: List[BiLateralOperator], archive: Archive, start_time: int,
-                 end_time: int, line_no: int):
-        self._keywords: List[Operator] = unilateral_keywords + bilateral_keywords
-        self.grammar: ParserElement = PaladinDSLParser.__grammar(unilateral_keywords, bilateral_keywords)
+    def __init__(self, operators: List[Operator], archive: Archive, start_time: int, end_time: int, line_no: int):
+        self._operators: List[Operator] = operators
+        self.grammar: ParserElement = PaladinDSLParser.__grammar(operators)
         self.start_time = start_time
         self.end_time = end_time
         self.line_no = line_no
@@ -30,31 +27,26 @@ class PaladinDSLParser(object):
 
     @classmethod
     def create(cls, archive: Archive, start_time: int, end_time: int, line_no: int) -> 'PaladinDSLParser':
-        return PaladinDSLParser(unilateral_keywords=[op() for op in UniLateralOperator.ALL],
-                                bilateral_keywords=[op() for op in BiLateralOperator.ALL],
+        return PaladinDSLParser(operators=[op() for op in Operator.ALL],
                                 archive=archive, start_time=start_time, end_time=end_time, line_no=line_no)
 
     @classmethod
-    def __grammar(cls, unilateral_keywords: List[UniLateralOperator],
-                  bilateral_keywords: List[BiLateralOperator]) -> ParserElement:
+    def __grammar(cls, operators: List[Operator]) -> ParserElement:
         LPAR = Suppress('(')
         RPAR = Suppress(')')
         COMMA = Suppress(',')
 
         query = Forward()
 
-        unilateral_queries = [
-            Group(Keyword(k.name) + LPAR + query + RPAR).setParseAction(k.create_eval) for k in unilateral_keywords
-        ]
-        bilateral_queries = [
-            Group(Keyword(k.name) + LPAR + query + COMMA + query + RPAR).setParseAction(k.create_eval)
-            for k in bilateral_keywords
+        operator_queries = [
+            Group(Keyword(k.name) + LPAR + ZeroOrMore(query + COMMA) + query + RPAR).setParseAction(k.create_eval)
+            for k in operators
         ]
 
         q = cls._raw_query() | cls._compound_query()
 
-        query <<= q | functools.reduce(ParserElement.__or__,
-                                       unilateral_queries + bilateral_queries)
+        query <<= q | functools.reduce(ParserElement.__or__, operator_queries)
+
 
         return query
 
@@ -106,7 +98,7 @@ class PaladinDSLParser(object):
             scope = self.line_no
 
         # Split query into sub queries.
-        queries = list(map(lambda q: q.strip(), query.split(',')))
+        queries = list(map(lambda q: q.strip(), query.split('$')))
         # results = {q: {} for q in queries}
         results = {}
         for t in self.timer:
@@ -117,8 +109,7 @@ class PaladinDSLParser(object):
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
                 result = eval(ast2str(replacer.visit(ast.parse(query))))
-                if not isinstance(result, tuple):
-                    result = (result,)
+                result = (result,)
             except IndexError:
                 result = [None] * len(queries)
             # for q, r in zip(queries, result):
@@ -207,19 +198,27 @@ class PaladinDSLParser(object):
 
     @staticmethod
     def _group(d: Dict):
+        if d == {}:
+            return {}
+
+        def create_key(key_range):
+            return str((min(key_range), max(key_range)))
+
         keys = list(d.keys())
         key_range = []
         v = d[keys[0]]
         grouped = {}
         for k in keys:
-            if d[k] == v:
+            if d[k][0] == v[0]:
                 key_range.append(k)
                 continue
 
-            grouped[str((min(key_range), max(key_range)))] = v
+            grouped[create_key(key_range)] = v
             v = d[k]
             key_range = [k]
 
+        if key_range:
+            grouped[create_key(key_range)] = v
         return grouped
 
 

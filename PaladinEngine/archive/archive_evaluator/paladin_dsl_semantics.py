@@ -2,6 +2,7 @@ import re
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
+from functools import reduce
 
 import more_itertools
 
@@ -75,6 +76,12 @@ class SemanticsUtils(object):
     def displayable_time(t: int):
         return t if t >= 0 else EMPTY_TIME
 
+    @staticmethod
+    def create_empty_result(r: EvalResult):
+        if isinstance(r, bool) or r == {} or list(r.values())[0] is None:
+            raise TypeError('Cannot create an empty result.')
+        return {q: None for q in list(r.values())[0][0]}, []
+
 
 class Operator(ABC):
     @abstractmethod
@@ -82,9 +89,8 @@ class Operator(ABC):
         raise NotImplementedError()
 
     @property
-    @abstractmethod
     def name(self) -> str:
-        raise NotImplementedError()
+        return self.__class__.__name__
 
     def create_eval(self, *args):
         return lambda parser: self.eval(*[f(parser) for f in (args[2].asList())[0][1:]])
@@ -102,37 +108,31 @@ class BiLateralOperator(Operator):
         raise NotImplementedError()
 
 
+class VariadicLateralOperator(Operator):
+    @abstractmethod
+    def eval(self, *args):
+        raise NotImplementedError()
+
+
 class Globally(UniLateralOperator):
-    @property
-    def name(self):
-        return "G"
 
     def eval(self, formula: SemanticsArgType):
         return Release().eval(False, formula)
 
 
 class Release(BiLateralOperator):
-    @property
-    def name(self):
-        return "R"
 
     def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
         return Not().eval(Until().eval(Not().eval(arg1), Not().eval(arg2)))
 
 
 class Finally(UniLateralOperator):
-    @property
-    def name(self):
-        return "F"
 
     def eval(self, arg: SemanticsArgType):
         return Until().eval(True, arg)
 
 
 class Next(UniLateralOperator):
-    @property
-    def name(self):
-        return "X"
 
     def eval(self, arg: SemanticsArgType):
         if arg is bool:
@@ -147,9 +147,6 @@ class Next(UniLateralOperator):
 
 
 class Until(BiLateralOperator):
-    @property
-    def name(self):
-        return "U"
 
     def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
         if type(arg1) is bool and type(arg2) is bool:
@@ -193,9 +190,6 @@ class Until(BiLateralOperator):
 
 
 class Or(BiLateralOperator):
-    @property
-    def name(self):
-        return "∨"
 
     def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
         if type(arg1) is bool and type(arg2) is bool:
@@ -217,9 +211,6 @@ class Or(BiLateralOperator):
 
 
 class Not(UniLateralOperator):
-    @property
-    def name(self):
-        return "N"
 
     def eval(self, arg: SemanticsArgType):
         if type(arg) is bool:
@@ -229,46 +220,30 @@ class Not(UniLateralOperator):
 
 
 class And(BiLateralOperator):
-    @property
-    def name(self):
-        return "∧"
 
     def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
         return Not().eval(Or().eval(Not().eval(arg1), Not().eval(arg2)))
 
 
 class Before(BiLateralOperator):
-    @property
-    def name(self) -> str:
-        return "B"
 
     def eval(self, arg1, arg2):
         return Until().eval(Not().eval(Globally().eval(Not().eval(arg1))), arg2)
 
 
 class After(BiLateralOperator):
-    @property
-    def name(self) -> str:
-        return "A"
 
     def eval(self, arg1, arg2):
         return Before().eval(arg2, arg1)
 
 
 class AllFuture(UniLateralOperator):
-    @property
-    def name(self) -> str:
-        return "₣"
 
     def eval(self, arg):
         return Globally().eval(Next().eval(arg))
 
 
 class First(UniLateralOperator):
-
-    @property
-    def name(self) -> str:
-        return "Q"
 
     def eval(self, arg: SemanticsArgType):
         if type(arg) is bool:
@@ -278,7 +253,7 @@ class First(UniLateralOperator):
             """
             return arg
 
-        first = min(filter(lambda k: arg[k][0] != False, arg))
+        first = min(filter(lambda t: all(res is not None for res in arg[t][0].values()), arg))
         if not first:
             return False
 
@@ -287,26 +262,18 @@ class First(UniLateralOperator):
 
 class Last(UniLateralOperator):
 
-    @property
-    def name(self) -> str:
-        return "Z"
-
     def eval(self, arg):
         if type(arg) is bool:
             return arg
 
-        first = max(filter(lambda k: arg[k][0] != False, arg))
-        if not first:
+        last = max(filter(lambda t: all([res is not None for res in arg[t][0].values()]), arg))
+        if not last:
             return False
 
-        return {first: arg[first]}
+        return {last: arg[last]}
 
 
 class Where(BiLateralOperator):
-
-    @property
-    def name(self) -> str:
-        return "W"
 
     def eval(self, selector, condition):
         """
@@ -328,16 +295,19 @@ class Where(BiLateralOperator):
 
 class SetUnion(BiLateralOperator):
 
-    @property
-    def name(self) -> str:
-        return "++"
-
     def eval(self, arg1: EvalResult, arg2: EvalResult):
         if isinstance(arg1, bool) or isinstance(arg2, bool):
             raise TypeError("Cannot run Union if any of its operands are bool.")
 
         return {k1: ({**res1, **res2}, rep1 + rep2) for (k1, (res1, rep1)), (k2, (res2, rep2)) in
                 zip(arg1.items(), arg2.items()) if k1 == k2}
+
+
+class MultiUnion(VariadicLateralOperator):
+    _su = SetUnion()
+
+    def eval(self, *args):
+        return reduce(lambda a1, a2: MultiUnion._su.eval(a1, a2), args)
 
 
 class Align(BiLateralOperator):
@@ -366,10 +336,6 @@ class Align(BiLateralOperator):
             self._current_heuristic = next(self._heuristic_iterator)
 
         return self._current_heuristic(r1, r2)
-
-    @property
-    def name(self) -> str:
-        return "Align"
 
     def eval(self, r1: SemanticsArgType, r2: SemanticsArgType):
         if isinstance(r1, bool) or isinstance(r2, bool):
@@ -406,11 +372,6 @@ class Align(BiLateralOperator):
 
 
 class Meld(BiLateralOperator):
-
-    @property
-    def name(self) -> str:
-        return "Meld"
-
     @dataclass
     class _MeldData(object):
         data: Tuple[Any]
@@ -517,6 +478,28 @@ class Meld(BiLateralOperator):
         return diff_mat
 
 
+class NextAfter(BiLateralOperator):
+
+    def eval(self, a: EvalResult, b: EvalResult):
+        if isinstance(a, bool) or isinstance(b, bool):
+            raise TypeError('Cannot find NextAfter if either of the queries are bool')
+
+        replacements_times = lambda er: [t for t in er if any(rep.time == t for rep in er[t][1])]
+
+        a_times = replacements_times(a)
+        b_times = replacements_times(b)
+
+        time_ranges = zip(a_times, a_times[1::])
+        b_relevant_keys = list(
+            map(lambda time_range: next((t for t in b_times if t in range(*time_range)), None), time_ranges))
+
+        """{t:r for t, r in b.items() if t in list( map(lambda time_range: next((t for t in [t for t in b if any(
+        rep.time == t for rep in b[t][1])] if t in range(*time_range)), None), list(zip([t for t in a if any(rep.time 
+        == t for rep in a[t][1])], [t for t in a if any(rep.time == t for rep in a[t][1])][1::]))))} """
+        return {t: r if t in b_relevant_keys else SemanticsUtils.create_empty_result(b) for (t, r) in b.items()}
+
+
 UniLateralOperator.ALL = UniLateralOperator.__subclasses__()
 BiLateralOperator.ALL = BiLateralOperator.__subclasses__()
-Operator.ALL = UniLateralOperator.ALL + BiLateralOperator.ALL
+VariadicLateralOperator.ALL = VariadicLateralOperator.__subclasses__()
+Operator.ALL = UniLateralOperator.ALL + BiLateralOperator.ALL + VariadicLateralOperator.ALL

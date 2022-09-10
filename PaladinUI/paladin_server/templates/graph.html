@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+    <title>Paladin</title>
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/agate.min.css"/>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+    <script src="//cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.8.0/dist/highlightjs-line-numbers.min.js"></script>
+    <script>hljs.initLineNumbersOnLoad();</script>
+    <script src="https://unpkg.com/vue@next"></script>
+
+
+</head>
+
+<style>
+
+    .node {
+        cursor: pointer;
+    }
+
+    .node circle {
+        fill: #fff;
+        stroke: steelblue;
+        stroke-width: 1.5px;
+    }
+
+    .node text {
+        font: 10px sans-serif;
+    }
+
+    .link {
+        fill: none;
+        stroke: #ccc;
+        stroke-width: 3px;
+    }
+
+    table, th, td {
+        border: 1px solid black;
+    }
+
+    .left, .right {
+        height: 50%;
+        width: 60%;
+        position: fixed;
+        overflow-x: hidden;
+        padding-top: 20px;
+    }
+
+    .left {
+        left: 0;
+    }
+
+    .right {
+        right: 0;
+        white-space: pre-wrap;
+    }
+
+    .hljs-ln-numbers {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+
+        text-align: center;
+        color: #ccc;
+        border-right: none;
+        border: none;
+        vertical-align: top;
+        padding-right: 5px;
+
+        /* your custom style here */
+    }
+
+    /* for block of code */
+    .hljs-ln-code {
+        padding-left: 10px;
+        border: none;
+    }
+
+</style>
+<body>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+
+
+<div class="left">
+    <div id="hover_box"
+         style="
+            background-color: lightskyblue;
+            height: 300px;
+            width: 250px;
+            ">
+        <table>
+            <tr>
+                <td>Stub</td>
+                <td id="stub"></td>
+            </tr>
+            <tr>
+                <td>Container Id.</td>
+                <td id="container"></td>
+            </tr>
+            <tr>
+                <td>Field</td>
+                <td id="field"></td>
+            </tr>
+            <tr>
+                <td>Expression</td>
+                <td id="expression"></td>
+            </tr>
+            <tr>
+                <td>Value</td>
+                <td id="value"></td>
+            </tr>
+            <tr>
+                <td>Line no.</td>
+                <td id="line_no"></td>
+            </tr>
+        </table>
+        <table id="bpp">
+            <tr>
+                <td>
+                    <div>Search:</div>
+                </td>
+                <td><input type="text" ref="expr_to_search" placeholder="Start typing to search" @input="search"/></td>
+            </tr>
+            <tr>
+                <td>
+                    <div style="background-color: red; width:200px;">
+                        Result : $$[ search_result ]$$
+                    </div>
+
+                </td>
+            </tr>
+        </table>
+        </form>
+    </div>
+
+</div>
+<div class="right">
+
+    <script>
+        $(document).ready(
+            function () {
+                $('#source_code').load("source_code.txt", function () {
+                    $('pre code').each(function (i, block) {
+                        hljs.highlightBlock(block);
+                        hljs.lineNumbersBlock(block);
+                    });
+                });
+            });
+
+
+    </script>
+
+    <pre>
+        <code id="source_code" style="overflow: hidden;">
+        </code>
+    </pre>
+
+</div>
+<script>
+
+    var margin = {top: 400, right: 120, bottom: 20, left: 120},
+        canvas_height = 700,
+        canvas_width = 960
+    tree_width = canvas_width - margin.right - margin.left,
+        tree_height = canvas_height - margin.top - margin.bottom,
+        tree_level_depth = 180;
+
+    var i = 0,
+        duration = 750,
+        root;
+
+    var tree = d3.layout.tree()
+        .size([tree_height, tree_width]);
+
+    var diagonal = d3.svg.diagonal()
+        .projection(function (d) {
+            return [d.y, d.x];
+        });
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", canvas_width)
+        .attr("height", canvas_height)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    d3.json("input_graph_tree.json", function (error, tree_data) {
+        root = tree_data;
+        root.x0 = tree_height / 2;
+        root.y0 = 0;
+
+        function collapse(d) {
+            if (d.children) {
+                d._children = d.children;
+                d._children.forEach(collapse);
+                d.children = null;
+            }
+        }
+
+        root.children.forEach(collapse);
+        update(root);
+    });
+
+    d3.select(self.frameElement).style("height", "800px");
+
+    function update(source) {
+
+        // Compute the new tree layout.
+        var nodes = tree.nodes(root),
+            links = tree.links(nodes);
+
+        // Normalize for fixed-depth.
+        nodes.forEach(function (d) {
+            d.y = d.depth * tree_level_depth;
+        });
+
+        // Set unique ID for each node
+        var node = svg.selectAll("g.node")
+            .data(nodes, function (d) {
+                return d.id || (d.id = ++i);
+            });
+
+        // Enter any new nodes at the parent's previous position.
+        var new_nodes = node.enter().append("g")
+            .attr("class", "node")
+            .attr("transform", function (d) {
+                return "translate(" + source.y0 + "," + source.x0 + ")";
+            })
+            .on("click", click)
+            .on("mouseover", hover)
+            .on("mouseout", hover);
+
+        new_nodes.append("circle")
+            .attr("r", 1e-6)
+            .style("fill", function (d) {
+                return d._children ? "lightsteelblue" : "#fff";
+            });
+
+        new_nodes.append("text")
+            .attr("x", function (d) {
+                return d.children || d._children ? -10 : 10;
+            })
+            .attr("dy", ".35em")
+            .attr("text-anchor", function (d) {
+                return d.children || d._children ? "end" : "start";
+            })
+            .text(function (d) {
+                return d.name;
+            })
+            .style("fill-opacity", 1e-6);
+
+        // Transition nodes to their new position.
+        var moved_node = node.transition().duration(duration)
+            .attr("transform", function (d) {
+                return "translate(" + d.y + "," + d.x + ")";
+            });
+        moved_node.select("circle")
+            .attr("r", 4.5)
+            .style("fill", function (d) {
+                return d.color
+
+            });
+        moved_node.select("text")
+            .style("fill-opacity", 1);
+
+
+        // Transition exiting nodes to the parent's new position.
+        var hidden_nodes = node.exit().transition().duration(duration)
+            .attr("transform", function (d) {
+                return "translate(" + source.y + "," + source.x + ")";
+            })
+            .remove();
+        hidden_nodes.select("circle")
+            .attr("r", 1e-6);
+        hidden_nodes.select("text")
+            .style("fill-opacity", 1e-6);
+
+
+        // Update the links…
+        var link = svg.selectAll("path.link")
+            .data(links, function (d) {
+                return d.target.id;
+            });
+
+
+        // Enter any new links at the parent's previous position.
+        link.enter().insert("path", "g")
+            .attr("class", "link")
+            .attr("d", function (d) {
+                var o = {x: source.x0, y: source.y0};
+                return diagonal({source: o, target: o});
+            })
+            .append("svg:title")
+            .text(function (d, i) {
+                return d.target.edge_name;
+            });
+
+
+        //Transition links to their new position.
+        link.transition().duration(duration)
+            .attr("d", diagonal);
+
+        // Transition exiting nodes to the parent's new position.
+        link.exit().transition().duration(duration)
+            .attr("d", function (d) {
+                var o = {x: source.x, y: source.y};
+                return diagonal({source: o, target: o});
+            })
+            .remove();
+
+
+        // Stash the old positions for transition.
+        nodes.forEach(function (d) {
+            d.x0 = d.x;
+            d.y0 = d.y;
+        });
+    }
+
+    // Toggle children on click.
+    function click(d) {
+        if (d.children) {
+            d._children = d.children;
+            d.children = null;
+        } else {
+            d.children = d._children;
+            d._children = null;
+        }
+        update(d);
+
+        /* Enable search button. */
+        document.getElementById("search_btn").disabled = false;
+    }
+
+    /* Handle search. */
+    function searchButtonOnClick() {
+
+    }
+
+    // Handle mouse over callback.
+    var box_filled = false;
+
+    function hover(node) {
+        //var hover_box = document.getElementById("hover_box");
+        var ids = ["stub", "expression", "container", "field", "value", "line_no"];
+
+        if (box_filled) {
+            /* Clear the box. */
+            ids.forEach(function (id) {
+                document.getElementById(id).innerText = ""
+            });
+        } else {
+            var values = [node.stub_name, node.expression, node.container, node.field, node.value,
+                node.line_no];
+
+            for (let i = 0; i < ids.length; i++) {
+                document.getElementById(ids[i]).innerText = values[i];
+            }
+        }
+
+        /* Change the flag. */
+        box_filled = !box_filled;
+
+    }
+</script>
+</body>
+
+<script src="https://unpkg.com/vue@next"></script>
+
+<script>
+    async function search_for_expression(expr) {
+        const gResponse = await fetch('http://localhost:8888/search',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({'expression_to_search': expr})
+            });
+
+        const x = await gResponse?.json()
+        return await x?.search_result;
+    }
+
+    const app_div = {
+        data: function () {
+            return {
+                search_result: '',
+                XXX: ''
+            }
+        },
+        created: async function () {
+            this.search_result = ''
+        },
+        compilerOptions: {
+            delimiters: ['$$[', ']$$']
+        },
+        methods: {
+            search: async function (event) {
+                const expr = this.$refs.expr_to_search.value;
+                this.search_result = await search_for_expression(expr);
+
+            }
+        }
+    }
+    Vue.createApp(app_div).mount('#bpp');
+</script>

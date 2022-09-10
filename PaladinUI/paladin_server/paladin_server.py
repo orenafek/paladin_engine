@@ -84,16 +84,16 @@ class PaladinServer(FlaskView):
         return {'result': {caller: data}}
 
     @route('/', methods=['GET', 'POST'])
-    def index(self):
-        if request.method == 'GET':
-            return send_from_directory(TEMPLATE_FOLDER, 'index.html')
-        if request.method == 'POST':
-            return self.search()
-
-    @route('/debug', methods=['GET', 'POST'])
     def debug(self):
         if request.method == 'GET':
-            return send_from_directory(TEMPLATE_FOLDER, 'debug.html')
+            return send_from_directory(TEMPLATE_FOLDER, 'index.html')
+
+    @route('/graph', methods=['GET', 'POST'])
+    def index(self):
+        if request.method == 'GET':
+            return send_from_directory(TEMPLATE_FOLDER, 'graph.html')
+        if request.method == 'POST':
+            return self.search()
 
     @route('/input_graph_tree.json')
     def input_graph_tree(self):

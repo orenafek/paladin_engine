@@ -7,12 +7,12 @@
 import ast
 from typing import List
 
-from ast_common.ast_common import ast2str, str2ast, wrap_str_param
+from ast_common.ast_common import ast2str, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
-    AttributeAccessFinder, ListFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder
+    AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForLoopStubber, \
-    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, ListStubber, AugAssignStubber
+    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
     __UNDEF__, __AC__, __PIS__
 
@@ -190,51 +190,14 @@ class ModuleTransformer(object):
             # Create a stubber.
             function_call_stubber = FunctionCallStubber(self._module)
 
-            while function_calls:
-                stub_entry = function_calls[0]
-
+            for stub_entry in function_calls:
                 # TODO: Patch for dataclasses support.
                 if 'field(default_factory' in ast2str(stub_entry.node):
                     function_calls.pop(0)
                     continue
 
-                # Convert args to a string.
-                args_string = ", ".join(stub_entry.extra.args)
-
-                # Convert kwargs to a string.
-                kwargs_string = ', '.join([f'{t[0]}={t[1]}' for t in stub_entry.extra.kwargs.items()])
-
-                all_args_string = args_string
-
-                if kwargs_string != '':
-                    all_args_string += ', ' + kwargs_string
-
-                new_call_params = [
-                    wrap_str_param(ast2str(stub_entry.node)),
-                    ast2str(stub_entry.node.func),
-                    'locals()',
-                    'globals()',
-                    '__FRAME__()',
-                    f'{stub_entry.node.lineno}']
-
-                if args_string:
-                    # new_call_params.append(wrap_str_param(f'{all_args_string}'))
-                    new_call_params.append(all_args_string)
-
-                s = f'{__FC__.__name__}(' + ', '.join(new_call_params) + ')'
-                # Remove \n to not break strings in the middle.
-                s = s.replace('\n', '')
-                # s = __FC__.__name__ + '(' + ", ".join(new_call_params) + ')'
-                # Create a stub.
-                stubbed_call = str2ast(s).value
-
                 self.module = function_call_stubber.stub_func(stub_entry.node, stub_entry.container,
-                                                              stub_entry.attr_name, stubbed_call)
-
-                function_call_finder = FunctionCallFinder()
-                function_call_finder.visit(self._module)
-                function_calls = function_call_finder.find()
-
+                                                              stub_entry.attr_name, __FC__.__name__)
 
         except BaseException as e:
             print(e)
@@ -288,32 +251,6 @@ class ModuleTransformer(object):
         finally:
             return self
 
-    def transform_lists(self) -> 'ModuleTransformer':
-        try:
-            # Find all attribute accesses.
-            lists_finder = ListFinder()
-            lists_finder.visit(self.module)
-            lists = lists_finder.find()
-
-            # Create a stubber.
-            list_stubber = ListStubber(self.module)
-
-            while lists:
-                l = lists[0]
-
-                self.module = list_stubber.stub_list(l.node, l.container, l.attr_name)
-
-                # Find all lists.
-                lists_finder = ListFinder()
-                lists_finder.visit(self.module)
-                lists = lists_finder.find()
-
-        except BaseException as e:
-            print(e)
-
-        finally:
-            return self
-
     def transform_aug_assigns(self) -> 'ModuleTransformer':
         try:
             # Find all aug assigns.
@@ -327,7 +264,7 @@ class ModuleTransformer(object):
 
             for aug_assign in aug_assigns:
                 self.module = aug_assign_stubber.stub_aug_assigns(aug_assign.node, aug_assign.container,
-                                                                  aug_assign.attr_name, aug_assign.extra)
+                                                                  aug_assign.attr_name)
 
         except BaseException as e:
             print(e)

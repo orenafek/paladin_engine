@@ -1,12 +1,13 @@
+import abc
 import ast
 import re
 import sys
 from dataclasses import dataclass
-from typing import Optional, Union, TypeVar
+from typing import Optional, Union, TypeVar, Tuple, List, Dict
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
-from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION
+from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
 
 archive = Archive()
 
@@ -126,7 +127,7 @@ def _separate_to_container_and_func(function, expression: str, frame, vars_dict:
             return eager_dot.group('id'), eager_dot.group('rest')
 
     # If the call was to a __call__ function of an object, the function parameter should be of a class.
-    if type(function) is type:
+    if type(function) in [type, abc.ABCMeta]:
         container_id = id(frame)
     else:
         # Otherwise, the call was made to a function.
@@ -143,11 +144,18 @@ def _separate_to_container_and_field(expression: str, frame, locals: dict, globa
     int, str, object, bool]:
     expression_ast = str2ast(expression).value
     if isinstance(expression_ast, ast.Subscript):
-        # TODO : Handle
-        pass
+        getitem_arg = f'''{slice.__name__}(start={ast2str(expression_ast.slice.lower)},
+                                           stop={ast2str(expression_ast.slice.upper)},
+                                           step={ast2str(expression_ast.slice.step)})
+                       ''' if isinstance(expression_ast.slice, ast.Slice) else eval(ast2str(expression_ast.slice),
+                                                                                    globals, locals)
+        subscript_value = eval(ast2str(expression_ast.value), globals, locals)
+        return id(subscript_value), getitem_arg, eval(expression, globals, locals), True
+
     if not isinstance(expression_ast, ast.Attribute):
         # There is only an object.
-        return id(frame), expression, eval(expression, globals, locals), True
+        value = eval(expression, globals, locals)
+        return id(frame), expression, value, True
 
     container = eval(ast2str(expression_ast.value), globals, locals)
     field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
@@ -209,10 +217,39 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         return
 
     value_to_store = POID(value)
-
-    archive.store_new \
+    rv = archive.store_new \
         .key(container_id, field, __AS__.__name__) \
         .value(type(value), value_to_store, expression, line_no)
+
+    def _store_inner(v: object) -> None:
+        if type(v) in [list, tuple]:
+            return _store_lists_and_tuples(v)
+
+        if type(v) is dict:
+            return _store_dicts(v)
+
+        return None
+
+    def _store_lists_and_tuples(v: Union[List, Tuple]):
+        for index, item in enumerate(v):
+            irv = archive.store_new \
+                .key(id(v), index, __AS__.__name__) \
+                .value(type(item), POID(item), f'{type(v)}[{index}]', line_no)
+
+            irv.time = rv.time
+            _store_inner(item)
+
+    def _store_dicts(d: Dict):
+        for k, v in d.items():
+            irv = archive.store_new \
+                .key(id(d), POID(k), __AS__.__name__) \
+                .value(type(v), v, f'{id(d)}[{POID(k)}] = {POID(v)}')
+
+            irv.time = rv.time
+            _store_inner(k)
+            _store_inner(v)
+
+    _store_inner(value)
 
 
 def __FC__(expression: str, function,

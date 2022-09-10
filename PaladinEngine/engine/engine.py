@@ -188,8 +188,6 @@ class PaLaDiNEngine(object):
         t = ModuleTransformer(module)
         m = module
         try:
-            # t = t.transform_lists()
-            # m = t.module
             t = t.transform_aug_assigns()
             m = t.module
             t = t.transform_loop_invariants()
@@ -198,7 +196,7 @@ class PaLaDiNEngine(object):
             m = t.module
             # t = t.transform_attribute_accesses()
             # m = t.module
-            t = t.transform_for_loops_to_while_loops()
+            t = t.transform_for_loops()
             m = t.module
             t = t.transform_assignments()
             m = t.module

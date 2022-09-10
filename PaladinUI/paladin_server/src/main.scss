@@ -1,0 +1,103 @@
+body, html {
+    margin: 0; padding: 0;
+    height: 100%;
+}
+
+body {
+    background-color: #282727;
+    color: white;
+    overflow: hidden;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+#app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    > #header {
+        flex-grow: 0;
+        background: #444;
+        padding-left: 1em;
+        h1 {
+            font-size: 12pt;
+        }
+    }
+
+    > #main {
+        flex-basis: 0;
+        flex-grow: 1;
+        overflow: hidden;
+
+        #query-pane {
+            overflow: auto;
+        }
+    }
+
+    .splitpanes--vertical .splitpanes__pane {
+        transition: none; /* to avoid useless animation on startup */
+    }
+
+    .splitpanes__splitter {
+        background-color: #ccc;
+        
+        &::before, &::after {
+            background-color: #0005;
+        }
+    }
+
+    #query-pane div.range-spec {
+        float: right;
+        margin-left: 5em;
+        margin-right: 5em;
+
+        span { color: #fff8; font-style: italic; }
+        input {
+            width: 5em;
+        }
+    }
+
+    #source-editor {
+        height: 100%;
+
+        .CodeMirror-overlayscroll-vertical, .CodeMirror-overlayscroll-horizontal {
+            > div {
+                opacity: 0.5;
+                &:hover { opacity: 0.75; }
+            }
+        }
+
+        .CodeMirror-overlayscroll-vertical > div {
+            margin-right: 3px;
+        }
+
+        .CodeMirror-overlayscroll-horizontal > div {
+            margin-bottom: 1px;
+        }
+
+        .CodeMirror-scrollbar-filler {
+            background-color: transparent;
+        }
+    }
+
+    #query-pane {
+        background: #282727;
+        padding: 8px;
+    }
+}
+
+thead {
+    color: #efc081;
+    align-content: center;
+    align-items: center;
+}
+
+.collapsible_archive_table_div {
+    max-width: 1400px;
+    max-height: 400px;
+    overflow: scroll
+}

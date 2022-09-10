@@ -2,9 +2,12 @@
   "compilerOptions": {
     "target": "es2020",
     "module": "esnext",
+    "outDir": "static",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "allowJs": true,
+    "jsx": "preserve"
   }
 }

@@ -186,16 +186,28 @@ class Archive(object):
         data_frame = pd.DataFrame(columns=header, data=rows)
         return data_frame.to_markdown(index=True)
 
-    def build_object(self, object_id: int, time: int = -1) -> List[Dict]:
+    def build_object(self, object_id: int, time: int = -1) -> Union[List[Dict], Tuple]:
         def time_filter(rv: Archive.Record.RecordValue):
             return rv.time <= time if time != -1 else True
 
+        relevant_records = [(rk, v) for rk, rv in self.records.items() if
+                            rk.container_id == object_id and rk.stub_name == '__AS__' for v in rv if time_filter(v)]
         # noinspection PyTypeChecker
         d = {
-            rk.field:
-                [(v.value if ISP(v.rtype) else self.build_object(v.value, time)) for v in rv if time_filter(v)]
-            for rk, rv in self.records.items()
-            if rk.container_id == object_id and rk.stub_name == '__AS__'}
+            rk.field: v.value if ISP(v.rtype) else self.build_object(v.value, time)
+            for rk, v in relevant_records
+        }
+
+        # TODO: Patchy...
+        if any([isinstance(f, int) for f in d.keys()]):
+            if list.__name__ in relevant_records[0][1].expression:
+                return list(d.values())
+            elif tuple.__name__ in relevant_records[0][1].expression:
+                return tuple(d.values())
+            elif relevant_records[0][1].rtype == list:
+                return list(d.values())
+            elif relevant_records[0][1].rtype == tuple:
+                return tuple(d.values())
 
         return [dict(zip(keys, values)) for keys, values in product([d.keys()], zip(*d.values()))]
 
@@ -246,9 +258,10 @@ class Archive(object):
             _value: Archive.Record.RecordValue = None
 
             def value(_self, rtype: type, value: object, expression: str, line_no: int, time: int = -1,
-                      extra: str = ''):
+                      extra: str = '') -> 'Archive.Record.RecordValue':
                 _self._value = Archive.Record.RecordValue(_self._key, rtype, value, expression, line_no, time, extra)
                 self.store(_self._key, _self._value)
+                return _self._value
 
         return Builder_Key()
 
@@ -402,7 +415,11 @@ class Archive(object):
                     self.values[attr_str][t] = attr
 
             def visit_Name(self, node: Name) -> Any:
-                self.values[node.id] = {rv.time: rv.value for rv in _find_by_name_and_container_id(node.id, scope)}
+                self.values[node.id] = {
+                    rv.time:
+                        rv.value if ISP(rv.rtype) else archive.build_object(rv.value, time)
+                    for rv in _find_by_name_and_container_id(node.id, scope)
+                }
 
             def visit(self, node: AST) -> 'NodeFinder':
                 super(NodeFinder, self).visit(node)

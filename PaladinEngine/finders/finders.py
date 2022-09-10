@@ -576,22 +576,6 @@ class FunctionCallFinder(GenericFinder):
     TYPES_TO_EXCLUDE = [ast.FormattedValue,
                         ast.JoinedStr]
 
-    @dataclass
-    class FunctionCallExtra(object):
-        func_name = ''
-        args = []
-        kwargs = {}
-
-        def __init__(self):
-            self.args = []
-            self.kwargs = {}
-
-        def add_arg(self, arg):
-            self.args.append(arg)
-
-        def add_kwarg(self, k, v):
-            self.kwargs[k] = v
-
     def __init__(self) -> None:
         super().__init__()
 
@@ -603,36 +587,8 @@ class FunctionCallFinder(GenericFinder):
                function_name == 'globals' or function_name == '__str__'
 
     def visit_Call(self, node: ast.Call):
-        extra = FunctionCallFinder.FunctionCallExtra()
-        function_name_visit = super(GenericFinder, self).visit(node.func)
-
-        if function_name_visit is None:
-            return None
-
-        if type(function_name_visit) is FunctionCallFinder.FunctionCallExtra:
-            extra.func_name = function_name_visit.func_name
-        else:
-            extra.func_name = function_name_visit
-
-        # Filter PaLaDiN stub calls.
-        if self._is_match_paladin_stub_call(extra.func_name):
-            return None
-
-        # Extract args.
-        for arg in node.args:
-            extra.add_arg(ast2str(arg))
-
-        # Extract kwargs.
-        for key, value_node in [(kw.arg, kw.value) for kw in node.keywords]:
-            if type(value_node) is ast.Tuple:
-                extra.add_kwarg(key, (self.visit_Tuple(value_node)))
-            else:
-                # TODO: Change to this:
-                # extra.add_kwarg(key, super(GenericFinder, self).visit(value_node))
-                extra.add_kwarg(key, ast2str(value_node))
-
         # return extras
-        return self._generic_visit_with_extras(node, extra)
+        return self._generic_visit_with_extras(node, True)
 
     def visit_Name(self, node):
         # Extract name.
@@ -692,14 +648,6 @@ class FunctionDefFinder(GenericFinder):
         extra.function_name = node.name
         extra.args = [arg.arg for arg in node.args.args]
         return self._generic_visit_with_extras(node, extra)
-
-
-class ListFinder(GenericFinder):
-    def types_to_find(self):
-        return ast.List
-
-    def visit_List(self, node: ast.List) -> Any:
-        return node
 
 
 class AttributeAccessFinder(GenericFinder):
