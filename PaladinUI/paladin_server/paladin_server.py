@@ -118,10 +118,10 @@ class PaladinServer(FlaskView):
     @route('/debug_info/exception_line')
     def exception_line(self):
         return PaladinServer.create_response({'exception_line_no': THROWN_EXCEPTION.source_code_line_no,
-                                                   'exception_source_line': THROWN_EXCEPTION.source_line,  # TODO: Huh?
-                                                   'exception_msg': THROWN_EXCEPTION.exception_msg,
-                                                   'exception_archive_time': THROWN_EXCEPTION.archive_time}
-                                                  if THROWN_EXCEPTION else {})
+                                              'exception_source_line': THROWN_EXCEPTION.source_line,  # TODO: Huh?
+                                              'exception_msg': THROWN_EXCEPTION.exception_msg,
+                                              'exception_archive_time': THROWN_EXCEPTION.archive_time}
+                                             if THROWN_EXCEPTION else {})
 
     @route('/debug_info/archive_entries/<int:line_no>')
     def archive_entries(self, line_no: int):
@@ -182,12 +182,10 @@ class PaladinServer(FlaskView):
             PaladinServer._present_archive_entries(
                 ARCHIVE.get_all_assignments_in_time_range(from_time, to).items()))
 
-    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<int:line_no>',
-           defaults={'where_query': ''})
-    @route('/debug_info/query/<string:select_query>/<string:where_query>/<int:start_time>/<int:end_time>/<int:line_no>')
-    def query(self, select_query: str, where_query: str, start_time: int, end_time: int, line_no: int):
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<int:line_no>')
+    def query(self, select_query: str, start_time: int, end_time: int, line_no: int):
         pdslp = PaladinDSLParser.create(ARCHIVE, start_time, end_time, line_no)
-        return PaladinServer.create_response(pdslp.parse_and_summarize(select_query, where_query))
+        return PaladinServer.create_response(pdslp.parse_and_summarize(select_query))
 
     @route('/debug_info/query_dsl_words')
     def query_dsl_words(self):
