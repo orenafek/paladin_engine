@@ -135,7 +135,7 @@ const mainComponent = {
             this.queryInProgress = true;
             try {
                 this.queryResult = await request_debug_info("query",
-                    ...[this.query.select, "True" /** @todo deprecated */,
+                    ...[this.query.select,
                         this.query.startTime, this.query.endTime, this.query.lineNo]);
             }
             finally {

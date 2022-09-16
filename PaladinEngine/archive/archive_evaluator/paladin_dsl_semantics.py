@@ -1,3 +1,5 @@
+import abc
+import functools
 import re
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -6,10 +8,14 @@ from functools import reduce
 
 import more_itertools
 
+from archive.archive import Archive
+from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import *
+from ast_common.ast_common import *
 
 SemanticsArgType = Union[bool, EvalResult]
+Time = int
 
 
 def first_satisfaction(formula: EvalResult) -> Union[int, bool]:
@@ -83,98 +89,191 @@ class SemanticsUtils(object):
         return {q: None for q in list(r.values())[0][0]}, []
 
 
+@dataclass
 class Operator(ABC):
-    @abstractmethod
-    def eval(self, *args):
+
+    def __init__(self, times: Optional[Iterable[Time]] = None):
+        self.times = times
+
+    def eval(self):
         raise NotImplementedError()
 
-    @property
-    def name(self) -> str:
-        return self.__class__.__name__
+    @classmethod
+    def name(cls) -> str:
+        return cls.__name__
 
-    def create_eval(self, *args):
-        return lambda parser: self.eval(*[f(parser) for f in (args[2].asList())[0][1:]])
+    # @abstractmethod
+    # def create_eval(self, *args):
+    #     # *[(f, parser) for f in (args[2].asList())[0][1:]]
+    #     return self.eval
+
+    def __call__(self) -> Any:
+        raise self.eval()
+
+    @classmethod
+    def all(cls) -> List[Type['Operator']]:
+        return functools.reduce(lambda res, sub: res + sub._all(), cls.__subclasses__(), [])
+
+    @classmethod
+    def _all(cls):
+        return cls.__subclasses__()
 
 
-class UniLateralOperator(Operator):
-    @abstractmethod
-    def eval(self, arg):
-        raise NotImplementedError()
+class UniLateralOperator(Operator, ABC):
+    """
+        Tagging class.
+    """
+
+    def __init__(self, times: Iterable[Time], first: Operator):
+        super(UniLateralOperator, self).__init__(times)
+        self.first = first
 
 
-class BiLateralOperator(Operator):
-    @abstractmethod
-    def eval(self, arg1, arg2):
-        raise NotImplementedError()
+class BiLateralOperator(Operator, ABC):
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
+        super(BiLateralOperator, self).__init__(times)
+        self.first: Operator = first
+        self.second: Operator = second
 
 
-class VariadicLateralOperator(Operator):
-    @abstractmethod
-    def eval(self, *args):
-        raise NotImplementedError()
+class VariadicLateralOperator(Operator, ABC):
+    def __init__(self, times: Iterable[Time], *args: List[Operator]):
+        super(VariadicLateralOperator, self).__init__(times)
+        self.args: List[Operator] = args
+
+
+class Raw(Operator):
+
+    def __init__(self, archive: Archive, query: str, scope: Optional[int] = -1, times: Optional[Iterable[Time]] = None):
+        super(Raw, self).__init__(times)
+        self.archive = archive
+        self.query = query
+        self.scope = scope
+
+    def eval(self):
+        return self._eval_raw_query(self.query)
+
+    def _eval_raw_query(self, query: str):
+        # Extract names to resolve from the archive.
+        extractor = ArchiveEvaluator.SymbolExtractor()
+        extractor.visit(str2ast(query))
+
+        # Split query into sub queries.
+        queries = list(map(lambda q: q.strip(), query.split('$')))
+        # results = {q: {} for q in queries}
+        results = {}
+
+        for t in self.times:
+            resolved_names = self._resolve_names(extractor.names, self.scope, t)
+            resolved_attributes = self._resolve_attributes(extractor.attributes, self.scope, t)
+
+            replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
+            try:
+                # TODO: Can AST object be compiled and then evaled (without turning to string)?
+                result = eval(ast2str(replacer.visit(ast.parse(query))))
+                result = (result,)
+            except IndexError:
+                result = [None] * len(queries)
+            # for q, r in zip(queries, result):
+            #     results[q][t] = r, replacer.replacements
+            results[t] = (
+                {f'{q}{SCOPE_SIGN}{self.scope}': r for q, r in zip(queries, result)},
+                replacer.replacements)
+
+        return results
+
+    def _resolve_names(self, names: Set[str], line_no: int, time: int) -> ExpressionMapper:
+        """
+            Resolves the values of the objects in names from the archive.
+        :param names: A set of names to resolve.
+        :param line_no: The line no in which to look for the scope of the object.
+        :param time: The time in which the object's value should be resolved.
+        :return:
+        """
+        return {name: self.archive.find_by_line_no(name, line_no, time)[name] for name in names}
+
+    def _resolve_attributes(self, attributes: Set[str], line_no: int, time: int) -> ExpressionMapper:
+        return {attr: self.archive.find_by_line_no(attr, line_no, time)[attr] for attr in attributes}
+
+
+class Const(Operator):
+
+    def __init__(self, const):
+        super(Const, self).__init__(None)
+        self.const = const
+
+    def eval(self):
+        return self.const
+
+
+FALSE = Const(False)
+TRUE = Const(True)
 
 
 class Globally(UniLateralOperator):
 
-    def eval(self, formula: SemanticsArgType):
-        return Release().eval(False, formula)
+    def eval(self):
+        return Release(self.times, FALSE, self.first).eval()
 
 
 class Release(BiLateralOperator):
 
-    def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
-        return Not().eval(Until().eval(Not().eval(arg1), Not().eval(arg2)))
+    def eval(self):
+        return Not(self.times, Until(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval()
 
 
 class Finally(UniLateralOperator):
-
-    def eval(self, arg: SemanticsArgType):
-        return Until().eval(True, arg)
+    def eval(self):
+        return Until(self.times, TRUE, self.first).eval()
 
 
 class Next(UniLateralOperator):
 
-    def eval(self, arg: SemanticsArgType):
-        if arg is bool:
+    def eval(self):
+        first = self.first.eval()
+        if first is bool:
             """
             X(T) = T
             X(F) = F
             """
-            return arg
+            return first
 
         # TODO: Should I check for satisfaction? I.e., return {t:r for ... in ... ** if r[0] **} ??
-        return {t: r for (t, r) in arg.items()[1::]}
+        return {t: r for (t, r) in first.items()[1::]}
 
 
 class Until(BiLateralOperator):
 
-    def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
-        if type(arg1) is bool and type(arg2) is bool:
+    def eval(self):
+        first = self.first.eval()
+        second = self.second.eval()
+
+        if type(first) is bool and type(second) is bool:
             """
             U(T, T) = T
             U(T, F) = U(F, T) = F
             U(F, F) = F
             """
-            return arg1 and arg2
+            return first and second
 
-        if type(arg1) is bool and type(arg2) is dict:
-            if arg1:
+        if isinstance(first, bool) and isinstance(second, EvalResult):
+            if first:
                 """
                 U(T, ϕ) = ϕ 
                 """
-                return arg2
+                return second
 
             """
             U(F, ϕ) = F
             """
             return False
 
-        if type(arg1) is dict and type(arg2) is bool:
-            if arg2:
+        if isinstance(first, EvalResult) and isinstance(second, bool):
+            if second:
                 """
                 ω ⊨ U(ϕ, T) ↔ ∃i >= 0, ω_i ⊨ ϕ  
                 """
-                return {t: r for (t, r) in arg1.items() if t >= first_satisfaction(arg1)}
+                return {t: r for (t, r) in first.items() if t >= first_satisfaction(first)}
 
             return False
 
@@ -182,132 +281,129 @@ class Until(BiLateralOperator):
         """
         ω ⊨ U(ϕ, ψ) ↔ ∃i >= 0, ω_i ⊨ ψ ∧ ∀ <= 0 k <= i, ω_k ⊨ ϕ  
         """
-        formula2_first_satisfaction = first_satisfaction(arg2)
+        formula2_first_satisfaction = first_satisfaction(second)
         if not formula2_first_satisfaction:
             return False
 
-        return {t: r1 for (t, r1) in arg1.items() if t <= formula2_first_satisfaction and r1[0]}
+        return {t: r1 for (t, r1) in first.items() if t <= formula2_first_satisfaction and r1[0]}
 
 
 class Or(BiLateralOperator):
 
-    def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
-        if type(arg1) is bool and type(arg2) is bool:
-            return arg1 or arg2
+    def eval(self):
+        first = self.first.eval()
+        second = self.second.eval()
 
-        if type(arg1) is bool and type(arg2) is dict:
-            if arg1:
+        if isinstance(first, bool) and isinstance(second, bool):
+            return first or second
+
+        if isinstance(first, bool) and isinstance(second, EvalResult):
+            if first:
                 return True
 
-            return arg2
+            return second
 
-        if type(arg1) is dict and type(arg2) is bool:
-            if arg2:
+        if isinstance(first, EvalResult) and isinstance(second, bool):
+            if second:
                 return True
 
-            return arg1
+            return first
 
-        return {t: (r1[0] or r2[0], r1[1] + r2[1]) for t, r1 in arg1.items() for t2, r2 in arg2.items() if t == t2}
+        return {t: (r1[0] or r2[0], r1[1] + r2[1]) for t, r1 in first.items() for t2, r2 in second.items() if t == t2}
 
 
 class Not(UniLateralOperator):
 
-    def eval(self, arg: SemanticsArgType):
-        if type(arg) is bool:
-            return not arg
+    def eval(self):
+        first = self.first.eval()
+        if isinstance(first, bool):
+            return not first
 
-        return {t: (not r[0], r[1]) for (t, r) in arg.items()}
+        return {t: (not r[0], r[1]) for (t, r) in first.items()}
 
 
 class And(BiLateralOperator):
-
-    def eval(self, arg1: SemanticsArgType, arg2: SemanticsArgType):
-        return Not().eval(Or().eval(Not().eval(arg1), Not().eval(arg2)))
+    def eval(self):
+        return Not(self.times, Or(self.times, Not(self.times, self.first), Not(self.times, self.second)))
 
 
 class Before(BiLateralOperator):
 
-    def eval(self, arg1, arg2):
-        return Until().eval(Not().eval(Globally().eval(Not().eval(arg1))), arg2)
+    def eval(self):
+        return Until(self.times, Not(self.times, Globally(self.times, Not(self.times, self.first))), self.second)
 
 
 class After(BiLateralOperator):
 
-    def eval(self, arg1, arg2):
-        return Before().eval(arg2, arg1)
+    def eval(self):
+        return Before(self.times, self.second, self.first)
 
 
 class AllFuture(UniLateralOperator):
-
-    def eval(self, arg):
-        return Globally().eval(Next().eval(arg))
+    def eval(self):
+        return Globally(self.times, Next(self.times, self.first))
 
 
 class First(UniLateralOperator):
-
-    def eval(self, arg: SemanticsArgType):
-        if type(arg) is bool:
+    def eval(self):
+        first = self.first.eval()
+        if isinstance(first, bool):
             """
                 Q(T) = T
                 Q(F) = F
             """
-            return arg
+            return first
 
-        first = min(filter(lambda t: all(res is not None for res in arg[t][0].values()), arg))
-        if not first:
+        first_result = min(filter(lambda t: all(res is not None for res in first[t][0].values()), first))
+        if not first_result:
             return False
 
-        return {first: arg[first]}
+        return {first_result: first[first_result]}
 
 
 class Last(UniLateralOperator):
 
-    def eval(self, arg):
-        if type(arg) is bool:
-            return arg
+    def eval(self):
+        first = self.first.eval()
+        if isinstance(first, bool):
+            return first
 
-        last = max(filter(lambda t: all([res is not None for res in arg[t][0].values()]), arg))
+        last = max(filter(lambda t: all([res is not None for res in first[t][0].values()]), first))
         if not last:
             return False
 
-        return {last: arg[last]}
+        return {last: first[last]}
 
 
 class Where(BiLateralOperator):
 
-    def eval(self, selector, condition):
-        """
-        :param selector:  Select clause.
-        :param condition: Where clause.
-        :return:
-        """
+    def eval(self):
+        condition: EvalResult = self.second.eval()
         if isinstance(condition, bool):
             if condition:
-                return selector
+                return self.first.eval()
 
             # TODO: Should be False?
             return {}
 
-        # condition[t][0] is a dict in the form: {"query": <result **SHOULD BE** True/False>}.
-        # Therefore the filter part of this dict comp. verifies that every "query" in condition[t][0] is set to True.
-        return {k: v for k, v in selector.items() if all([*condition[k][0].values()])}
+        # Set times for selector with the results given by condition's eval.
+        self.first.times = filter(lambda t: all([r is not None for r in condition[t][0].values()]), condition)
+        selector = self.first.eval()
+        return selector
 
 
-class SetUnion(BiLateralOperator):
+class Union(VariadicLateralOperator):
+    def eval(self):
+        if not self.args:
+            return {}
 
-    def eval(self, arg1: EvalResult, arg2: EvalResult):
-        if isinstance(arg1, bool) or isinstance(arg2, bool):
-            raise TypeError("Cannot run Union if any of its operands are bool.")
+        res = self.args[0].eval()
 
-        return {k1: ({**res1, **res2}, rep1 + rep2) for (k1, (res1, rep1)), (k2, (res2, rep2)) in
-                zip(arg1.items(), arg2.items()) if k1 == k2}
+        for arg in self.args[1:]:
+            res = {k1: ({**res1, **res2}, rep1 + rep2) for (k1, (res1, rep1)), (k2, (res2, rep2)) in
+                   zip(res.items(), arg.eval().items()) if k1 == k2}
 
-
-class MultiUnion(VariadicLateralOperator):
-    _su = SetUnion()
-
-    def eval(self, *args):
-        return reduce(lambda a1, a2: MultiUnion._su.eval(a1, a2), args)
+        return res
 
 
 class Align(BiLateralOperator):
@@ -337,7 +433,10 @@ class Align(BiLateralOperator):
 
         return self._current_heuristic(r1, r2)
 
-    def eval(self, r1: SemanticsArgType, r2: SemanticsArgType):
+    def eval(self):
+        r1 = self.first.eval()
+        r2 = self.second.eval()
+
         if isinstance(r1, bool) or isinstance(r2, bool):
             raise TypeError("Cannot run Align if any of its operands are bool.")
 
@@ -389,7 +488,10 @@ class Meld(BiLateralOperator):
         def empty(cls):
             return cls(tuple(), -1, tuple(), [])
 
-    def eval(self, r1, r2):
+    def eval(self):
+        r1 = self.first.eval()
+        r2 = self.second.eval()
+
         if isinstance(r1, bool) or isinstance(r2, bool):
             raise TypeError("Cannot run Meld if any of its operands are bool.")
 
@@ -480,7 +582,10 @@ class Meld(BiLateralOperator):
 
 class NextAfter(BiLateralOperator):
 
-    def eval(self, a: EvalResult, b: EvalResult):
+    def eval(self):
+        a = self.first.eval()
+        b = self.second.eval()
+
         if isinstance(a, bool) or isinstance(b, bool):
             raise TypeError('Cannot find NextAfter if either of the queries are bool')
 
@@ -497,9 +602,3 @@ class NextAfter(BiLateralOperator):
         rep.time == t for rep in b[t][1])] if t in range(*time_range)), None), list(zip([t for t in a if any(rep.time 
         == t for rep in a[t][1])], [t for t in a if any(rep.time == t for rep in a[t][1])][1::]))))} """
         return {t: r if t in b_relevant_keys else SemanticsUtils.create_empty_result(b) for (t, r) in b.items()}
-
-
-UniLateralOperator.ALL = UniLateralOperator.__subclasses__()
-BiLateralOperator.ALL = BiLateralOperator.__subclasses__()
-VariadicLateralOperator.ALL = VariadicLateralOperator.__subclasses__()
-Operator.ALL = UniLateralOperator.ALL + BiLateralOperator.ALL + VariadicLateralOperator.ALL
