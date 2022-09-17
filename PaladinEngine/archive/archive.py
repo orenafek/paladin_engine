@@ -367,18 +367,22 @@ class Archive(object):
 
     def find_by_line_no(self, expression: str, line_no: int, time: int = -1) -> Dict[int, List[Rv]]:
         """
-        Find the values of an expression in the archive through out its time, where the names are bounded to a scope
+        Find the values of an expression in the archive throughout its time, where the names are bounded to a scope
         of a line no.
-        :param expression: The expression to look for.
-        :param line_no: The line no to bound a scope for.
-        :return:
+        @param expression: The expression to look for.
+        @param line_no: The line no to bound a scope for.
+        @param time:
+        @return:
         """
-        scope = self.get_scope_by_line_no(line_no)
+        scope = self.get_scope_by_line_no(line_no) if line_no != -1 else -1
         archive = self
 
-        def _find_by_name_and_container_id(name: str, container_id: int):
-            return [rv for rk, lrv in self.records.items() for rv in lrv if
-                    rk.container_id == container_id and rk.field == name]
+        def _find_by_name_and_container_id(name: str, container_id: int) -> List['Archive.Record.RecordValue']:
+            return [r[1] for r in self.flatten_and_filter(
+                lambda vv: vv.key.container_id == container_id and vv.key.field == name and vv.line_no == line_no)]
+
+        def _find_by_name(name: str) -> List['Archive.Record.RecordValue']:
+            return [r[1] for r in self.flatten_and_filter(lambda vv: vv.key.field == name)]
 
         @dataclass
         class NodeFinder(NodeVisitor):
@@ -418,7 +422,8 @@ class Archive(object):
                 self.values[node.id] = {
                     rv.time:
                         rv.value if ISP(rv.rtype) else archive.build_object(rv.value, time)
-                    for rv in _find_by_name_and_container_id(node.id, scope)
+                    for rv in
+                    (_find_by_name_and_container_id(node.id, scope) if scope != -1 else _find_by_name(node.id))
                 }
 
             def visit(self, node: AST) -> 'NodeFinder':

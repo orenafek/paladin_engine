@@ -31,6 +31,15 @@ def last_satisfaction(formula: EvalResult) -> Union[int, bool]:
     return first_satisfaction({t: r for (t, r) in reversed(formula.items())})
 
 
+def satisfies(result: EvalResult, t: Time) -> bool:
+    return (isinstance(result, bool) and result) or all(
+        [r is not None and r is not False for r in result[t][0].values()])
+
+
+def all_satisfies(result: EvalResult):
+    return all([satisfies(result, t) for t in result.keys()])
+
+
 class SemanticsUtils(object):
 
     @staticmethod
@@ -144,14 +153,18 @@ class VariadicLateralOperator(Operator, ABC):
 
 class Raw(Operator):
 
-    def __init__(self, archive: Archive, query: str, scope: Optional[int] = -1, times: Optional[Iterable[Time]] = None):
+    def __init__(self, archive: Archive, query: str, line_no: Optional[int] = -1,
+                 times: Optional[Iterable[Time]] = None):
         super(Raw, self).__init__(times)
         self.archive = archive
         self.query = query
-        self.scope = scope
+        self.line_no = line_no
 
     def eval(self):
         return self._eval_raw_query(self.query)
+
+    def key_maker(self, query: str):
+        return f'{query}{SCOPE_SIGN}{self.line_no}' if self.line_no is not None and self.line_no != -1 else f'{query}'
 
     def _eval_raw_query(self, query: str):
         # Extract names to resolve from the archive.
@@ -160,12 +173,12 @@ class Raw(Operator):
 
         # Split query into sub queries.
         queries = list(map(lambda q: q.strip(), query.split('$')))
-        # results = {q: {} for q in queries}
+
         results = {}
 
         for t in self.times:
-            resolved_names = self._resolve_names(extractor.names, self.scope, t)
-            resolved_attributes = self._resolve_attributes(extractor.attributes, self.scope, t)
+            resolved_names = self._resolve_names(extractor.names, self.line_no, t)
+            resolved_attributes = self._resolve_attributes(extractor.attributes, self.line_no, t)
 
             replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
             try:
@@ -174,11 +187,8 @@ class Raw(Operator):
                 result = (result,)
             except IndexError:
                 result = [None] * len(queries)
-            # for q, r in zip(queries, result):
-            #     results[q][t] = r, replacer.replacements
-            results[t] = (
-                {f'{q}{SCOPE_SIGN}{self.scope}': r for q, r in zip(queries, result)},
-                replacer.replacements)
+
+            results[t] = ({self.key_maker(q): r for q, r in zip(queries, result)}, replacer.replacements)
 
         return results
 
