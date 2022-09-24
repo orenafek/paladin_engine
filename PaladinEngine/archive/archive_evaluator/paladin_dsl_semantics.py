@@ -33,6 +33,25 @@ def last_satisfaction(formula: EvalResult) -> Union[int, bool]:
     return first_satisfaction({t: r for (t, r) in reversed(formula.items())})
 
 
+def satisfaction_ranges(formula: EvalResult) -> Collection[range]:
+    ranges = []
+    first = last = None
+    for t in satisfies_iterator(formula):
+
+        if first is None:
+            first = t
+            last = t
+
+        if t - last == 1:
+            last = t
+            continue
+
+        ranges.append(range(first, last + 1))
+        first = last = None
+
+    return ranges
+
+
 def satisfies(result: EvalResult, t: Time) -> bool:
     return (isinstance(result, bool) and result) or all(
         [r is not None and r is not False for r in result[t][0].values()])
@@ -118,6 +137,18 @@ class Operator(ABC):
     #     # *[(f, parser) for f in (args[2].asList())[0][1:]]
     #     return self.eval
 
+    def _get_args(self) -> Collection['Operator']:
+        raise NotImplementedError()
+
+    def update_times(self, times) -> 'Operator':
+        self.times = times
+
+        for a in self._get_args():
+            a.times = times
+            a.update_times(times)
+
+        return self
+
     def __call__(self) -> Any:
         raise self.eval()
 
@@ -139,12 +170,18 @@ class UniLateralOperator(Operator, ABC):
         super(UniLateralOperator, self).__init__(times)
         self.first = first
 
+    def _get_args(self) -> Collection['Operator']:
+        return [self.first]
+
 
 class BiLateralOperator(Operator, ABC):
     def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
         super(BiLateralOperator, self).__init__(times)
         self.first: Operator = first
         self.second: Operator = second
+
+    def _get_args(self) -> Collection['Operator']:
+        return [self.first, self.second]
 
 
 class TriLateralOperator(Operator, ABC):
@@ -154,11 +191,17 @@ class TriLateralOperator(Operator, ABC):
         self.second: Operator = second
         self.third: Operator = third
 
+    def _get_args(self) -> Collection['Operator']:
+        return [self.first, self.second, self.third]
+
 
 class VariadicLateralOperator(Operator, ABC):
     def __init__(self, times: Iterable[Time], *args: List[Operator]):
         super(VariadicLateralOperator, self).__init__(times)
         self.args: List[Operator] = args
+
+    def _get_args(self) -> Collection['Operator']:
+        return self.args
 
 
 class ArchiveDependent(object):
@@ -220,6 +263,9 @@ class Raw(Operator, ArchiveDependent):
     def _resolve_attributes(self, attributes: Set[str], line_no: int, time: int) -> ExpressionMapper:
         return {attr: self.archive.find_by_line_no(attr, line_no, time)[attr] for attr in attributes}
 
+    def _get_args(self) -> Collection['Operator']:
+        return []
+
 
 class Const(Operator):
 
@@ -229,6 +275,9 @@ class Const(Operator):
 
     def eval(self):
         return self.const
+
+    def _get_args(self) -> Collection['Operator']:
+        return []
 
 
 FALSE = Const(False)
@@ -630,6 +679,7 @@ class NextAfter(BiLateralOperator):
 
 
 class TimeOperator(Operator):
+    TIME_KEY = 'time'
 
     def __init__(self, op: Operator):
         super().__init__(op.times)
@@ -637,7 +687,7 @@ class TimeOperator(Operator):
 
     def eval(self):
         results = self.op.eval()
-        return {t: ({'time': satisfies(results, t)}, results[t][1]) for t in results.keys()}
+        return {t: ({TimeOperator.TIME_KEY: satisfies(results, t)}, results[t][1]) for t in results.keys()}
 
 
 class TimeFilter(BiLateralOperator):
@@ -645,7 +695,13 @@ class TimeFilter(BiLateralOperator):
         first = TimeOperator(self.first).eval()
         second = TimeOperator(self.second).eval()
 
-        return {t: first[t] and second[t] for t in set(first.keys()).union(second.keys())}
+        results = {}
+        for t in set(first.keys()).union(second.keys()):
+            satisfaction = satisfies(first, t) and satisfies(second, t)
+            replacements = list(set(first[t][1] + second[t][1]))
+            results[t] = {TimeOperator.TIME_KEY: satisfaction}, replacements
+
+        return results
 
     def eval_ranges(self):
         filtered_times = self.eval()
@@ -689,3 +745,18 @@ class VarSelector(BiLateralOperator, ArchiveDependent):
         assignments = self.archive.get_all_assignments_in_time_range(time_range.start, time_range.stop)
         # TODO: re.match("<class '.*'>", ...) is a patch for not showing the automatic __AS__ of inner fields.
         return list(set(filter(lambda v: not re.match("<class '.*'>", v), map(lambda r: r[1].expression, assignments))))
+
+
+class DiffShower(BiLateralOperator):
+    def eval(self):
+        time_range = self.second.eval()
+        selector_results = {}
+        for r in satisfaction_ranges(time_range):
+            self.update_times(list(r))
+            before_first_results = Where(times=[r.start - 1], first=self.first.update_times([r.start - 1]),
+                                         second=TRUE).eval()
+            self.update_times(list(r))
+            selector_results.update(before_first_results)
+            selector_results.update(Where(self.times, self.first, self.second).eval())
+
+        return selector_results

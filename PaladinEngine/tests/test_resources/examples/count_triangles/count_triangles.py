@@ -10,7 +10,7 @@ def solution(A):
     sums = {}
     for i in range(len(a_sorted) - 2):
         sums[i] = []
-        r = range(i + 1, len(A) - 1)
+        r = list(range(i + 1, len(A) - 1))
         for j in r:
             sums[i] = sums[i] + [(j, a_sorted[i] + a_sorted[j])]
     print(f'sums = {sums}')
