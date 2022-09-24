@@ -219,7 +219,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     value_to_store = POID(value)
     rv = archive.store_new \
         .key(container_id, field, __AS__.__name__) \
-        .value(type(value), value_to_store, expression, line_no)
+        .value(type(value), value_to_store, target, line_no)
 
     def _store_inner(v: object) -> None:
         if type(v) in [list, tuple]:

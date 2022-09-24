@@ -33,7 +33,10 @@ class PaladinDSLParser(object):
 
         def create_parse_action(k):
             def parse_action(q):
-                return k(self.timer, *(q.asList()[0][1::]))
+                if issubclass(k, ArchiveDependent):
+                    return k(self.archive, self.timer, *(q.asList()[0][1::]))
+                else:
+                    return k(self.timer, *(q.asList()[0][1::]))
 
             return parse_action
 

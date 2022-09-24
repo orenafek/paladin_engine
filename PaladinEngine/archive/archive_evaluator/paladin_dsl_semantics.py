@@ -18,13 +18,15 @@ SemanticsArgType = Union[bool, EvalResult]
 Time = int
 
 
-def first_satisfaction(formula: EvalResult) -> Union[int, bool]:
-    for time in formula:
-        result, replacements = formula[time]
-        if result:
-            return time
+def satisfies_iterator(formula: EvalResult) -> Union[Iterator, bool]:
+    if isinstance(formula, bool):
+        return formula
 
-    return False
+    return filter(lambda t: satisfies(formula, t), formula.keys())
+
+
+def first_satisfaction(formula: EvalResult) -> Union[int, bool]:
+    return next(satisfies_iterator(formula))
 
 
 def last_satisfaction(formula: EvalResult) -> Union[int, bool]:
@@ -145,18 +147,31 @@ class BiLateralOperator(Operator, ABC):
         self.second: Operator = second
 
 
+class TriLateralOperator(Operator, ABC):
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator, third: Operator):
+        super(Operator, self).__init__(times)
+        self.first: Operator = first
+        self.second: Operator = second
+        self.third: Operator = third
+
+
 class VariadicLateralOperator(Operator, ABC):
     def __init__(self, times: Iterable[Time], *args: List[Operator]):
         super(VariadicLateralOperator, self).__init__(times)
         self.args: List[Operator] = args
 
 
-class Raw(Operator):
+class ArchiveDependent(object):
+    def __init__(self, archive: Archive):
+        self.archive = archive
+
+
+class Raw(Operator, ArchiveDependent):
 
     def __init__(self, archive: Archive, query: str, line_no: Optional[int] = -1,
                  times: Optional[Iterable[Time]] = None):
-        super(Raw, self).__init__(times)
-        self.archive = archive
+        Operator.__init__(self, times)
+        ArchiveDependent.__init__(self, archive)
         self.query = query
         self.line_no = line_no
 
@@ -612,3 +627,65 @@ class NextAfter(BiLateralOperator):
         rep.time == t for rep in b[t][1])] if t in range(*time_range)), None), list(zip([t for t in a if any(rep.time 
         == t for rep in a[t][1])], [t for t in a if any(rep.time == t for rep in a[t][1])][1::]))))} """
         return {t: r if t in b_relevant_keys else SemanticsUtils.create_empty_result(b) for (t, r) in b.items()}
+
+
+class TimeOperator(Operator):
+
+    def __init__(self, op: Operator):
+        super().__init__(op.times)
+        self.op = op
+
+    def eval(self):
+        results = self.op.eval()
+        return {t: ({'time': satisfies(results, t)}, results[t][1]) for t in results.keys()}
+
+
+class TimeFilter(BiLateralOperator):
+    def eval(self):
+        first = TimeOperator(self.first).eval()
+        second = TimeOperator(self.second).eval()
+
+        return {t: first[t] and second[t] for t in set(first.keys()).union(second.keys())}
+
+    def eval_ranges(self):
+        filtered_times = self.eval()
+        if not filtered_times:
+            return []
+
+        ranges = []
+        range_start = None
+        range_end = range_start
+        for t in filtered_times.keys():
+            if satisfies(filtered_times, t):
+                if not range_start:
+                    range_start = t
+                else:
+                    range_end = t
+            else:
+                if range_start:
+                    ranges.append(range(range_start, range_end))
+                    range_start = None
+        return ranges
+
+
+class VarSelector(BiLateralOperator, ArchiveDependent):
+
+    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator, second: Operator):
+        BiLateralOperator.__init__(self, times, first, second)
+        ArchiveDependent.__init__(self, archive)
+        self.archive: Archive = archive
+
+    def eval(self):
+        time_ranges = TimeFilter(self.times, self.first, self.second).eval_ranges()
+
+        results = {}
+        for time_range in time_ranges:
+            vars = self._get_all_vars(time_range)
+            results.update([(t, ({'vars': vars}, [])) for t in time_range])
+
+        return results
+
+    def _get_all_vars(self, time_range: range):
+        assignments = self.archive.get_all_assignments_in_time_range(time_range.start, time_range.stop)
+        # TODO: re.match("<class '.*'>", ...) is a patch for not showing the automatic __AS__ of inner fields.
+        return list(set(filter(lambda v: not re.match("<class '.*'>", v), map(lambda r: r[1].expression, assignments))))

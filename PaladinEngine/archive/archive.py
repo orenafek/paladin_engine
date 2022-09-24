@@ -4,8 +4,8 @@
     :author: Oren Afek
     :since: 05/04/2019
 """
-from ast import *
 import json
+from ast import *
 from dataclasses import dataclass
 from itertools import product
 from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable
@@ -332,8 +332,9 @@ class Archive(object):
         assignments_time = [v.time for (k, v) in assignments]
         return {t: self.retrieve_value(object_id, object, t) for t in assignments_time}
 
-    def get_all_assignments_in_time_range(self, start: int, end: int) -> Dict:
-        return self.filter(lambda vv: start <= vv.time <= end)
+    def get_all_assignments_in_time_range(self, start: int, end: int) -> List:
+        return self.flatten_and_filter(
+            [lambda vv: start <= vv.time <= end, lambda vv: vv.key.stub_name == '__AS__'])
 
     def get_scope_by_line_no(self, line_no: int) -> int:
         """
