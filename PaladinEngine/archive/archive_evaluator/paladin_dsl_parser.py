@@ -40,7 +40,7 @@ class PaladinDSLParser(object):
 
             return parse_action
 
-        operator_queries = [Group(Keyword(k.name()) + LPAR + ZeroOrMore(query + COMMA) + query +  RPAR)
+        operator_queries = [Group(Keyword(k.name()) + LPAR + ZeroOrMore(query + COMMA) + query + RPAR)
                             .set_parse_action(create_parse_action(k)) for k in Operator.all()]
 
         q = self._raw_query() | self._compound_query()

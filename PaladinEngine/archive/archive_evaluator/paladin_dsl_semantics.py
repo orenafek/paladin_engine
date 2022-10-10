@@ -285,7 +285,6 @@ TRUE = Const(True)
 
 
 class Globally(UniLateralOperator):
-
     def eval(self):
         return Release(self.times, FALSE, self.first).eval()
 
@@ -419,6 +418,9 @@ class AllFuture(UniLateralOperator):
 
 
 class First(UniLateralOperator):
+    """
+        First(<c>): Selects <c> in the first time it exists.
+    """
     def eval(self):
         first = self.first.eval()
         if isinstance(first, bool):
@@ -436,7 +438,9 @@ class First(UniLateralOperator):
 
 
 class Last(UniLateralOperator):
-
+    """
+        Last(<c>): Selects <c> in the last time it has a value.
+    """
     def eval(self):
         first = self.first.eval()
         if isinstance(first, bool):
@@ -450,7 +454,9 @@ class Last(UniLateralOperator):
 
 
 class Where(BiLateralOperator):
-
+    """
+        Where(<selector>, <condition>): Selects <selector> in all times the <condition> is met.
+    """
     def eval(self):
         condition: EvalResult = self.second.eval()
         if isinstance(condition, bool):
@@ -467,6 +473,9 @@ class Where(BiLateralOperator):
 
 
 class Union(VariadicLateralOperator):
+    """
+        Union(<c1>, <c2>, ..., <ck>): Selects <c>'s together.
+    """
     def eval(self):
         if not self.args:
             return {}
@@ -481,6 +490,10 @@ class Union(VariadicLateralOperator):
 
 
 class Align(BiLateralOperator):
+    """
+        Align(<c1>, <c2>): Selects <c1> and <c2> by aligning them using heuristics.
+    """
+
     @dataclass
     class AlignmentHeuristic(object):
         func: Callable
@@ -545,6 +558,9 @@ class Align(BiLateralOperator):
 
 
 class Meld(BiLateralOperator):
+    """
+        Meld(<c1>, <c2>): Align <c1> and <c2> using meld algorithm
+    """
     @dataclass
     class _MeldData(object):
         data: Tuple[Any]
@@ -655,7 +671,6 @@ class Meld(BiLateralOperator):
 
 
 class NextAfter(BiLateralOperator):
-
     def eval(self):
         a = self.first.eval()
         b = self.second.eval()
@@ -689,8 +704,14 @@ class TimeOperator(Operator):
         results = self.op.eval()
         return {t: ({TimeOperator.TIME_KEY: satisfies(results, t)}, results[t][1]) for t in results.keys()}
 
+    def _get_args(self) -> Collection['Operator']:
+        return [self.op]
+
 
 class TimeFilter(BiLateralOperator):
+    """
+        TimeFilter(<c1>,<c2>): Creates a time window of times t in which t ⊨ <c1> and t ⊨ <c2>
+    """
     def eval(self):
         first = TimeOperator(self.first).eval()
         second = TimeOperator(self.second).eval()
@@ -725,7 +746,9 @@ class TimeFilter(BiLateralOperator):
 
 
 class VarSelector(BiLateralOperator, ArchiveDependent):
-
+    """
+        VarSelector(<start>, <end>): Selects all vars that were changed in t: <start> <= t <= <end>
+    """
     def __init__(self, archive: Archive, times: Iterable[Time], first: Operator, second: Operator):
         BiLateralOperator.__init__(self, times, first, second)
         ArchiveDependent.__init__(self, archive)
@@ -747,7 +770,10 @@ class VarSelector(BiLateralOperator, ArchiveDependent):
         return list(set(filter(lambda v: not re.match("<class '.*'>", v), map(lambda r: r[1].expression, assignments))))
 
 
-class DiffShower(BiLateralOperator):
+class Diff(BiLateralOperator):
+    """
+          Diff(<selector>, <cond>): Selects <selector> when <cond> and t-1 before <cond>
+    """
     def eval(self):
         time_range = self.second.eval()
         selector_results = {}
