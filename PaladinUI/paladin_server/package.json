@@ -16,6 +16,7 @@
     "vue-loader": "^17.0.0",
     "vue-template-compiler": "^2.6.14",
     "vue3-loading-overlay": "^0.0.0",
+    "vue3-markdown-it": "^1.0.10",
     "vue3-table-lite": "^1.1.9",
     "vue3-tree": "^0.11.1"
   },

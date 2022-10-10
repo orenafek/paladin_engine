@@ -187,6 +187,10 @@ class PaladinServer(FlaskView):
         pdslp = PaladinDSLParser.create(ARCHIVE, start_time, end_time, line_no)
         return PaladinServer.create_response(pdslp.parse_and_summarize(select_query))
 
+    @route('/debug_info/docs')
+    def docs(self):
+        return PaladinServer.create_response(PaladinDSLParser.docs())
+
     @route('/debug_info/query_dsl_words')
     def query_dsl_words(self):
         return PaladinServer.create_response(QUERY_DSL_WORDS)

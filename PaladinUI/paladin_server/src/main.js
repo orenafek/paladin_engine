@@ -18,7 +18,7 @@ import { persistField, LocalStore } from "./infra/store";
 
 import LoadingSpinner from "./components/loading_spinner.vue";
 import './main.scss';
-
+import Markdown from "vue3-markdown-it";
 
 const mainComponent = {
     components: {
@@ -28,6 +28,7 @@ const mainComponent = {
         Tree,
         loadingSpinner: LoadingSpinner,
         tabular,
+        Markdown,
         Splitpanes, Pane
     },
     data: function () {
@@ -57,6 +58,7 @@ const mainComponent = {
             },
             queryInProgress: false,
             queryResult: {},
+            dsl_docs: '',
             codemirror_options: {
                 mode: "text/x-python",
                 theme: "darcula",
@@ -76,6 +78,7 @@ const mainComponent = {
         this.exception_source_line = exception != null ? exception['exception_source_line'] : null;
         this.exception_msg = exception != null ? exception['exception_msg'] : null;
         this.exception_archive_time = exception != null ? exception['exception_archive_time'] : null;
+        this.dsl_docs = (await request_debug_info('docs')).toString().trim();
     },
     mounted() {
         persistField(this, 'query', new LocalStore('app:query'));
@@ -152,7 +155,9 @@ const mainComponent = {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const appProto = Vue.createApp(mainComponent).use(Vue3Highlightjs);
+    const appProto = Vue.createApp(mainComponent)
+        .use(Vue3Highlightjs)
+        .use(Markdown);
     window.app = appProto.mount('#app');
     escapeHTMLTags();
 });

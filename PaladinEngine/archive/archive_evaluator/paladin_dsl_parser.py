@@ -136,6 +136,10 @@ class PaladinDSLParser(object):
             grouped[create_key(key_range)] = v
         return grouped
 
+    @classmethod
+    def docs(cls):
+        return '```' '\n' + '\n'.join([op.__doc__.strip() for op in Operator.all() if op.__doc__]) + '\n' + '```'
+
 
 if __name__ == '__main__':
     parser = PaladinDSLParser(
