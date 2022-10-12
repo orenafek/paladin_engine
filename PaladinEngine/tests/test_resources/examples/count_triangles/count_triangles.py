@@ -23,4 +23,4 @@ def solution(A):
 
 if __name__ == '__main__':
     solution([10, 2, 5, 1, 8, 20])
-    solution([20, 1, 10, 2, 5, 8])
+    #dsolution([20, 1, 10, 2, 5, 8])

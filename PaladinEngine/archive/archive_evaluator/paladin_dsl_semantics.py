@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import reduce
+from itertools import product
 
 import more_itertools
 
@@ -117,6 +118,32 @@ class SemanticsUtils(object):
         if isinstance(r, bool) or r == {} or list(r.values())[0] is None:
             raise TypeError('Cannot create an empty result.')
         return {q: None for q in list(r.values())[0][0]}, []
+
+    @staticmethod
+    def get_all_selectors(r: EvalResult):
+        res = set()
+        for t in r:
+            res.update(r[t][0].keys())
+
+        return res
+
+    @staticmethod
+    def join_results(r1: EvalResult, r2: EvalResult):
+        res = {}
+        r1_empty = {s: None for s in SemanticsUtils.get_all_selectors(r1)}
+        r2_empty = {s: None for s in SemanticsUtils.get_all_selectors(r2)}
+
+        for t in set(r1.keys()).union(r2.keys()):
+            if t in r1 and t not in r2:
+                res[t] = {**r1[t][0], **r2_empty}, r1[t][1]
+
+            elif t not in r1 and t in r2:
+                res[t] = {**r1_empty, **r2[t][0]}, r2[t][1]
+
+            else:  # t in r1 and t in r2
+                res[t] = {**r1[t][0], **r2[t][0]}, r1[t][1] + r2[t][1]
+
+        return res
 
 
 @dataclass
@@ -301,18 +328,21 @@ class Finally(UniLateralOperator):
 
 
 class Next(UniLateralOperator):
+    """
+        Next(<c>): Returns the second satisfaction of <c> (next after first)
+    """
 
     def eval(self):
-        first = self.first.eval()
-        if first is bool:
+        formula = self.first.eval()
+        if formula is bool:
             """
-            X(T) = T
-            X(F) = F
+            Next(T) = T
+            Next(F) = F
             """
-            return first
+            return formula
 
-        # TODO: Should I check for satisfaction? I.e., return {t:r for ... in ... ** if r[0] **} ??
-        return {t: r for (t, r) in first.items()[1::]}
+        first = first_satisfaction(formula)
+        return {t: formula[t] if t != first else ({k: False for k in formula[t][0]}, formula[t][1]) for t in formula}
 
 
 class Until(BiLateralOperator):
@@ -329,7 +359,7 @@ class Until(BiLateralOperator):
             """
             return first and second
 
-        if isinstance(first, bool) and isinstance(second, EvalResult):
+        if isinstance(first, bool) and not isinstance(second, bool):
             if first:
                 """
                 U(T, ϕ) = ϕ 
@@ -341,7 +371,7 @@ class Until(BiLateralOperator):
             """
             return False
 
-        if isinstance(first, EvalResult) and isinstance(second, bool):
+        if not isinstance(first, bool) and isinstance(second, bool):
             if second:
                 """
                 ω ⊨ U(ϕ, T) ↔ ∃i >= 0, ω_i ⊨ ϕ  
@@ -392,24 +422,24 @@ class Not(UniLateralOperator):
         if isinstance(first, bool):
             return not first
 
-        return {t: (not r[0], r[1]) for (t, r) in first.items()}
+        return {t: ({k: not v[0][k] if v[0][k] is not None else None for k in v[0]}, v[1]) for t, v in first.items()}
 
 
 class And(BiLateralOperator):
     def eval(self):
-        return Not(self.times, Or(self.times, Not(self.times, self.first), Not(self.times, self.second)))
+        return Not(self.times, Or(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval()
 
 
 class Before(BiLateralOperator):
 
     def eval(self):
-        return Until(self.times, Not(self.times, Globally(self.times, Not(self.times, self.first))), self.second)
+        return Until(self.times, Not(self.times, Globally(self.times, Not(self.times, self.first))), self.second).eval()
 
 
 class After(BiLateralOperator):
 
     def eval(self):
-        return Before(self.times, self.second, self.first)
+        return Before(self.times, self.second, self.first).eval()
 
 
 class AllFuture(UniLateralOperator):
@@ -421,6 +451,7 @@ class First(UniLateralOperator):
     """
         First(<c>): Selects <c> in the first time it exists.
     """
+
     def eval(self):
         first = self.first.eval()
         if isinstance(first, bool):
@@ -430,23 +461,27 @@ class First(UniLateralOperator):
             """
             return first
 
-        first_result = min(filter(lambda t: all(res is not None for res in first[t][0].values()), first))
+        first_result = min(filter(lambda t: satisfies(first, t), first))
         if not first_result:
             return False
 
-        return {first_result: first[first_result]}
+        return {
+            t: ({k: False for k in first[t][0]}, first[t][1]) if t != first_result
+            else first[t] for t in self.times
+        }
 
 
 class Last(UniLateralOperator):
     """
         Last(<c>): Selects <c> in the last time it has a value.
     """
+
     def eval(self):
         first = self.first.eval()
         if isinstance(first, bool):
             return first
 
-        last = max(filter(lambda t: all([res is not None for res in first[t][0].values()]), first))
+        last = max(filter(lambda t: satisfies(first, t), first))
         if not last:
             return False
 
@@ -457,6 +492,7 @@ class Where(BiLateralOperator):
     """
         Where(<selector>, <condition>): Selects <selector> in all times the <condition> is met.
     """
+
     def eval(self):
         condition: EvalResult = self.second.eval()
         if isinstance(condition, bool):
@@ -467,7 +503,7 @@ class Where(BiLateralOperator):
             return {}
 
         # Set times for selector with the results given by condition's eval.
-        self.first.times = filter(lambda t: all([r is not None for r in condition[t][0].values()]), condition)
+        self.first.times = filter(lambda t: satisfies(condition, t), condition)
         selector = self.first.eval()
         return selector
 
@@ -476,15 +512,15 @@ class Union(VariadicLateralOperator):
     """
         Union(<c1>, <c2>, ..., <ck>): Selects <c>'s together.
     """
+
     def eval(self):
         if not self.args:
             return {}
 
-        res = self.args[0].eval()
+        res: EvalResult = self.args[0].eval()
 
         for arg in self.args[1:]:
-            res = {k1: ({**res1, **res2}, rep1 + rep2) for (k1, (res1, rep1)), (k2, (res2, rep2)) in
-                   zip(res.items(), arg.eval().items()) if k1 == k2}
+            res.update(SemanticsUtils.join_results(res, arg.eval()))
 
         return res
 
@@ -561,6 +597,7 @@ class Meld(BiLateralOperator):
     """
         Meld(<c1>, <c2>): Align <c1> and <c2> using meld algorithm
     """
+
     @dataclass
     class _MeldData(object):
         data: Tuple[Any]
@@ -712,6 +749,7 @@ class TimeFilter(BiLateralOperator):
     """
         TimeFilter(<c1>,<c2>): Creates a time window of times t in which t ⊨ <c1> and t ⊨ <c2>
     """
+
     def eval(self):
         first = TimeOperator(self.first).eval()
         second = TimeOperator(self.second).eval()
@@ -749,6 +787,9 @@ class VarSelector(BiLateralOperator, ArchiveDependent):
     """
         VarSelector(<start>, <end>): Selects all vars that were changed in t: <start> <= t <= <end>
     """
+
+    VARS_KEY = 'vars'
+
     def __init__(self, archive: Archive, times: Iterable[Time], first: Operator, second: Operator):
         BiLateralOperator.__init__(self, times, first, second)
         ArchiveDependent.__init__(self, archive)
@@ -760,7 +801,7 @@ class VarSelector(BiLateralOperator, ArchiveDependent):
         results = {}
         for time_range in time_ranges:
             vars = self._get_all_vars(time_range)
-            results.update([(t, ({'vars': vars}, [])) for t in time_range])
+            results.update([(t, ({VarSelector.VARS_KEY: vars}, [])) for t in time_range])
 
         return results
 
@@ -774,6 +815,7 @@ class Diff(BiLateralOperator):
     """
           Diff(<selector>, <cond>): Selects <selector> when <cond> and t-1 before <cond>
     """
+
     def eval(self):
         time_range = self.second.eval()
         selector_results = {}
@@ -786,3 +828,32 @@ class Diff(BiLateralOperator):
             selector_results.update(Where(self.times, self.first, self.second).eval())
 
         return selector_results
+
+
+class LoopIteration(UniLateralOperator, ArchiveDependent):
+    """
+    LoopIteration(<c1>): Shows changes that have taken place in a loop where its iterator had a value (<cond>)
+    """
+
+    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator):
+        UniLateralOperator.__init__(self, times, first)
+        ArchiveDependent.__init__(self, archive)
+
+    def eval(self):
+        relevant_times = TimeFilter(self.times, First(self.times, self.first),
+                                    Next(self.times, self.first)).eval_ranges()
+
+        self.update_times(relevant_times)
+
+        changed_vars_selector = VarSelector(self.archive, self.times, self.first, self.first)
+
+        changed_vars = list(changed_vars_selector.eval().values())[0][0][VarSelector.VARS_KEY]
+        changed_vars_diffs = []
+        for v in changed_vars:
+            selector = Raw(self.archive, v, times=self.times)
+            changed_var_diff = Diff(self.times, selector, self.first)
+            changed_vars_diffs.append(changed_var_diff)
+            # x = changed_var_diff.eval()
+            # print(x)
+
+        return Union(self.times, *changed_vars_diffs).eval()

@@ -432,3 +432,7 @@ class Archive(object):
                 return self
 
         return NodeFinder(self).visit(parse(expression).body[0]).values
+
+    @property
+    def last_time(self) -> int:
+        return self._time
