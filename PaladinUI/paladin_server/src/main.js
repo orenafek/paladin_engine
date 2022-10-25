@@ -50,6 +50,7 @@ const mainComponent = {
             line_to_debug: null,
             retrieved_objects: {},
             time_window: [],
+            last_time: -1,
             query: {
                 select: "",
                 startTime: 0,
@@ -75,6 +76,8 @@ const mainComponent = {
         this.source_code = await request_debug_info('source_code');
         const exception = await request_debug_info('exception_line');
         this.exception_line_no = exception != null ? exception['exception_line_no'] : null;
+        this.last_time = await request_debug_info('last_time');
+        document.getElementById('query_end_time').innerText = this.last_time;
         this.exception_source_line = exception != null ? exception['exception_source_line'] : null;
         this.exception_msg = exception != null ? exception['exception_msg'] : null;
         this.exception_archive_time = exception != null ? exception['exception_archive_time'] : null;

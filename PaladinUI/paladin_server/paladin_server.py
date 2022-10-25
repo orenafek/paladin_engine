@@ -115,6 +115,10 @@ class PaladinServer(FlaskView):
             SOURCE_CODE.split('\n') if not line
             else PaladinServer._get_line_from_source_code(line))
 
+    @route('/debug_info/last_time')
+    def last_time(self):
+        return PaladinServer.create_response({'last_time': ARCHIVE.last_time})
+
     @route('/debug_info/exception_line')
     def exception_line(self):
         return PaladinServer.create_response({'exception_line_no': THROWN_EXCEPTION.source_code_line_no,
