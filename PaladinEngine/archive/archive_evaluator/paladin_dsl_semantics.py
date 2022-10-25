@@ -1,4 +1,5 @@
 import abc
+import collections.abc
 import functools
 import re
 from abc import ABC, abstractmethod
@@ -9,11 +10,12 @@ from itertools import product
 
 import more_itertools
 
-from archive.archive import Archive
+from archive.archive import Archive, Rk, Rv
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import *
 from ast_common.ast_common import *
+from stubs.stubs import __AS__
 
 SemanticsArgType = Union[bool, EvalResult]
 Time = int
@@ -145,6 +147,18 @@ class SemanticsUtils(object):
 
         return res
 
+    @staticmethod
+    def _predicate(op):
+        return f'lambda p1, p2: p1 {op} p2'
+
+    @staticmethod
+    def and_predicate():
+        return SemanticsUtils._predicate('and')
+
+    @staticmethod
+    def raw_to_const_str(res: EvalResult):
+        return list(list(res.values())[0][0].keys())[0]
+
 
 @dataclass
 class Operator(ABC):
@@ -152,7 +166,7 @@ class Operator(ABC):
     def __init__(self, times: Optional[Iterable[Time]] = None):
         self.times = times
 
-    def eval(self):
+    def eval(self) -> EvalResult:
         raise NotImplementedError()
 
     @classmethod
@@ -213,7 +227,7 @@ class BiLateralOperator(Operator, ABC):
 
 class TriLateralOperator(Operator, ABC):
     def __init__(self, times: Iterable[Time], first: Operator, second: Operator, third: Operator):
-        super(Operator, self).__init__(times)
+        super(TriLateralOperator, self).__init__(times)
         self.first: Operator = first
         self.second: Operator = second
         self.third: Operator = third
@@ -261,19 +275,23 @@ class Raw(Operator, ArchiveDependent):
 
         results = {}
 
-        for t in self.times:
-            resolved_names = self._resolve_names(extractor.names, self.line_no, t)
-            resolved_attributes = self._resolve_attributes(extractor.attributes, self.line_no, t)
+        if not isinstance(self.times, List):
+            self.times = [self.times]
 
-            replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
-            try:
-                # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                result = eval(ast2str(replacer.visit(ast.parse(query))))
-                result = (result,)
-            except IndexError:
-                result = [None] * len(queries)
+        for r in self.times:
+            for t in r:
+                resolved_names = self._resolve_names(extractor.names, self.line_no, t)
+                resolved_attributes = self._resolve_attributes(extractor.attributes, self.line_no, t)
 
-            results[t] = ({self.key_maker(q): r for q, r in zip(queries, result)}, replacer.replacements)
+                replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
+                try:
+                    # TODO: Can AST object be compiled and then evaled (without turning to string)?
+                    result = eval(ast2str(replacer.visit(ast.parse(query))))
+                    result = (result,)
+                except IndexError:
+                    result = [None] * len(queries)
+
+                results[t] = ({self.key_maker(q): r for q, r in zip(queries, result)}, replacer.replacements)
 
         return results
 
@@ -770,7 +788,7 @@ class TimeFilter(BiLateralOperator):
         ranges = []
         range_start = None
         range_end = range_start
-        for t in filtered_times.keys():
+        for t in sorted(filtered_times.keys()):
             if satisfies(filtered_times, t):
                 if not range_start:
                     range_start = t
@@ -779,7 +797,13 @@ class TimeFilter(BiLateralOperator):
             else:
                 if range_start:
                     ranges.append(range(range_start, range_end))
-                    range_start = None
+                    range_start = range_end = None
+
+        if range_start and range_end:
+            ranges.append(range(range_start, range_end))
+
+        if range_start and not range_end:
+            ranges.append((range(range_start, range_start + 1)))
         return ranges
 
 
