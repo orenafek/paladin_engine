@@ -844,19 +844,82 @@ class Diff(BiLateralOperator):
         time_range = self.second.eval()
         selector_results = {}
         for r in satisfaction_ranges(time_range):
-            self.update_times(list(r))
-            before_first_results = Where(times=[r.start - 1], first=self.first.update_times([r.start - 1]),
-                                         second=TRUE).eval()
-            self.update_times(list(r))
+            self.update_times([r])
+            tr = range(r.start - 1, r.start)
+            before_first_results = Where(times=tr, first=self.first.update_times([tr]), second=TRUE).eval()
+            self.update_times([r])
             selector_results.update(before_first_results)
             selector_results.update(Where(self.times, self.first, self.second).eval())
 
         return selector_results
 
 
-class LoopIteration(UniLateralOperator, ArchiveDependent):
+class LoopIteration(BiLateralOperator, ArchiveDependent):
     """
-    LoopIteration(<c1>): Shows changes that have taken place in a loop where its iterator had a value (<cond>)
+    LoopIteration(<i>, <v>): Shows changes that have taken place in a loop where its iterator <i> had a value (<v>).
+                             ** i, v ** must be a Raw operators, i.e. [[ ... ]] or [[ ... ]]@...
+    """
+
+    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator, second: Operator):
+        BiLateralOperator.__init__(self, times, first, second)
+        ArchiveDependent.__init__(self, archive)
+
+    # noinspection PyTypeChecker
+    @property
+    def _iterator_equals_value(self):
+        iterator: Raw = self.first
+        value: Raw = self.second
+        return Raw(self.archive, f'{iterator.query} == {value.query}', iterator.line_no, self.times)
+
+    def eval(self):
+        if not isinstance(self.first, Raw) or not isinstance(self.second, Raw):
+            raise TypeError('iterator and its value must be Raw operators')
+
+        relevant_times = TimeFilter(self.times, self._iterator_equals_value, self._iterator_equals_value).eval_ranges()
+
+        self.update_times(relevant_times)
+
+        changed_vars_selector = VarSelector(self.archive, self.times, self.first, self.first)
+
+        changed_vars_selector_result = changed_vars_selector.eval()
+        if len(changed_vars_selector_result) == 0:
+            return {}
+
+        changed_vars = list(changed_vars_selector_result.values())[0][0][VarSelector.VARS_KEY]
+        changed_vars_diffs = []
+        for v in sorted(changed_vars):
+            ###
+            # FIXME: The var is not located using a specific scope in here (line_no=-1)
+            #  therefore other vars can get in the way...
+            #  For example:
+            #  ```
+            #   1: for i in range(1,4):
+            #      j = 1
+            #      ...
+            #   10: for i in range(5,8):
+            #     ...
+            #  ```
+            #  If We look for the first iter of the second loop (i == 5), with LoopIteration([[i]]@10, [[5]]),
+            #  the last value of the first iteration (i@1 == 4) will also be presented.
+            #  There is Currently a trouble to fix this, because i have a scope (i@10) but after the VarSelection,
+            #  j@10 is incorrect.
+            #
+            #  TODO: Maybe if a range of lines that compound the loop is used, a range of scopes can be used:
+            #   E.g.: LoopIteration([[i]], [[0]], 1, 10)
+            ###
+            selector = Raw(self.archive, v, times=self.times)
+            changed_var_diff = Where(self.times, selector, self._iterator_equals_value)
+            changed_vars_diffs.append(changed_var_diff)
+            # x = changed_var_diff.eval()
+            # print(x)
+
+        return Union(self.times, *changed_vars_diffs).eval()
+
+
+class LoopSummary(UniLateralOperator, ArchiveDependent):
+    """
+        LoopSummary(<line>): Creates a summary of a loop which header (for i in ...) is in <line>
+                             ** <line> should be a Raw Operator, i.e. [[<line>]]
     """
 
     def __init__(self, archive: Archive, times: Iterable[Time], first: Operator):
@@ -864,20 +927,16 @@ class LoopIteration(UniLateralOperator, ArchiveDependent):
         ArchiveDependent.__init__(self, archive)
 
     def eval(self):
-        relevant_times = TimeFilter(self.times, First(self.times, self.first),
-                                    Next(self.times, self.first)).eval_ranges()
+        line_no: int = int(SemanticsUtils.raw_to_const_str(self.first.eval()))
 
-        self.update_times(relevant_times)
+        assignments_by_line_no: Dict[Rk, List[Rv]] = self.archive.filter(
+            [lambda rv: rv.line_no == line_no, lambda rv: rv.key.stub_name == __AS__.__name__])
 
-        changed_vars_selector = VarSelector(self.archive, self.times, self.first, self.first)
+        res = {}
+        for rk, lrv in assignments_by_line_no.items():
+            iterator = Raw(self.archive, rk.field, line_no, self.times)
+            for rv in filter(lambda rv: rv.line_no == line_no, lrv):
+                li = LoopIteration(self.archive, self.times, iterator, Raw(self.archive, rv.value, line_no, self.times))
+                res.update({t: r for (t, r) in li.eval().items() if t <= rv.time})
 
-        changed_vars = list(changed_vars_selector.eval().values())[0][0][VarSelector.VARS_KEY]
-        changed_vars_diffs = []
-        for v in changed_vars:
-            selector = Raw(self.archive, v, times=self.times)
-            changed_var_diff = Diff(self.times, selector, self.first)
-            changed_vars_diffs.append(changed_var_diff)
-            # x = changed_var_diff.eval()
-            # print(x)
-
-        return Union(self.times, *changed_vars_diffs).eval()
+        return res
