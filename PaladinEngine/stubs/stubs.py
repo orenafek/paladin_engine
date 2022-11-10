@@ -324,6 +324,13 @@ def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_
     return field
 
 
+def __BREAK__(line_no: int, frame):
+    if archive._should_record:
+        archive.store_new \
+            .key(id(frame), 'break', __BREAK__.__name__) \
+            .value(object, None, 'break', line_no)
+
+
 def create_ast_stub(stub, *args, **kwargs):
     """
         Create an AST node from a stub.

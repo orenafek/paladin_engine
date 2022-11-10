@@ -591,3 +591,10 @@ class EnfOfFunctionReturnStatementStubber(Stubber):
         stub_record = Stubber._AfterStubRecord(node.body[::-1][0], node, 'body', rtrn)
         self.root_module = self._stub(stub_record)
         return self.root_module
+
+
+class BreakStubber(Stubber):
+    def stub_breaks(self, node: ast.Break, container: ast.AST, attr_name: str, stub: ast.Call):
+        stub_record = Stubber._BeforeStubRecord(node, container, attr_name, stub)
+        self._stub(stub_record)
+        return self.root_module

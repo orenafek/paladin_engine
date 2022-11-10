@@ -734,3 +734,11 @@ class ReturnStatementsFinder(GenericFinder):
 
     def visit_Return(self, node: ast.Return) -> Any:
         return self._generic_visit_with_extras(node, object())
+
+
+class BreakFinder(GenericFinder):
+    def types_to_find(self) -> Union:
+        return ast.Break
+
+    def visit_Break(self, node: ast.Break) -> Any:
+        return self._generic_visit_with_extras(node, object())

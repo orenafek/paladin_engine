@@ -21,7 +21,7 @@ from source_provider.source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
 from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
-    __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__
+    __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__, __BREAK__
 
 
 class PaLaDiNEngine(object):
@@ -94,7 +94,7 @@ class PaLaDiNEngine(object):
 
     # List of stubs that can be added to the PaLaDiNized code
     PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__, __ARG__, __DEF__, __UNDEF__, __AC__,
-                          __PIS__, __PALADIN_LIST__]
+                          __PIS__, __PALADIN_LIST__, __BREAK__]
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
@@ -203,6 +203,8 @@ class PaLaDiNEngine(object):
             t = t.transform_function_def()
             m = t.module
             t = t.transform_paladin_post_condition()
+            m = t.module
+            t = t.transform_breaks()
             m = t.module
 
         except BaseException as e:

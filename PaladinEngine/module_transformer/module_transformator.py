@@ -10,11 +10,11 @@ from typing import List
 from ast_common.ast_common import ast2str, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
-    AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder
+    AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder, BreakFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForLoopStubber, \
-    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber
+    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber, BreakStubber
 from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
-    __UNDEF__, __AC__, __PIS__
+    __UNDEF__, __AC__, __PIS__, __BREAK__
 
 
 class ModuleTransformer(object):
@@ -265,6 +265,29 @@ class ModuleTransformer(object):
             for aug_assign in aug_assigns:
                 self.module = aug_assign_stubber.stub_aug_assigns(aug_assign.node, aug_assign.container,
                                                                   aug_assign.attr_name)
+
+        except BaseException as e:
+            print(e)
+
+        finally:
+            return self
+
+    def transform_breaks(self) -> 'ModuleTransformer':
+        try:
+            # Find all breaks.
+            breaks_finder = BreakFinder()
+            breaks_finder.visit(self.module)
+
+            breaks = breaks_finder.find()
+            for stub_entry in breaks:
+                # Create a stub.
+                break_stub = create_ast_stub(__BREAK__,
+                                             frame='__FRAME__()',
+                                             line_no=f'{stub_entry.line_no}')
+                # Create a stubber.
+                break_stuuber = BreakStubber(self.module)
+                self.module = break_stuuber.stub_breaks(stub_entry.node, stub_entry.container, stub_entry.attr_name,
+                                                        break_stub)
 
         except BaseException as e:
             print(e)
