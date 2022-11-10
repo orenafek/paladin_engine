@@ -43,7 +43,7 @@ class PaladinDSLParser(object):
         operator_queries = [Group(Keyword(k.name()) + LPAR + ZeroOrMore(query + COMMA) + query + RPAR)
                             .set_parse_action(create_parse_action(k)) for k in Operator.all()]
 
-        q = self._raw_query() | self._compound_query()
+        q = self._raw_query() | self._nested_query(query)
 
         query <<= q | functools.reduce(ParserElement.__or__, operator_queries)
 
@@ -63,12 +63,10 @@ class PaladinDSLParser(object):
             SCOPE_SIGN) + pyparsing_common.integer, default=None)).setParseAction(
             lambda q: Raw(self.archive, q.asList()[0], q.asList()[1], self.timer))
 
-    def _compound_query(self):
-        return (Suppress('{{') + ZeroOrMore(
-            (SkipTo('[[') + self._raw_query())) + SkipTo(
-            '}}') + Suppress('}}')).setParseAction(
-            lambda q: (lambda p: p._eval_compound_query(q.asList()))
-        )
+    def _nested_query(self, query):
+        return (Suppress('{{') + CaselessKeyword('for') + Word(alphanums) + CaselessKeyword('in') + query
+                 + SkipTo('}}') + Suppress('}}')).setParseAction(lambda q: Raw(self.archive, q.asList()[1], None, self.timer,
+                                                                               query))
 
     def _eval_compound_query(self, compound_query: list[str]):
         evaluated = [q(self) if callable(q) else q for q in compound_query]
@@ -109,6 +107,7 @@ if __name__ == '__main__':
         [
             'Or([[sums]]@10, [[i == 0]]@11)',
             'And([[sums]]@10, [[i == 0]]@11)',
-            'Where([[sums]]@10, [[i == 0]]@11)'
+            'Where([[sums]]@10, [[i == 0]]@11)',
+            '{{ (e.j for e in $Line([[18]])$ ) }}'
         ]
     )
