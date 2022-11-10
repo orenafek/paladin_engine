@@ -871,3 +871,34 @@ class LoopSummary(UniLateralOperator, ArchiveDependent):
                 res.update({t: r for (t, r) in li.eval().items() if t <= rv.time})
 
         return res
+
+
+class Line(UniLateralOperator, ArchiveDependent):
+    """
+        Line(<number>): Returns values of all objects that existed when the program hit line numbered <number>
+    """
+
+    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator):
+        UniLateralOperator.__init__(self, times, first)
+        ArchiveDependent.__init__(self, archive)
+
+    def eval(self) -> EvalResult:
+        line_no = self.first.eval()[0].values[0]
+        events_by_line_no: List[Tuple[Rk, Rv]] = self.archive.find_events(line_no)
+        event_times = list(map(lambda t: t[1].time, events_by_line_no))
+        event_times = event_times if event_times[0] == 0 else [0] + event_times
+        ranges = [(t1, t2) for t1, t2 in zip(event_times, event_times[1::])]
+        results = EvalResult([])
+
+        for r in ranges:
+            time_range = range(r[0], r[1] + 1)
+            vars = VarSelector(self.archive, self.times, Const(True, times=time_range)).eval()
+            if not vars:
+                continue
+
+            for v in vars[r[1]].__getitem__(VarSelector.VARS_KEY).value:
+                results = results.join(results, Raw(self.archive, v, None, time_range).eval())
+
+            # results.extend([EvalResultEntry(r[1], e.results, e.replacements) for e in vars ])
+
+        return results
