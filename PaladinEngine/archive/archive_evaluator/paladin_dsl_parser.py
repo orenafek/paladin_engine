@@ -13,7 +13,7 @@ class PaladinDSLParser(object):
 
     def __init__(self, operators: List[Type[Operator]], archive: Archive, start_time: int, end_time: int, line_no: int):
         self._operators: List[Type[Operator]] = operators
-        self.grammar: ParserElement = self.__grammar(operators)
+        self.grammar: ParserElement = self.__grammar()
         self.start_time = start_time
         self.end_time = end_time
         self.line_no = line_no
@@ -24,7 +24,7 @@ class PaladinDSLParser(object):
         return PaladinDSLParser(operators=Operator.all(),
                                 archive=archive, start_time=start_time, end_time=end_time, line_no=line_no)
 
-    def __grammar(self, operators: List[Type[Operator]]) -> ParserElement:
+    def __grammar(self) -> ParserElement:
         LPAR = Suppress('(')
         RPAR = Suppress(')')
         COMMA = Suppress(',')
@@ -94,47 +94,7 @@ class PaladinDSLParser(object):
 
     def parse_and_summarize(self, query: str):
         # Parse the select query.
-        parsed = self.parse(query)
-        if not parsed:
-            return {}
-
-        presentable = {i[0]: (i[1][0], ", ".join([f'{x[0]} -> {x[1]} [{x[2]}]' for x in i[1][1]]))
-                       for i in PaladinDSLParser._group(parsed).items()}
-
-        return json.dumps(presentable)
-
-    @staticmethod
-    def _to_ranges(iterable):
-        iterable = sorted(set(iterable))
-        for key, group in itertools.groupby(enumerate(iterable),
-                                            lambda t: t[1] - t[0]):
-            group = list(group)
-            yield group[0][1], group[-1][1]
-
-    @staticmethod
-    def _group(d: Dict):
-        if d == {}:
-            return {}
-
-        def create_key(key_range):
-            return str((min(key_range), max(key_range)))
-
-        keys = list(d.keys())
-        key_range = []
-        v = d[keys[0]]
-        grouped = {}
-        for k in keys:
-            if d[k][0] == v[0]:
-                key_range.append(k)
-                continue
-
-            grouped[create_key(key_range)] = v
-            v = d[k]
-            key_range = [k]
-
-        if key_range:
-            grouped[create_key(key_range)] = v
-        return grouped
+        return json.dumps(self.parse(query).group())
 
     @classmethod
     def docs(cls):

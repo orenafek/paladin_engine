@@ -279,7 +279,7 @@ class Archive(object):
                 if
                 (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))}
 
-    def flatten_and_filter(self, filters: Union[Rvf, Iterable[Rvf]]) -> List[Tuple[Rk, List[Rv]]]:
+    def flatten_and_filter(self, filters: Union[Rvf, Iterable[Rvf]]) -> List[Tuple[Rk, Rv]]:
         return [(k, vv) for (k, v) in self.records.items() for vv in v
                 if
                 (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))]
@@ -432,6 +432,9 @@ class Archive(object):
                 return self
 
         return NodeFinder(self).visit(parse(expression).body[0]).values
+
+    def find_events(self, line_no: int) -> List[Tuple[Rk, Rv]]:
+        return self.flatten_and_filter([lambda vv: vv.line_no == line_no])
 
     @property
     def last_time(self) -> int:

@@ -21,20 +21,21 @@ export default {
     sortedEntries() {
       return this.isEmpty(this.value) ? {} : JSON.parse(this.value);
     },
-    headline() {
-      if (this.isEmpty(this.sortedEntries)) {
-        return [];
-      }
+    time_ranges() {
+      return Object.keys(Object.values(this.sortedEntries)[0]);
+    },
 
-      /* Each result is in the format:
-           (from, to): [{<result(null/real)>, <replacements>}, <result(null/real)>, replacement>,...}]
-      */
-      const firstResultValue = Object.entries(this.sortedEntries)[0][1][0];
-      return Object.keys(firstResultValue);
-    }
+    headline() {
+      return Object.keys(this.sortedEntries);
+    },
+
+
   },
   methods: {
     isEmpty: o => JSON.stringify(o) === "{}",
+    result(key_index, range_index) {
+      return Object.values(Object.values(this.sortedEntries)[key_index])[range_index];
+    }
   }
 }
 

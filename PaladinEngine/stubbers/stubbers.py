@@ -561,7 +561,7 @@ class AugAssignStubber(Stubber):
 
     def __init__(self, root_module) -> None:
         super().__init__(root_module)
-        self.temp_var_base = 'PALADIN_TEMP_AUG_ASSIGN_VAR__'
+        self.temp_var_base = '__PALADIN_TEMP_AUG_ASSIGN_VAR__'
         self.temp_var_seed = 0
 
     def stub_aug_assigns(self, node: ast.AugAssign, container: ast.AST, container_attr_name: str):

@@ -1,9 +1,3 @@
-import typing
-
-import pytest
-from pytest_quickcheck.generator import list_of
-
-
 def super_duper_naive(a):
     total_slices = 0
     for i in range(len(a)):

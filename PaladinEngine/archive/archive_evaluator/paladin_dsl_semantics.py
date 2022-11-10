@@ -21,49 +21,6 @@ SemanticsArgType = Union[bool, EvalResult]
 Time = int
 
 
-def satisfies_iterator(formula: EvalResult) -> Union[Iterator, bool]:
-    if isinstance(formula, bool):
-        return formula
-
-    return filter(lambda t: satisfies(formula, t), formula.keys())
-
-
-def first_satisfaction(formula: EvalResult) -> Union[int, bool]:
-    return next(satisfies_iterator(formula))
-
-
-def last_satisfaction(formula: EvalResult) -> Union[int, bool]:
-    return first_satisfaction({t: r for (t, r) in reversed(formula.items())})
-
-
-def satisfaction_ranges(formula: EvalResult) -> Collection[range]:
-    ranges = []
-    first = last = None
-    for t in satisfies_iterator(formula):
-
-        if first is None:
-            first = t
-            last = t
-
-        if t - last == 1:
-            last = t
-            continue
-
-        ranges.append(range(first, last + 1))
-        first = last = None
-
-    return ranges
-
-
-def satisfies(result: EvalResult, t: Time) -> bool:
-    return (isinstance(result, bool) and result) or all(
-        [r is not None and r is not False for r in result[t][0].values()])
-
-
-def all_satisfies(result: EvalResult):
-    return all([satisfies(result, t) for t in result.keys()])
-
-
 class SemanticsUtils(object):
 
     @staticmethod
@@ -126,24 +83,6 @@ class SemanticsUtils(object):
         res = set()
         for t in r:
             res.update(r[t][0].keys())
-
-        return res
-
-    @staticmethod
-    def join_results(r1: EvalResult, r2: EvalResult):
-        res = {}
-        r1_empty = {s: None for s in SemanticsUtils.get_all_selectors(r1)}
-        r2_empty = {s: None for s in SemanticsUtils.get_all_selectors(r2)}
-
-        for t in set(r1.keys()).union(r2.keys()):
-            if t in r1 and t not in r2:
-                res[t] = {**r1[t][0], **r2_empty}, r1[t][1]
-
-            elif t not in r1 and t in r2:
-                res[t] = {**r1_empty, **r2[t][0]}, r2[t][1]
-
-            else:  # t in r1 and t in r2
-                res[t] = {**r1[t][0], **r2[t][0]}, r1[t][1] + r2[t][1]
 
         return res
 
@@ -253,27 +192,28 @@ class ArchiveDependent(object):
 class Raw(Operator, ArchiveDependent):
 
     def __init__(self, archive: Archive, query: str, line_no: Optional[int] = -1,
-                 times: Optional[Iterable[Time]] = None):
+                 times: Optional[Iterable[Time]] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
         Operator.__init__(self, times)
         ArchiveDependent.__init__(self, archive)
         self.query = query
         self.line_no = line_no
+        self.query_locals = query_locals
 
     def eval(self):
         return self._eval_raw_query(self.query)
 
-    def key_maker(self, query: str):
+    def create_key(self, query: str):
         return f'{query}{SCOPE_SIGN}{self.line_no}' if self.line_no is not None and self.line_no != -1 else f'{query}'
 
-    def _eval_raw_query(self, query: str):
+    def _eval_raw_query(self, query: str) -> EvalResult:
         # Extract names to resolve from the archive.
         extractor = ArchiveEvaluator.SymbolExtractor()
         extractor.visit(str2ast(query))
 
         # Split query into sub queries.
-        queries = list(map(lambda q: q.strip(), query.split('$')))
+        queries = list(map(lambda q: q.strip(), query.split(',')))
 
-        results = {}
+        results = []
 
         if not isinstance(self.times, List):
             self.times = [self.times]
@@ -287,13 +227,16 @@ class Raw(Operator, ArchiveDependent):
                 try:
                     # TODO: Can AST object be compiled and then evaled (without turning to string)?
                     result = eval(ast2str(replacer.visit(ast.parse(query))))
-                    result = (result,)
+                    if not isinstance(result, Iterable):
+                        result = (result,)
                 except IndexError:
                     result = [None] * len(queries)
 
-                results[t] = ({self.key_maker(q): r for q, r in zip(queries, result)}, replacer.replacements)
+                results.append(EvalResultEntry(t,
+                                               [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)],
+                                               replacer.replacements))
 
-        return results
+        return EvalResult(results)
 
     def _resolve_names(self, names: Set[str], line_no: int, time: int) -> ExpressionMapper:
         """
@@ -303,23 +246,35 @@ class Raw(Operator, ArchiveDependent):
         :param time: The time in which the object's value should be resolved.
         :return:
         """
-        return {name: self.archive.find_by_line_no(name, line_no, time)[name] for name in names}
+
+        resolved = {name: self.archive.find_by_line_no(name, line_no, time)[name] for name in names}
+        if self.query_locals:
+            resolved.update({name: self.query_locals[time][name].value for name in names})
+
+        return resolved
 
     def _resolve_attributes(self, attributes: Set[str], line_no: int, time: int) -> ExpressionMapper:
-        return {attr: self.archive.find_by_line_no(attr, line_no, time)[attr] for attr in attributes}
+        resolved = {attr: self.archive.find_by_line_no(attr, line_no, time)[attr] for attr in attributes}
+
+        if self.query_locals:
+            resolved.update(
+                {attr: self.query_locals[time][attr.split('.')[1]].value for attr in attributes})
+
+        return resolved
 
     def _get_args(self) -> Collection['Operator']:
         return []
 
 
 class Const(Operator):
+    CONST_KEY = 'CONST'
 
-    def __init__(self, const):
-        super(Const, self).__init__(None)
+    def __init__(self, const, times: Union[range, List[range]] = None):
+        super(Const, self).__init__(times if times else [range(0, 1)])
         self.const = const
 
     def eval(self):
-        return self.const
+        return EvalResult([EvalResultEntry(t, [EvalResultPair(Const.CONST_KEY, self.const)], []) for t in self.times])
 
     def _get_args(self) -> Collection['Operator']:
         return []
@@ -351,16 +306,17 @@ class Next(UniLateralOperator):
     """
 
     def eval(self):
-        formula = self.first.eval()
-        if formula is bool:
+        formula_result = self.first.eval()
+        if formula_result is bool:
             """
             Next(T) = T
             Next(F) = F
             """
-            return formula
+            return formula_result
 
-        first = first_satisfaction(formula)
-        return {t: formula[t] if t != first else ({k: False for k in formula[t][0]}, formula[t][1]) for t in formula}
+        first = formula_result.first_satisfaction()
+
+        return [r if r.time != first.time else r.create_const_copy(False) for r in formula_result]
 
 
 class Until(BiLateralOperator):
@@ -394,7 +350,7 @@ class Until(BiLateralOperator):
                 """
                 ω ⊨ U(ϕ, T) ↔ ∃i >= 0, ω_i ⊨ ϕ  
                 """
-                return {t: r for (t, r) in first.items() if t >= first_satisfaction(first)}
+                return [r for r in first if r.time >= first.first_satisfaction().time]
 
             return False
 
@@ -402,11 +358,11 @@ class Until(BiLateralOperator):
         """
         ω ⊨ U(ϕ, ψ) ↔ ∃i >= 0, ω_i ⊨ ψ ∧ ∀ <= 0 k <= i, ω_k ⊨ ϕ  
         """
-        formula2_first_satisfaction = first_satisfaction(second)
+        formula2_first_satisfaction = second.first_satisfaction()
         if not formula2_first_satisfaction:
             return False
 
-        return {t: r1 for (t, r1) in first.items() if t <= formula2_first_satisfaction and r1[0]}
+        return [r for r in first if r.time <= formula2_first_satisfaction.time and r.satisfies()]
 
 
 class Or(BiLateralOperator):
@@ -423,14 +379,18 @@ class Or(BiLateralOperator):
                 return True
 
             return second
-
         if isinstance(first, EvalResult) and isinstance(second, bool):
             if second:
                 return True
 
             return first
 
-        return {t: (r1[0] or r2[0], r1[1] + r2[1]) for t, r1 in first.items() for t2, r2 in second.items() if t == t2}
+        #
+        # FIXME: How do boolean operators fit in the DSL? What is the meaning of
+        #        Or('x': 1, 'y': 2)?
+        return []
+        # return [EvalResult([EvalResultEntry(e1.time, [EvalResultPair(e)]) for e1 in first for e2 in second])]
+        # return {t: (r1[0] or r2[0], r1[1] + r2[1]) for t, r1 in first.items() for t2, r2 in second.items() if t == t2}
 
 
 class Not(UniLateralOperator):
@@ -440,7 +400,9 @@ class Not(UniLateralOperator):
         if isinstance(first, bool):
             return not first
 
-        return {t: ({k: not v[0][k] if v[0][k] is not None else None for k in v[0]}, v[1]) for t, v in first.items()}
+        # FIXME: See note in Or
+        # return {t: ({k: not v[0][k] if v[0][k] is not None else None for k in v[0]}, v[1]) for t, v in first.items()}
+        return []
 
 
 class And(BiLateralOperator):
@@ -472,21 +434,12 @@ class First(UniLateralOperator):
 
     def eval(self):
         first = self.first.eval()
-        if isinstance(first, bool):
-            """
-                Q(T) = T
-                Q(F) = F
-            """
-            return first
 
-        first_result = min(filter(lambda t: satisfies(first, t), first))
+        first_result = first.first_satisfaction()
         if not first_result:
-            return False
+            return EvalResult.EMPTY()
 
-        return {
-            t: ({k: False for k in first[t][0]}, first[t][1]) if t != first_result
-            else first[t] for t in self.times
-        }
+        return EvalResult([first_result])
 
 
 class Last(UniLateralOperator):
@@ -496,14 +449,7 @@ class Last(UniLateralOperator):
 
     def eval(self):
         first = self.first.eval()
-        if isinstance(first, bool):
-            return first
-
-        last = max(filter(lambda t: satisfies(first, t), first))
-        if not last:
-            return False
-
-        return {last: first[last]}
+        return EvalResult([first.last_satisfaction()])
 
 
 class Where(BiLateralOperator):
@@ -513,17 +459,10 @@ class Where(BiLateralOperator):
 
     def eval(self):
         condition: EvalResult = self.second.eval()
-        if isinstance(condition, bool):
-            if condition:
-                return self.first.eval()
-
-            # TODO: Should be False?
-            return {}
 
         # Set times for selector with the results given by condition's eval.
-        self.first.times = filter(lambda t: satisfies(condition, t), condition)
-        selector = self.first.eval()
-        return selector
+        self.first.update_times(condition.satisfaction_ranges())
+        return self.first.eval()
 
 
 class Union(VariadicLateralOperator):
@@ -532,15 +471,7 @@ class Union(VariadicLateralOperator):
     """
 
     def eval(self):
-        if not self.args:
-            return {}
-
-        res: EvalResult = self.args[0].eval()
-
-        for arg in self.args[1:]:
-            res.update(SemanticsUtils.join_results(res, arg.eval()))
-
-        return res
+        return reduce(lambda r1, r2: EvalResult.join(r1, r2), map(lambda arg: arg.eval(), self.args), EvalResult.EMPTY)
 
 
 class Align(BiLateralOperator):
@@ -757,7 +688,8 @@ class TimeOperator(Operator):
 
     def eval(self):
         results = self.op.eval()
-        return {t: ({TimeOperator.TIME_KEY: satisfies(results, t)}, results[t][1]) for t in results.keys()}
+        return EvalResult(
+            [EvalResultEntry(e.time, [EvalResultPair(TimeOperator.TIME_KEY, e.satisfies())], []) for e in results])
 
     def _get_args(self) -> Collection['Operator']:
         return [self.op]
@@ -772,8 +704,8 @@ class TimeFilter(BiLateralOperator):
         first = TimeOperator(self.first).eval()
         second = TimeOperator(self.second).eval()
 
-        results = {}
-        for t in set(first.keys()).union(second.keys()):
+        results = []
+        for t in set(first.ti).union(second.keys()):
             satisfaction = satisfies(first, t) and satisfies(second, t)
             replacements = list(set(first[t][1] + second[t][1]))
             results[t] = {TimeOperator.TIME_KEY: satisfaction}, replacements
@@ -807,32 +739,31 @@ class TimeFilter(BiLateralOperator):
         return ranges
 
 
-class VarSelector(BiLateralOperator, ArchiveDependent):
+class VarSelector(UniLateralOperator, ArchiveDependent):
     """
-        VarSelector(<start>, <end>): Selects all vars that were changed in t: <start> <= t <= <end>
+        VarSelector(<time_range>): Selects all vars that were changed in a time range.
     """
 
     VARS_KEY = 'vars'
 
-    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator, second: Operator):
-        BiLateralOperator.__init__(self, times, first, second)
+    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator):
+        UniLateralOperator.__init__(self, times, first)
         ArchiveDependent.__init__(self, archive)
-        self.archive: Archive = archive
 
     def eval(self):
-        time_ranges = TimeFilter(self.times, self.first, self.second).eval_ranges()
+        results = []
+        for time_range in self.first.eval().satisfaction_ranges():
+            v = self._get_all_vars(time_range)
 
-        results = {}
-        for time_range in time_ranges:
-            vars = self._get_all_vars(time_range)
-            results.update([(t, ({VarSelector.VARS_KEY: vars}, [])) for t in time_range])
+            results.extend([EvalResultEntry(t, [EvalResultPair(VarSelector.VARS_KEY, v)], []) for t in time_range])
 
-        return results
+        return EvalResult(results)
 
     def _get_all_vars(self, time_range: range):
         assignments = self.archive.get_all_assignments_in_time_range(time_range.start, time_range.stop)
         # TODO: re.match("<class '.*'>", ...) is a patch for not showing the automatic __AS__ of inner fields.
-        return list(set(filter(lambda v: not re.match("<class '.*'>", v), map(lambda r: r[1].expression, assignments))))
+        return list(
+            set(filter(lambda v: not re.match("<class '.*'>|__.*", v), map(lambda r: r[1].expression, assignments))))
 
 
 class Diff(BiLateralOperator):
