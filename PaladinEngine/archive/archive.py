@@ -141,6 +141,15 @@ class Archive(object):
 
         return self
 
+    def store_with_original_time(self, record_key: Record.RecordKey, record_value: Record.RecordValue):
+        if record_key not in self.records:
+            self.records[record_key] = []
+
+        # Add to records.
+        self.records[record_key].append(record_value)
+
+        return self
+
     def retrieve(self, record_key: Record.RecordKey) -> Optional[Record]:
         return self.records[record_key]
 
