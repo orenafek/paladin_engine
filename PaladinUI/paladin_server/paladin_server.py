@@ -11,6 +11,7 @@ from PaladinEngine.engine.engine import PaLaDiNEngine
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator, QUERY_DSL_WORDS
 from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
+from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from common.common import ISP
 
 NAME = 'PaLaDiN Debug Server'
@@ -182,10 +183,10 @@ class PaladinServer(FlaskView):
             PaladinServer._present_archive_entries(
                 ARCHIVE.get_all_assignments_in_time_range(from_time, to).items()))
 
-    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<int:line_no>')
-    def query(self, select_query: str, start_time: int, end_time: int, line_no: int):
-        pdslp = PaladinDSLParser.create(ARCHIVE, start_time, end_time, line_no)
-        return PaladinServer.create_response(pdslp.parse_and_summarize(select_query))
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>')
+    def query(self, select_query: str, start_time: int, end_time: int):
+        parser = PaladinNativeParser(ARCHIVE)
+        return PaladinServer.create_response(parser.parse(select_query, start_time, end_time))
 
     @route('/debug_info/docs')
     def docs(self):

@@ -4,9 +4,9 @@
     <td> Time Range</td>
     <td v-for="h in headline"> {{ h }}</td>
     </thead>
-    <tr v-for="entry in Object.entries(sortedEntries)">
-      <td> {{ entry[0] }}</td>
-      <td v-for="result in entry[1][0]"> {{ result }}</td>
+    <tr v-for="i in time_ranges.length">
+      <td> {{ time_ranges[i - 1] }}</td>
+      <td v-for="k in headline.length"> {{ result(i - 1, k - 1) }}</td>
     </tr>
   </table>
 </template>
@@ -21,20 +21,29 @@ export default {
     sortedEntries() {
       return this.isEmpty(this.value) ? {} : JSON.parse(this.value);
     },
-    time_ranges() {
-      return Object.keys(Object.values(this.sortedEntries)[0]);
+
+    headlineIndex() {
+      return Object.keys(this.sortedEntries).indexOf('keys')
     },
 
     headline() {
-      return Object.keys(this.sortedEntries);
+      return Object.values(this.sortedEntries)[this.headlineIndex];
     },
 
+    time_ranges() {
+      const allKeys = Object.keys(this.sortedEntries);
+
+      /* Remove keys index. */
+      allKeys.splice(this.headlineIndex, 1);
+
+      return allKeys;
+    },
 
   },
   methods: {
     isEmpty: o => JSON.stringify(o) === "{}",
-    result(key_index, range_index) {
-      return Object.values(Object.values(this.sortedEntries)[key_index])[range_index];
+    result(range_index, key_index) {
+      return Object.values(Object.values(this.sortedEntries)[range_index])[key_index];
     }
   }
 }
