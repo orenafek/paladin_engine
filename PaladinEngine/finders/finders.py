@@ -1,7 +1,8 @@
 import ast
+from _ast import AST
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional, List, Type, Any, NamedTuple
+from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
 
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
@@ -50,7 +51,7 @@ class GenericFinder(ABC, ast.NodeVisitor):
         super().__init__()
 
         # Initialize the found entries.
-        self.__entries = []
+        self._entries: List[StubEntry] = []
 
         # A list for keeping track of the nodes being visited by this visitor.
         self.__visited_notes = []
@@ -86,13 +87,13 @@ class GenericFinder(ABC, ast.NodeVisitor):
             self._containers.insert(0, node)
 
             # Search in direct children nodes.
-            for attr_name, child_node in GenericFinder.__iter_child_nodes(node):
+            for attr_name, child_node in GenericFinder._iter_child_nodes(node):
 
                 # Check if this node should be visited.
                 if self._should_visit(node, child_node):
                     # Visit and keep the extra information created by the visit in this node.
                     extra = super().visit(child_node)
-                    # If there is an extra information, this child node should be stored for later reference.
+                    # If there is extra information, this child node should be stored for later reference.
                     if self._should_store_entry(extra):
                         self._store_entry(StubEntry(child_node, attr_name, child_node.lineno, node, extra))
                     else:
@@ -119,16 +120,11 @@ class GenericFinder(ABC, ast.NodeVisitor):
         # Get the types that this visitor is searching for.
         types_to_find = self.types_to_find()
 
-        # If the types to find is a list of types.
-        if type(types_to_find) is list:
-            # Search in the list.
-            return type(child_node) in types_to_find
-
-        # The type is singular, check if the child_node's type matches it.
-        return types_to_find is type(child_node)
+        return any([isinstance(child_node, t) for t in types_to_find]) \
+            if isinstance(types_to_find, Iterable) else isinstance(child_node, types_to_find)
 
     @staticmethod
-    def __iter_child_nodes(node):
+    def _iter_child_nodes(node) -> Tuple[str, ast.AST]:
         """
         Yield all direct child nodes of *node*, that is, all fields that are nodes
         and all items of fields that are lists of nodes.
@@ -151,7 +147,7 @@ class GenericFinder(ABC, ast.NodeVisitor):
                     if isinstance(item, ast.AST) and item is child_node:
                         return name
 
-    def find(self) -> list:
+    def find(self) -> List[StubEntry]:
         """
             Returns the results of the find.
         :return:
@@ -159,7 +155,7 @@ class GenericFinder(ABC, ast.NodeVisitor):
         if not self.__visited_notes:
             raise NotVisitedException()
 
-        return self.__entries
+        return self._entries
 
     @abstractmethod
     def types_to_find(self) -> Union:
@@ -176,7 +172,19 @@ class GenericFinder(ABC, ast.NodeVisitor):
         :param: entry: A StubEntry.
         :return: None
         """
-        self.__entries.append(entry)
+        self._entries.append(entry)
+
+    def _get_visited_node_extra(self, node) -> Optional[object]:
+        """
+            Get an extra object of a visited node, if such exist.
+        @param node: A (most likely previously visited) node.
+        @return: The extra object if one could have been found.
+        """
+        for e in self._entries:
+            if e.node == node:
+                return e.extra
+
+        return None
 
     def _extract_extra(self, node: ast.AST):
         """
@@ -212,6 +220,26 @@ class GenericFinder(ABC, ast.NodeVisitor):
             return None
 
         return self.visit(node)
+
+
+class ContainerFinder(GenericFinder):
+
+    def __init__(self, child_node: ast.AST):
+        super().__init__()
+        self.target_child_node = child_node
+        self.container = None
+        self.attr_name = None
+
+    def visit(self, node) -> Optional[Tuple[ast.AST, str]]:
+        for attr_name, child_node in GenericFinder._iter_child_nodes(node):
+            if id(child_node) == id(self.target_child_node):
+                self.container = node
+                self.attr_name = attr_name
+
+        return self.generic_visit(node)
+
+    def types_to_find(self) -> Union:
+        return ast.AST
 
 
 class FinderByString(GenericFinder):

@@ -26,7 +26,7 @@ class EvalResultPair(object):
         return isinstance(other, EvalResultPair) and self.key == other.key and self.value == other.value
 
 
-class EvalResultEntry(object):
+class EvalResultEntry(dict):
 
     def __init__(self, time: Time, results: List[EvalResultPair], replacements: Optional[List[Replacement]]) -> None:
         self.time = time
@@ -34,6 +34,8 @@ class EvalResultEntry(object):
         self.replacements = replacements
         for p in results:
             self.__setattr__(p.key, p.value)
+
+        dict.__init__(self, **{p.key: p.value for p in results})
 
     def create_const_copy(self, c: object):
         """
@@ -43,7 +45,7 @@ class EvalResultEntry(object):
 
     @property
     def keys(self) -> Iterable[str]:
-        return {rr.key for rr in self.results}
+        return list({rr.key for rr in self.results})
 
     @property
     def values(self) -> Iterable[Optional[object]]:
@@ -53,8 +55,8 @@ class EvalResultEntry(object):
         return all([r.value is not None and r.value is not False for r in self.results])
 
     @classmethod
-    def empty(cls) -> 'EvalResultEntry':
-        return EvalResultEntry(-1, [], [])
+    def empty(cls, t: Time = -1) -> 'EvalResultEntry':
+        return EvalResultEntry(t, [], [])
 
     @staticmethod
     def join(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> 'EvalResultEntry':
@@ -73,6 +75,19 @@ class EvalResultEntry(object):
     def __getattr__(self, item):
         # TODO: fix.
         pass
+
+    def replace_key(self, key: str, new_key: str) -> 'EvalResultEntry':
+        item = self[key]
+        if not item:
+            raise RuntimeError(f'{key} is not a valid key.')
+
+        self.results.remove(item)
+        self.results.append(EvalResultPair(new_key, item.value))
+
+        self.__delitem__(key)
+        self.__setitem__(new_key, item.value)
+        return self
+
 
 class EvalResult(List[EvalResultEntry]):
     EMPTY = []
@@ -118,11 +133,14 @@ class EvalResult(List[EvalResultEntry]):
         return ranges
 
     @staticmethod
-    def _create_key(entries: List[int]):
+    def _create_key(entries: Iterable[int]):
         return str((min(entries), max(entries)))
 
     def all_keys(self) -> Iterable[str]:
-        return reduce(lambda s, keys: s.union(keys), map(lambda e: e.keys, self))
+        return reduce(lambda s, keys: s.union(keys), map(lambda e: set(e.keys), self))
+
+    def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
+        return {k: e[k].value if e[k] else None for k in self.all_keys()}
 
     def group(self) -> Dict:
         if len(self) == 0:
@@ -130,24 +148,30 @@ class EvalResult(List[EvalResultEntry]):
 
         res = {}
 
-        for k in self.all_keys():
-            res[k] = {}
-            val = None
+        rng = []
+        vals = None
+        for e in self:
+            if not vals:
+                # New range.
+                vals = self.create_results_dict(e)
+                rng.append(e.time)
+                continue
+
+            new_vals = self.create_results_dict(e)
+
+            # If the same as the value before, extend the range.
+            if new_vals == vals:
+                rng.append(e.time)
+                continue
+
+            # Otherwise, the range is complete, add it to res.
+            res[EvalResult._create_key(rng)] = vals
+            vals = None
             rng = []
-            for e in self:
-                if not val:
-                    val = e.__getitem__(k)
-                    continue
-                if not rng:
-                    rng.append(e.time)
 
-                if e.__getitem__(k) == val:
-                    rng.append(e.time)
-                    continue
-
-                res[k][EvalResult._create_key(rng)] = val.value
-                val = None
-                rng.clear()
+        # Add last range if such exist.
+        if rng and vals:
+            res[EvalResult._create_key(rng)] = vals
 
         return res
 
@@ -182,6 +206,17 @@ class EvalResult(List[EvalResultEntry]):
             return EvalResultEntry.empty()
 
         return matches_time[0]
+
+    @classmethod
+    def empty(cls, time_range: Iterable[Time]) -> 'EvalResult':
+        return EvalResult([EvalResultEntry.empty(t) for t in time_range])
+
+    def rename_key(self, var_name: str, operator_original_name: str) -> 'EvalResult':
+        for e in self:
+            for k in e.keys:
+                if var_name in k:
+                    e.replace_key(k, k.replace(var_name, operator_original_name))
+        return self
 
 
 EvalFunction = Callable[[int, int, int, int], EvalResult]

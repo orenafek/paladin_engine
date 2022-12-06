@@ -15,6 +15,7 @@ from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import *
 from ast_common.ast_common import *
+from common.common import IS_ITERABLE
 from stubs.stubs import __AS__
 
 SemanticsArgType = Union[bool, EvalResult]

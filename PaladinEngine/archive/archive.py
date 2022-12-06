@@ -187,29 +187,36 @@ class Archive(object):
         return data_frame.to_markdown(index=True)
 
     def build_object(self, object_id: int, time: int = -1) -> Union[List[Dict], Tuple]:
-        def time_filter(rv: Archive.Record.RecordValue):
-            return rv.time <= time if time != -1 else True
+        try:
+            def time_filter(rv: Archive.Record.RecordValue):
+                return rv.time <= time if time != -1 else True
 
-        relevant_records = [(rk, v) for rk, rv in self.records.items() if
-                            rk.container_id == object_id and rk.stub_name == '__AS__' for v in rv if time_filter(v)]
-        # noinspection PyTypeChecker
-        d = {
-            rk.field: v.value if ISP(v.rtype) else self.build_object(v.value, time)
-            for rk, v in relevant_records
-        }
+            relevant_records = [(rk, v) for rk, rv in self.records.items() if
+                                rk.container_id == object_id and rk.stub_name == '__AS__' for v in rv if time_filter(v)]
+            # noinspection PyTypeChecker
+            d = {
+                rk.field: v.value if ISP(v.rtype) else self.build_object(v.value, time)
+                for rk, v in relevant_records
+            }
 
-        # TODO: Patchy...
-        if any([isinstance(f, int) for f in d.keys()]):
-            if list.__name__ in relevant_records[0][1].expression:
-                return list(d.values())
-            elif tuple.__name__ in relevant_records[0][1].expression:
-                return tuple(d.values())
-            elif relevant_records[0][1].rtype == list:
-                return list(d.values())
-            elif relevant_records[0][1].rtype == tuple:
-                return tuple(d.values())
+            # TODO: Patchy...
+            if any([isinstance(f, int) for f in d.keys()]):
+                if list.__name__ in relevant_records[0][1].expression:
+                    return list(d.values())
+                elif tuple.__name__ in relevant_records[0][1].expression:
+                    return tuple(d.values())
+                elif relevant_records[0][1].rtype == list:
+                    return list(d.values())
+                elif relevant_records[0][1].rtype == tuple:
+                    return tuple(d.values())
 
-        return [dict(zip(keys, values)) for keys, values in product([d.keys()], zip(*d.values()))]
+                # FIXME: Assuming the object to build is a dict in-which one of its keys is an integer.
+                return d
+
+            return [dict(zip(keys, values)) for keys, values in product([d.keys()], zip(*d.values()))]
+
+        except TypeError as e:
+            pass
 
     def search_web(self, expression: str):
         def search_web_inner(container_id, field):
@@ -434,7 +441,7 @@ class Archive(object):
         return NodeFinder(self).visit(parse(expression).body[0]).values
 
     def find_events(self, line_no: int) -> List[Tuple[Rk, Rv]]:
-        return self.flatten_and_filter([lambda vv: vv.line_no == line_no])
+        return self.flatten_and_filter(lambda vv: vv.line_no == line_no)
 
     @property
     def last_time(self) -> int:

@@ -81,7 +81,7 @@ class Stubber(ABC, ast.NodeTransformer):
             else:
                 self.replace = [replace]
 
-    class _AfterStubRecord(_StubRecord):
+    class AfterStubRecord(_StubRecord):
         def __init__(self,
                      original: AST,
                      container: AST,
@@ -115,7 +115,7 @@ class Stubber(ABC, ast.NodeTransformer):
 
             return container_with_stub
 
-    class _BeforeStubRecord(_StubRecord):
+    class BeforeStubRecord(_StubRecord):
         """
             A stub record for stubbing at the beginning of the container.
         """
@@ -150,7 +150,7 @@ class Stubber(ABC, ast.NodeTransformer):
             else:
                 return self.replace
 
-    class _ReplacingStubRecord(_StubRecord):
+    class ReplacingStubRecord(_StubRecord):
         """
             A stub record for replacing a node with another instead.
         """
@@ -204,7 +204,7 @@ class Stubber(ABC, ast.NodeTransformer):
             except BaseException as e:
                 print(e)
 
-    class _ListReplacingStubRecord(_ReplacingStubRecord):
+    class ListReplacingStubRecord(ReplacingStubRecord):
         """
             A stub record for replacing a node with another instead.
         """
@@ -301,7 +301,7 @@ class Stubber(ABC, ast.NodeTransformer):
         except BaseException as e:
             print(e)
 
-    def _stub(self, stub_record: _StubRecord) -> ast.Module:
+    def stub(self, stub_record: _StubRecord) -> ast.Module:
         """
             Stub the target node with the provided stub.
         :param stub_record: (Stubber._StubRecord) The stub record.
@@ -348,10 +348,10 @@ class LoopStubber(Stubber):
         :return: (ast.Module) The module containing the loop.
         """
         # Create a stub record.
-        stub_record = Stubber._BeforeStubRecord(loop_node, container, attr_name, stub)
+        stub_record = Stubber.BeforeStubRecord(loop_node, container, attr_name, stub)
 
         # Stub.
-        self._stub(stub_record)
+        self.stub(stub_record)
 
         # Return the module.
         return self.root_module
@@ -372,8 +372,8 @@ class ForLoopStubber(LoopStubber):
         for_target_assignment = ast.Assign(targets=[for_loop_node.target], ctx=ast.Store(), value=new_for_target)
 
         # Override target.
-        self._stub(
-            Stubber._ReplacingStubRecord(for_loop_node.target, for_loop_node, 'target', new_for_target))
+        self.stub(
+            Stubber.ReplacingStubRecord(for_loop_node.target, for_loop_node, 'target', new_for_target))
 
         # Override body.
         for_loop_node.body.insert(0, for_target_assignment)
@@ -407,8 +407,8 @@ class MethodStubber(Stubber):
         """
 
         # Create a stub record.
-        stub_record = Stubber._BeforeStubRecord(method_node, container, attr_name, stub)
-        return self._stub(stub_record)
+        stub_record = Stubber.BeforeStubRecord(method_node, container, attr_name, stub)
+        return self.stub(stub_record)
 
     def stub_postcondition(self, method_node: ast.FunctionDef, _, __, stub: AST) -> Module:
         """
@@ -423,8 +423,8 @@ class MethodStubber(Stubber):
         last_element_in_method = method_node.body[-1]
 
         # Create a stub record.
-        stub_record = Stubber._AfterStubRecord(last_element_in_method, method_node, 'body', stub)
-        return self._stub(stub_record)
+        stub_record = Stubber.AfterStubRecord(last_element_in_method, method_node, 'body', stub)
+        return self.stub(stub_record)
 
 
 class AssignmentStubber(Stubber):
@@ -463,8 +463,8 @@ class AssignmentStubber(Stubber):
         try:
 
             # Create a stub record.
-            stub_record = Stubber._AfterStubRecord(assignment_node, container, attr_name, stub)
-            return self._stub(stub_record)
+            stub_record = Stubber.AfterStubRecord(assignment_node, container, attr_name, stub)
+            return self.stub(stub_record)
         except BaseException as e:
             print(e)
 
@@ -488,10 +488,10 @@ class FunctionCallStubber(Stubber):
                                       keywords=stub_kwargs)
 
             # Create a stub record.
-            stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, stub_func_call)
+            stub_record = Stubber.ReplacingStubRecord(node, container, attr_name, stub_func_call)
 
             # Stub.
-            self.root_module = self._stub(stub_record)
+            self.root_module = self.stub(stub_record)
             assert_not_raise(ast2str, self.root_module)
 
             # Create a stub record.
@@ -520,15 +520,15 @@ class FunctionDefStubber(Stubber):
             node.body += [return_stub, return_none_stub]
 
         # Stub prefix and last return statement (if needed).
-        stub_record = Stubber._ReplacingStubRecord(node, container, attr_name, node)
-        self.root_module = self._stub(stub_record)
+        stub_record = Stubber.ReplacingStubRecord(node, container, attr_name, node)
+        self.root_module = self.stub(stub_record)
 
         # Append a return stub for each return statement.
         for rs in return_stub_entries:
             # Filter return statements of inner functions.
             if find_closest_parent(rs.node, node, ast.FunctionDef) == node:
-                self.root_module = self._stub(
-                    Stubber._BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub))
+                self.root_module = self.stub(
+                    Stubber.BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub))
 
         return self.root_module
 
@@ -550,9 +550,9 @@ class AttributeAccessStubber(Stubber):
                               container: ast.AST,
                               container_attr_name: str,
                               stub: object):
-        stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name, stub)
+        stub_record = Stubber.ReplacingStubRecord(node, container, container_attr_name, stub)
 
-        self.root_module = self._stub(stub_record)
+        self.root_module = self.stub(stub_record)
 
         return self.root_module
 
@@ -570,9 +570,9 @@ class AugAssignStubber(Stubber):
                                         value=ast.BinOp(left=node.target, op=node.op, right=node.value))
         temp_reassign = ast.Assign(targets=[node.target], ctx=ast.Store, value=ast.Name(id=temp_var))
 
-        stub_record = Stubber._ReplacingStubRecord(node, container, container_attr_name,
-                                                   [temp_op_and_assign, temp_reassign])
-        self.root_module = self._stub(stub_record)
+        stub_record = Stubber.ReplacingStubRecord(node, container, container_attr_name,
+                                                  [temp_op_and_assign, temp_reassign])
+        self.root_module = self.stub(stub_record)
         return self.root_module
 
     @property
@@ -588,13 +588,13 @@ class EnfOfFunctionReturnStatementStubber(Stubber):
         super().__init__(root_module)
 
     def stub_end_of_function_return_statement(self, node: ast.FunctionDef, rtrn: ast.Return):
-        stub_record = Stubber._AfterStubRecord(node.body[::-1][0], node, 'body', rtrn)
-        self.root_module = self._stub(stub_record)
+        stub_record = Stubber.AfterStubRecord(node.body[::-1][0], node, 'body', rtrn)
+        self.root_module = self.stub(stub_record)
         return self.root_module
 
 
 class BreakStubber(Stubber):
     def stub_breaks(self, node: ast.Break, container: ast.AST, attr_name: str, stub: ast.Call):
-        stub_record = Stubber._BeforeStubRecord(node, container, attr_name, stub)
-        self._stub(stub_record)
+        stub_record = Stubber.BeforeStubRecord(node, container, attr_name, stub)
+        self.stub(stub_record)
         return self.root_module
