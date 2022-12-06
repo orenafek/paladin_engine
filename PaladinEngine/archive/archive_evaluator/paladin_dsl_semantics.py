@@ -104,9 +104,10 @@ class SemanticsUtils(object):
 class Operator(ABC):
 
     def __init__(self, times: Optional[Iterable[Time]] = None):
-        self.times = times
+        self._times = times
 
-    def eval(self) -> EvalResult:
+    def eval(self, archive: Optional[Archive] = None,
+             query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
         raise NotImplementedError()
 
     @classmethod
@@ -114,9 +115,24 @@ class Operator(ABC):
         return cls.__name__
 
     # @abstractmethod
-    # def create_eval(self, *args):
+    # def create_eval(self, archive: Optional[Archive] = None, *args):
     #     # *[(f, parser) for f in (args[2].asList())[0][1:]]
     #     return self.eval
+
+    @property
+    def times(self):
+        if isinstance(self._times, range):
+            return self._times
+
+        # Assuming here that _times is an iterable of ranges.
+        if IS_ITERABLE(self._times):
+            return reduce(lambda times, rng: times + list(rng), self._times, [])
+
+        return self._times
+
+    @times.setter
+    def times(self, value):
+        self._times = value
 
     def _get_args(self) -> Collection['Operator']:
         raise NotImplementedError()
@@ -129,9 +145,6 @@ class Operator(ABC):
             a.update_times(times)
 
         return self
-
-    def __call__(self) -> Any:
-        raise self.eval()
 
     @classmethod
     def all(cls) -> List[Type['Operator']]:
@@ -185,61 +198,51 @@ class VariadicLateralOperator(Operator, ABC):
         return self.args
 
 
-class ArchiveDependent(object):
-    def __init__(self, archive: Archive):
-        self.archive = archive
+class Raw(Operator):
 
-
-class Raw(Operator, ArchiveDependent):
-
-    def __init__(self, archive: Archive, query: str, line_no: Optional[int] = -1,
-                 times: Optional[Iterable[Time]] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def __init__(self, query: str, line_no: Optional[int] = -1,
+                 times: Optional[Iterable[Time]] = None):
         Operator.__init__(self, times)
-        ArchiveDependent.__init__(self, archive)
         self.query = query
         self.line_no = line_no
-        self.query_locals = query_locals
 
-    def eval(self):
-        return self._eval_raw_query(self.query)
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        # Extract names to resolve from the archive.
+        extractor = ArchiveEvaluator.SymbolExtractor()
+        extractor.visit(str2ast(self.query))
+
+        # Split query into sub queries.
+        queries = list(map(lambda q: q.strip(), self.query.split(',')))
+
+        results = []
+
+        for t in self.times:
+            resolved_names = Raw._resolve_names(archive, extractor.names, self.line_no, t, query_locals)
+            resolved_attributes = Raw._resolve_attributes(archive, extractor.attributes, self.line_no, t,
+                                                          query_locals)
+
+            replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
+            try:
+                # TODO: Can AST object be compiled and then evaled (without turning to string)?
+                result = eval(ast2str(replacer.visit(ast.parse(self.query))))
+                if not isinstance(result, Iterable):
+                    result = (result,)
+            except IndexError:
+                result = [None] * len(queries)
+            except KeyError:
+                result = [None] * len(queries)
+            results.append(EvalResultEntry(t,
+                                           [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)],
+                                           replacer.replacements))
+
+        return EvalResult(results)
 
     def create_key(self, query: str):
         return f'{query}{SCOPE_SIGN}{self.line_no}' if self.line_no is not None and self.line_no != -1 else f'{query}'
 
-    def _eval_raw_query(self, query: str) -> EvalResult:
-        # Extract names to resolve from the archive.
-        extractor = ArchiveEvaluator.SymbolExtractor()
-        extractor.visit(str2ast(query))
-
-        # Split query into sub queries.
-        queries = list(map(lambda q: q.strip(), query.split(',')))
-
-        results = []
-
-        if not isinstance(self.times, List):
-            self.times = [self.times]
-
-        for r in self.times:
-            for t in r:
-                resolved_names = self._resolve_names(extractor.names, self.line_no, t)
-                resolved_attributes = self._resolve_attributes(extractor.attributes, self.line_no, t)
-
-                replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
-                try:
-                    # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                    result = eval(ast2str(replacer.visit(ast.parse(query))))
-                    if not isinstance(result, Iterable):
-                        result = (result,)
-                except IndexError:
-                    result = [None] * len(queries)
-
-                results.append(EvalResultEntry(t,
-                                               [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)],
-                                               replacer.replacements))
-
-        return EvalResult(results)
-
-    def _resolve_names(self, names: Set[str], line_no: int, time: int) -> ExpressionMapper:
+    @staticmethod
+    def _resolve_names(archive: Archive, names: Set[str], line_no: int, time: int,
+                       query_locals: Dict[str, EvalResult]) -> ExpressionMapper:
         """
             Resolves the values of the objects in names from the archive.
         :param names: A set of names to resolve.
@@ -248,18 +251,22 @@ class Raw(Operator, ArchiveDependent):
         :return:
         """
 
-        resolved = {name: self.archive.find_by_line_no(name, line_no, time)[name] for name in names}
-        if self.query_locals:
-            resolved.update({name: self.query_locals[time][name].value for name in names})
+        resolved = {name: archive.find_by_line_no(name, line_no, time)[name] for name in names}
+        if query_locals:
+            resolved.update({name: query_locals[name][time].value for name in names if name in query_locals})
 
         return resolved
 
-    def _resolve_attributes(self, attributes: Set[str], line_no: int, time: int) -> ExpressionMapper:
-        resolved = {attr: self.archive.find_by_line_no(attr, line_no, time)[attr] for attr in attributes}
+    @staticmethod
+    def _resolve_attributes(archive: Archive, attributes: Set[str], line_no: int, time: int,
+                            query_locals: Dict[str, EvalResult]) -> ExpressionMapper:
+        resolved = {attr: archive.find_by_line_no(attr, line_no, time)[attr] for attr in attributes}
 
-        if self.query_locals:
-            resolved.update(
-                {attr: self.query_locals[time][attr.split('.')[1]].value for attr in attributes})
+        if query_locals:
+            for attr in attributes:
+                attr_base = attr.split('.')[0]
+                if attr_base in query_locals:
+                    resolved[attr] = query_locals[time][attr_base].value
 
         return resolved
 
@@ -270,11 +277,11 @@ class Raw(Operator, ArchiveDependent):
 class Const(Operator):
     CONST_KEY = 'CONST'
 
-    def __init__(self, const, times: Union[range, List[range]] = None):
+    def __init__(self, const, times: Iterable[Time] = None):
         super(Const, self).__init__(times if times else [range(0, 1)])
         self.const = const
 
-    def eval(self):
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
         return EvalResult([EvalResultEntry(t, [EvalResultPair(Const.CONST_KEY, self.const)], []) for t in self.times])
 
     def _get_args(self) -> Collection['Operator']:
@@ -286,19 +293,20 @@ TRUE = Const(True)
 
 
 class Globally(UniLateralOperator):
-    def eval(self):
-        return Release(self.times, FALSE, self.first).eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        return Release(self.times, FALSE, self.first).eval(archive)
 
 
 class Release(BiLateralOperator):
 
-    def eval(self):
-        return Not(self.times, Until(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        return Not(self.times, Until(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval(
+            archive)
 
 
 class Finally(UniLateralOperator):
-    def eval(self):
-        return Until(self.times, TRUE, self.first).eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        return Until(self.times, TRUE, self.first).eval(archive)
 
 
 class Next(UniLateralOperator):
@@ -306,8 +314,8 @@ class Next(UniLateralOperator):
         Next(<c>): Returns the second satisfaction of <c> (next after first)
     """
 
-    def eval(self):
-        formula_result = self.first.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        formula_result = self.first.eval(archive)
         if formula_result is bool:
             """
             Next(T) = T
@@ -322,9 +330,9 @@ class Next(UniLateralOperator):
 
 class Until(BiLateralOperator):
 
-    def eval(self):
-        first = self.first.eval()
-        second = self.second.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first = self.first.eval(archive)
+        second = self.second.eval(archive)
 
         if type(first) is bool and type(second) is bool:
             """
@@ -368,9 +376,9 @@ class Until(BiLateralOperator):
 
 class Or(BiLateralOperator):
 
-    def eval(self):
-        first = self.first.eval()
-        second = self.second.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first = self.first.eval(archive)
+        second = self.second.eval(archive)
 
         if isinstance(first, bool) and isinstance(second, bool):
             return first or second
@@ -396,8 +404,8 @@ class Or(BiLateralOperator):
 
 class Not(UniLateralOperator):
 
-    def eval(self):
-        first = self.first.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first = self.first.eval(archive)
         if isinstance(first, bool):
             return not first
 
@@ -407,24 +415,25 @@ class Not(UniLateralOperator):
 
 
 class And(BiLateralOperator):
-    def eval(self):
-        return Not(self.times, Or(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        return Not(self.times, Or(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval(archive)
 
 
 class Before(BiLateralOperator):
 
-    def eval(self):
-        return Until(self.times, Not(self.times, Globally(self.times, Not(self.times, self.first))), self.second).eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        return Until(self.times, Not(self.times, Globally(self.times, Not(self.times, self.first))), self.second).eval(
+            archive)
 
 
 class After(BiLateralOperator):
 
-    def eval(self):
-        return Before(self.times, self.second, self.first).eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        return Before(self.times, self.second, self.first).eval(archive)
 
 
 class AllFuture(UniLateralOperator):
-    def eval(self):
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
         return Globally(self.times, Next(self.times, self.first))
 
 
@@ -433,8 +442,8 @@ class First(UniLateralOperator):
         First(<c>): Selects <c> in the first time it exists.
     """
 
-    def eval(self):
-        first = self.first.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first = self.first.eval(archive)
 
         first_result = first.first_satisfaction()
         if not first_result:
@@ -448,8 +457,8 @@ class Last(UniLateralOperator):
         Last(<c>): Selects <c> in the last time it has a value.
     """
 
-    def eval(self):
-        first = self.first.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first = self.first.eval(archive)
         return EvalResult([first.last_satisfaction()])
 
 
@@ -458,12 +467,20 @@ class Where(BiLateralOperator):
         Where(<selector>, <condition>): Selects <selector> in all times the <condition> is met.
     """
 
-    def eval(self):
-        condition: EvalResult = self.second.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        condition: EvalResult = self.second.eval(archive)
 
         # Set times for selector with the results given by condition's eval.
         self.first.update_times(condition.satisfaction_ranges())
-        return self.first.eval()
+
+        # Create a sparse results-list with the original time range.
+        first_results = self.first.eval(archive)
+
+        return EvalResult(
+            [first_results[time] if time in self.first.times else EvalResultEntry.empty(time)
+             for time in self.times
+             ]
+        )
 
 
 class Union(VariadicLateralOperator):
@@ -471,8 +488,10 @@ class Union(VariadicLateralOperator):
         Union(<c1>, <c2>, ..., <ck>): Selects <c>'s together.
     """
 
-    def eval(self):
-        return reduce(lambda r1, r2: EvalResult.join(r1, r2), map(lambda arg: arg.eval(), self.args), EvalResult.EMPTY)
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        return reduce(lambda r1, r2: EvalResult.join(r1, r2),
+                      map(lambda arg: arg.eval(archive, query_locals), self.args),
+                      EvalResult.EMPTY)
 
 
 class Align(BiLateralOperator):
@@ -506,9 +525,9 @@ class Align(BiLateralOperator):
 
         return self._current_heuristic(r1, r2)
 
-    def eval(self):
-        r1 = self.first.eval()
-        r2 = self.second.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        r1 = self.first.eval(archive)
+        r2 = self.second.eval(archive)
 
         if isinstance(r1, bool) or isinstance(r2, bool):
             raise TypeError("Cannot run Align if any of its operands are bool.")
@@ -565,9 +584,9 @@ class Meld(BiLateralOperator):
         def empty(cls):
             return cls(tuple(), -1, tuple(), [])
 
-    def eval(self):
-        r1 = self.first.eval()
-        r2 = self.second.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        r1 = self.first.eval(archive)
+        r2 = self.second.eval(archive)
 
         if isinstance(r1, bool) or isinstance(r2, bool):
             raise TypeError("Cannot run Meld if any of its operands are bool.")
@@ -658,9 +677,9 @@ class Meld(BiLateralOperator):
 
 
 class NextAfter(BiLateralOperator):
-    def eval(self):
-        a = self.first.eval()
-        b = self.second.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        a = self.first.eval(archive)
+        b = self.second.eval(archive)
 
         if isinstance(a, bool) or isinstance(b, bool):
             raise TypeError('Cannot find NextAfter if either of the queries are bool')
@@ -687,8 +706,8 @@ class TimeOperator(Operator):
         super().__init__(op.times)
         self.op = op
 
-    def eval(self):
-        results = self.op.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        results = self.op.eval(archive)
         return EvalResult(
             [EvalResultEntry(e.time, [EvalResultPair(TimeOperator.TIME_KEY, e.satisfies())], []) for e in results])
 
@@ -701,9 +720,9 @@ class TimeFilter(BiLateralOperator):
         TimeFilter(<c1>,<c2>): Creates a time window of times t in which t ⊨ <c1> and t ⊨ <c2>
     """
 
-    def eval(self):
-        first = TimeOperator(self.first).eval()
-        second = TimeOperator(self.second).eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first = TimeOperator(self.first).eval(archive)
+        second = TimeOperator(self.second).eval(archive)
 
         results = []
         for t in set(first.ti).union(second.keys()):
@@ -714,7 +733,7 @@ class TimeFilter(BiLateralOperator):
         return results
 
     def eval_ranges(self):
-        filtered_times = self.eval()
+        filtered_times = self.eval(archive)
         if not filtered_times:
             return []
 
@@ -740,28 +759,27 @@ class TimeFilter(BiLateralOperator):
         return ranges
 
 
-class VarSelector(UniLateralOperator, ArchiveDependent):
+class VarSelector(UniLateralOperator):
     """
         VarSelector(<time_range>): Selects all vars that were changed in a time range.
     """
 
     VARS_KEY = 'vars'
 
-    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator):
+    def __init__(self, times: Iterable[Time], first: Operator):
         UniLateralOperator.__init__(self, times, first)
-        ArchiveDependent.__init__(self, archive)
 
-    def eval(self):
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
         results = []
-        for time_range in self.first.eval().satisfaction_ranges():
-            v = self._get_all_vars(time_range)
+        for time_range in self.first.eval(archive).satisfaction_ranges():
+            v = self._get_all_vars(archive, time_range)
 
             results.extend([EvalResultEntry(t, [EvalResultPair(VarSelector.VARS_KEY, v)], []) for t in time_range])
 
         return EvalResult(results)
 
-    def _get_all_vars(self, time_range: range):
-        assignments = self.archive.get_all_assignments_in_time_range(time_range.start, time_range.stop)
+    def _get_all_vars(self, archive: Archive, time_range: range):
+        assignments = archive.get_all_assignments_in_time_range(time_range.start, time_range.stop)
         # TODO: re.match("<class '.*'>", ...) is a patch for not showing the automatic __AS__ of inner fields.
         return list(
             set(filter(lambda v: not re.match("<class '.*'>|__.*", v), map(lambda r: r[1].expression, assignments))))
@@ -772,38 +790,37 @@ class Diff(BiLateralOperator):
           Diff(<selector>, <cond>): Selects <selector> when <cond> and t-1 before <cond>
     """
 
-    def eval(self):
-        time_range = self.second.eval()
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        time_range = self.second.eval(archive)
         selector_results = {}
         for r in satisfaction_ranges(time_range):
             self.update_times([r])
             tr = range(r.start - 1, r.start)
-            before_first_results = Where(times=tr, first=self.first.update_times([tr]), second=TRUE).eval()
+            before_first_results = Where(times=tr, first=self.first.update_times([tr]), second=TRUE).eval(archive)
             self.update_times([r])
             selector_results.update(before_first_results)
-            selector_results.update(Where(self.times, self.first, self.second).eval())
+            selector_results.update(Where(self.times, self.first, self.second).eval(archive))
 
         return selector_results
 
 
-class LoopIteration(BiLateralOperator, ArchiveDependent):
+class LoopIteration(BiLateralOperator):
     """
     LoopIteration(<i>, <v>): Shows changes that have taken place in a loop where its iterator <i> had a value (<v>).
                              ** i, v ** must be a Raw operators, i.e. [[ ... ]] or [[ ... ]]@...
     """
 
-    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator, second: Operator):
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
         BiLateralOperator.__init__(self, times, first, second)
-        ArchiveDependent.__init__(self, archive)
 
     # noinspection PyTypeChecker
     @property
     def _iterator_equals_value(self):
         iterator: Raw = self.first
         value: Raw = self.second
-        return Raw(self.archive, f'{iterator.query} == {value.query}', iterator.line_no, self.times)
+        return Raw(f'{iterator.query} == {value.query}', iterator.line_no, self.times).eval(archive)
 
-    def eval(self):
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
         if not isinstance(self.first, Raw) or not isinstance(self.second, Raw):
             raise TypeError('iterator and its value must be Raw operators')
 
@@ -811,9 +828,9 @@ class LoopIteration(BiLateralOperator, ArchiveDependent):
 
         self.update_times(relevant_times)
 
-        changed_vars_selector = VarSelector(self.archive, self.times, self.first, self.first)
+        changed_vars_selector = VarSelector(archive, self.times, self.first, self.first)
 
-        changed_vars_selector_result = changed_vars_selector.eval()
+        changed_vars_selector_result = changed_vars_selector.eval(archive)
         if len(changed_vars_selector_result) == 0:
             return {}
 
@@ -839,66 +856,68 @@ class LoopIteration(BiLateralOperator, ArchiveDependent):
             #  TODO: Maybe if a range of lines that compound the loop is used, a range of scopes can be used:
             #   E.g.: LoopIteration([[i]], [[0]], 1, 10)
             ###
-            selector = Raw(self.archive, v, times=self.times)
+            selector = Raw(archive, v, times=self.times)
             changed_var_diff = Where(self.times, selector, self._iterator_equals_value)
             changed_vars_diffs.append(changed_var_diff)
-            # x = changed_var_diff.eval()
+            # x = changed_var_diff.eval(archive)
             # print(x)
 
-        return Union(self.times, *changed_vars_diffs).eval()
+        return Union(self.times, *changed_vars_diffs).eval(archive)
 
 
-class LoopSummary(UniLateralOperator, ArchiveDependent):
+class LoopSummary(UniLateralOperator):
     """
         LoopSummary(<line>): Creates a summary of a loop which header (for i in ...) is in <line>
                              ** <line> should be a Raw Operator, i.e. [[<line>]]
     """
 
-    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator):
+    def __init__(self, times: Iterable[Time], first: Operator):
         UniLateralOperator.__init__(self, times, first)
-        ArchiveDependent.__init__(self, archive)
 
-    def eval(self):
-        line_no: int = int(SemanticsUtils.raw_to_const_str(self.first.eval()))
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        line_no: int = int(SemanticsUtils.raw_to_const_str(self.first.eval(archive)))
 
-        assignments_by_line_no: Dict[Rk, List[Rv]] = self.archive.filter(
+        assignments_by_line_no: Dict[Rk, List[Rv]] = archive.filter(
             [lambda rv: rv.line_no == line_no, lambda rv: rv.key.stub_name == __AS__.__name__])
 
         res = {}
         for rk, lrv in assignments_by_line_no.items():
-            iterator = Raw(self.archive, rk.field, line_no, self.times)
+            iterator = Raw(archive, rk.field, line_no, self.times)
             for rv in filter(lambda rv: rv.line_no == line_no, lrv):
-                li = LoopIteration(self.archive, self.times, iterator, Raw(self.archive, rv.value, line_no, self.times))
-                res.update({t: r for (t, r) in li.eval().items() if t <= rv.time})
+                li = LoopIteration(archive, self.times, iterator, Raw(archive, rv.value, line_no, self.times))
+                res.update({t: r for (t, r) in li.eval(archive).items() if t <= rv.time})
 
         return res
 
 
-class Line(UniLateralOperator, ArchiveDependent):
+class Line(UniLateralOperator):
     """
         Line(<number>): Returns values of all objects that existed when the program hit line numbered <number>
     """
 
-    def __init__(self, archive: Archive, times: Iterable[Time], first: Operator):
-        UniLateralOperator.__init__(self, times, first)
-        ArchiveDependent.__init__(self, archive)
+    def __init__(self, times: Iterable[Time], line_no: int):
+        UniLateralOperator.__init__(self, times, Const(line_no, times))
 
-    def eval(self) -> EvalResult:
-        line_no = self.first.eval()[0].values[0]
-        events_by_line_no: List[Tuple[Rk, Rv]] = self.archive.find_events(line_no)
+    def eval(self, archive: Optional[Archive] = None,
+             query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
+        line_no = self.first.eval(archive)[0].values[0]
+        events_by_line_no: List[Tuple[Rk, Rv]] = archive.find_events(line_no)
+        if not events_by_line_no:
+            return EvalResult.empty(self.times)
+
         event_times = list(map(lambda t: t[1].time, events_by_line_no))
         event_times = event_times if event_times[0] == 0 else [0] + event_times
         ranges = [(t1, t2) for t1, t2 in zip(event_times, event_times[1::])]
-        results = EvalResult([])
+        results = EvalResult.empty(self.times)
 
         for r in ranges:
             time_range = range(r[0], r[1] + 1)
-            vars = VarSelector(self.archive, self.times, Const(True, times=time_range)).eval()
+            vars = VarSelector(self.times, Const(True, times=time_range)).eval(archive)
             if not vars:
                 continue
 
             for v in vars[r[1]].__getitem__(VarSelector.VARS_KEY).value:
-                results = results.join(results, Raw(self.archive, v, None, time_range).eval())
+                results = results.join(results, Raw(v, None, time_range).eval(archive))
 
             # results.extend([EvalResultEntry(r[1], e.results, e.replacements) for e in vars ])
 
