@@ -1,26 +1,16 @@
 container_id,field,stub_name,key,rtype,value,expression,line_no,time,extra
-2985299866272,main,__FC__,2985299956480,function,,main(),21,0,"args = , kwargs = "
-2985299930688,main,__DEF__,2985299956816,function,main,main,4,1,
-2985299930688,number,__AS__,2985299957776,int,173,number,15,2,
-2985299930688,is_prime_square_solution,__FC__,2985299963776,function,,is_prime_square_solution(number),16,3,"args = 173, kwargs = "
-2985295212720,is_prime_square_solution,__DEF__,2985299967424,function,is_prime_square_solution,is_prime_square_solution,4,4,
-2985295212720,number,__ARG__,2985299967520,int,173,number,4,5,
-2985295212720,int,__FC__,2985299961808,function,,int(math.sqrt(number)),7,6,"args = 13.152946437965905, kwargs = "
-2985295212720,stopping_point,__AS__,2985299957392,int,14,stopping_point,7,7,
-2985295212720,range,__FC__,2985299964640,function,,"range(2, stopping_point)",8,8,"args = 2, 14, kwargs = "
-2985295212720,i,__AS__,2985299965984,int,2,i,8,9,
-2985295212720,i,__AS__,2985299961664,int,3,i,8,10,
-2985295212720,i,__AS__,2985299966848,int,4,i,8,11,
-2985295212720,i,__AS__,2985299960128,int,5,i,8,12,
-2985295212720,i,__AS__,2985299959024,int,6,i,8,13,
-2985295212720,i,__AS__,2985299956000,int,7,i,8,14,
-2985295212720,i,__AS__,2985299959600,int,8,i,8,15,
-2985295212720,i,__AS__,2985299954368,int,9,i,8,16,
-2985295212720,i,__AS__,2985299965840,int,10,i,8,17,
-2985295212720,i,__AS__,2985299963440,int,11,i,8,18,
-2985295212720,i,__AS__,2985299966800,int,12,i,8,19,
-2985295212720,i,__AS__,2985299960032,int,13,i,8,20,
-2985295212720,is_prime_square_solution,__UNDEF__,2985299953840,function,is_prime_square_solution,is_prime_square_solution,4,21,
-2985299930688,result,__AS__,2985299962240,bool,True,result,16,22,
-2987133798496,print,__FC__,2985299954656,function,,print(result),17,23,"args = True, kwargs = "
-2985299930688,main,__UNDEF__,2985299962048,function,main,main,4,24,
+1622344135328,main,__FC__,1622344225680,function,,main(),21,0,"args = , kwargs = "
+1622344199744,main,__DEF__,1622344226016,function,main,main,4,1,
+1622344199744,number,__AS__,1622344226976,int,13,number,15,2,
+1622344199744,is_prime_square_solution,__FC__,1622344232832,function,,is_prime_square_solution(number),16,3,"args = 13, kwargs = "
+1622339481776,is_prime_square_solution,__DEF__,1622344236480,function,is_prime_square_solution,is_prime_square_solution,4,4,
+1622339481776,number,__ARG__,1622344236576,int,13,number,4,5,
+1622339481776,int,__FC__,1622344230864,function,,int(math.sqrt(number)),7,6,"args = 3.605551275463989, kwargs = "
+1622339481776,stopping_point,__AS__,1622344226592,int,4,stopping_point,7,7,
+1622339481776,range,__FC__,1622344233696,function,,"range(2, stopping_point)",8,8,"args = 2, 4, kwargs = "
+1622339481776,i,__AS__,1622344235040,int,2,i,8,9,
+1622339481776,i,__AS__,1622344230720,int,3,i,8,10,
+1622339481776,is_prime_square_solution,__UNDEF__,1622344234800,function,is_prime_square_solution,is_prime_square_solution,4,11,
+1622344199744,result,__AS__,1622344231008,bool,True,result,16,12,
+1622030452832,print,__FC__,1622344227840,function,,print(result),17,13,"args = True, kwargs = "
+1622344199744,main,__UNDEF__,1622344225584,function,main,main,4,14,

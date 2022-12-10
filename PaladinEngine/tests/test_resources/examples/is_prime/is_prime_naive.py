@@ -8,7 +8,7 @@ def is_prime_naive_solution(number):
 
 
 def main():
-    number = 173
+    number = 13
     result = is_prime_naive_solution(number)
     print(result)
 
