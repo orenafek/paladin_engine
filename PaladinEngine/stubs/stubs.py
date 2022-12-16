@@ -243,7 +243,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         for k, v in d.items():
             irv = archive.store_new \
                 .key(id(d), POID(k), __AS__.__name__) \
-                .value(type(v), v, f'{id(d)}[{POID(k)}] = {POID(v)}')
+                .value(type(v), v, f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
 
             irv.time = rv.time
             _store_inner(k)
