@@ -218,22 +218,22 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
 
     value_to_store = POID(value)
     rv = archive.store_new \
-        .key(container_id, field, __AS__.__name__) \
+        .key(container_id, field, __AS__.__name__, Archive.Record.StoreKind.VAR) \
         .value(type(value), value_to_store, target, line_no)
 
     def _store_inner(v: object) -> None:
-        if type(v) in [list, tuple]:
-            return _store_lists_and_tuples(v)
+        if type(v) in [list, tuple, set]:
+            return _store_lists_tuples_and_sets(v)
 
         if type(v) is dict:
             return _store_dicts(v)
 
         return None
 
-    def _store_lists_and_tuples(v: Union[List, Tuple]):
+    def _store_lists_tuples_and_sets(v: Union[List, Tuple]):
         for index, item in enumerate(v):
             irv = archive.store_new \
-                .key(id(v), index, __AS__.__name__) \
+                .key(id(v), index, __AS__.__name__, Archive.Record.StoreKind.INNER_FIELD) \
                 .value(type(item), POID(item), f'{type(v)}[{index}]', line_no)
 
             irv.time = rv.time
@@ -242,7 +242,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     def _store_dicts(d: Dict):
         for k, v in d.items():
             irv = archive.store_new \
-                .key(id(d), POID(k), __AS__.__name__) \
+                .key(id(d), POID(k), __AS__.__name__, Archive.Record.StoreKind.INNER_FIELD) \
                 .value(type(v), v, f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
 
             irv.time = rv.time

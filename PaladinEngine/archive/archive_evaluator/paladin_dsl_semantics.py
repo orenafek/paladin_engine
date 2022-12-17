@@ -772,20 +772,18 @@ class VarSelector(UniLateralOperator):
         UniLateralOperator.__init__(self, times, first)
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        results = []
-        for time_range in self.first.eval(archive).satisfaction_ranges():
-            v = self._get_all_vars(archive, time_range)
+        return EvalResult([
+            EvalResultEntry(t, [
+                EvalResultPair(VarSelector.VARS_KEY, VarSelector._get_all_vars(archive, time_range))], [])
+            for time_range in self.first.eval(archive).satisfaction_ranges() for t in time_range
+        ])
 
-            results.extend([EvalResultEntry(t, [EvalResultPair(VarSelector.VARS_KEY, v)], []) for t in time_range])
-
-        return EvalResult(results)
-
-    def _get_all_vars(self, archive: Archive, time_range: range):
+    @staticmethod
+    def _get_all_vars(archive: Archive, time_range: range):
         assignments = archive.get_all_assignments_in_time_range(time_range.start, time_range.stop)
-        # TODO: re.match("<class '.*'>", ...) is a patch for not showing the automatic __AS__ of inner fields.
-        # FIXME: Add "kind" to each __AS__ with "var" or "automatic" for inner fields etc.
-        return list(
-            set(filter(lambda v: not re.match("<class '.*'>|__.*", v) and not '[' in v, map(lambda r: r[1].expression, assignments))))
+        return list(set(map(lambda r: r[1].expression,
+                            filter(lambda r: r[0].kind != Archive.Record.StoreKind.INNER_FIELD and '[' not in
+                                             r[1].expression, assignments))))
 
 
 class Diff(BiLateralOperator):

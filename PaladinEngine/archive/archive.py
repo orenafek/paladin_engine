@@ -4,9 +4,11 @@
     :author: Oren Afek
     :since: 05/04/2019
 """
+import dataclasses
 import json
 from ast import *
 from dataclasses import dataclass
+from enum import Enum
 from itertools import product
 from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable
 
@@ -60,26 +62,33 @@ class Archive(object):
     GLOBAL_PALADIN_CONTAINER_ID = 1337
 
     class Record(object):
+
+        class StoreKind(Enum):
+            VAR = 0
+            INNER_FIELD = 1
+
         @dataclass
         class RecordKey(object):
             container_id: int
             field: str
             stub_name: str
+            kind: 'Archive.Record.StoreKind' = dataclasses.field(default_factory=lambda: Archive.Record.StoreKind.VAR)
 
             def __hash__(self) -> int:
-                return hash(hash(self.container_id) + hash(self.field))
+                return hash(hash(self.container_id) + hash(self.field) + hash(self.kind))
 
             def __eq__(self, o: object) -> bool:
                 return isinstance(o, Archive.Record.RecordKey) \
                        and o.field == self.field \
                        and o.container_id == self.container_id \
-                       and o.stub_name == self.stub_name
+                       and o.stub_name == self.stub_name \
+                       and o.kind == self.kind
 
             def __str__(self) -> str:
                 return f'{self.field}(c:{self.container_id})'
 
             def to_json(self):
-                return self.container_id, self.field
+                return self.container_id, self.field, self.stub_name, self.kind
 
         @dataclass
         class RecordValue(object):
@@ -255,8 +264,9 @@ class Archive(object):
         class Builder_Key(object):
             _key: Archive.Record.RecordKey = None
 
-            def key(self, container_id: int, field: str, stub_name: str):
-                self._key = Archive.Record.RecordKey(container_id, field, stub_name)
+            def key(self, container_id: int, field: str, stub_name: str,
+                    kind: Archive.Record.StoreKind = Archive.Record.StoreKind.VAR):
+                self._key = Archive.Record.RecordKey(container_id, field, stub_name, kind)
                 return Builder(self._key)
 
         @dataclass
