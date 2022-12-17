@@ -212,7 +212,7 @@ class Raw(Operator):
         extractor.visit(str2ast(self.query))
 
         # Split query into sub queries.
-        queries = list(map(lambda q: q.strip(), self.query.split(',')))
+        queries = split_tuple(self.query)
 
         results = []
 
@@ -232,7 +232,9 @@ class Raw(Operator):
             except KeyError:
                 result = [None] * len(queries)
             results.append(EvalResultEntry(t,
-                                           [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)],
+                                           [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)]
+                                           if len(queries) > 1
+                                           else [EvalResultPair(self.create_key(self.query), result)],
                                            replacer.replacements))
 
         return EvalResult(results)
@@ -919,7 +921,5 @@ class Line(UniLateralOperator):
 
             for v in vars[r[1]].__getitem__(VarSelector.VARS_KEY).value:
                 results = results.join(results, Raw(v, None, time_range).eval(archive))
-
-            # results.extend([EvalResultEntry(r[1], e.results, e.replacements) for e in vars ])
 
         return results

@@ -8,7 +8,7 @@ from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
     EvalResultPair
 from archive.archive_evaluator.paladin_dsl_semantics import Operator, Time, Raw
-from ast_common.ast_common import ast2str, str2ast
+from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
 from stubbers.stubbers import Stubber
 
@@ -68,13 +68,27 @@ class PaladinNativeParser(object):
 
             return node.left
 
-    class SecondQueryVisitor(ast.NodeTransformer):
+    class OperatorLambdaReplacer(ast.NodeTransformer):
         def __init__(self, times: Iterable[Time]):
             super().__init__()
             self.times: Iterable[Time] = times
             self._lambda_var_seed: int = -1
             self.operators: Dict[str, Tuple[Operator, str]] = {}
             self.root_vars = []
+            self._visited_root: bool = False
+
+        def visit(self, node: ast.AST) -> Any:
+            if self._visited_root:
+                return super().visit(node)
+
+            self._visited_root = True
+            visit_result = super().visit(node)
+            if not self.operators:
+                var_name = self.create_operator_lambda_var()
+                self._add_operator(var_name, ast2str(node), Raw(ast2str(node), node.lineno, self.times))
+                return ast.Name(id=var_name)
+
+            return visit_result
 
         def visit_Call(self, node: ast.Call) -> Any:
             if not PaladinNativeParser._is_operator_call(node):
@@ -95,7 +109,8 @@ class PaladinNativeParser(object):
                     arg_vars.append(self._create_raw_op_from_arg(arg_visit_result))
 
             # noinspection PyArgumentList,PyUnresolvedReferences
-            self._add_operator(var_name, ast2str(node), PaladinNativeParser.OPERATORS[node.func.id](self.times, *arg_vars))
+            self._add_operator(var_name, ast2str(node),
+                               PaladinNativeParser.OPERATORS[node.func.id](self.times, *arg_vars))
 
             return ast.Name(id=var_name)
 
@@ -208,8 +223,8 @@ class PaladinNativeParser(object):
             line_no_replacer = PaladinNativeParser.LineNumberReplacer()
             line_no_replacer.visit(query_ast)
 
-            # Evaluate the updated query.
-            visitor = PaladinNativeParser.SecondQueryVisitor(times)
+            # Replace calling to operator with lambdas.
+            visitor = PaladinNativeParser.OperatorLambdaReplacer(times)
             query_ast = visitor.visit(query_ast)
 
             # Evaluate operators.
@@ -244,7 +259,11 @@ class PaladinNativeParser(object):
     def _eval_operators(self, visitor):
         operator_results = {}
         for var_name, (operator, operator_original_name) in visitor.operators.items():
-            operator_results[var_name] = operator.eval(self.archive, operator_results)
+            eval_result = operator.eval(self.archive, operator_results)
+            if is_tuple(var_name):
+                operator_results.update({e: eval_result.by_key(e) for e in split_tuple(var_name)})
+            else:
+                operator_results[var_name] = eval_result
 
         # Evaluate query.
         return operator_results
@@ -291,7 +310,7 @@ class PaladinNativeParser(object):
         self._line_no = value
 
     @staticmethod
-    def _restore_original_operator_keys(visitor: SecondQueryVisitor, result: EvalResult) -> EvalResult:
+    def _restore_original_operator_keys(visitor: OperatorLambdaReplacer, result: EvalResult) -> EvalResult:
         for var_name, (operator, operator_original_name) in visitor.operators.items():
             result.rename_key(var_name, operator_original_name)
 

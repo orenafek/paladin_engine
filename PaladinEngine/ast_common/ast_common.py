@@ -1,4 +1,5 @@
 import ast
+from dataclasses import dataclass, field
 from typing import *
 
 LiteralTypes = [int, float, str, bool, complex]
@@ -77,3 +78,14 @@ def find_closest_parent(n: ast.AST, c: ast.AST, t: type):
     cv = ChildrenVisitor()
     cv.visit(c)
     return cv.closest_parent
+
+
+def is_tuple(s: str) -> bool:
+    return len(split_tuple(s)) > 0
+
+def split_tuple(s: str) -> List[str]:
+    node = ast.parse(s).body[0]
+    if not isinstance(node, ast.Expr) or not isinstance(node.value, ast.Tuple):
+        return []
+
+    return list(map(lambda e: ast2str(e), node.value.elts))

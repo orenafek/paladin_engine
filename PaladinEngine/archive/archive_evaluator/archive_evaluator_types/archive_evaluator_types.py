@@ -218,5 +218,14 @@ class EvalResult(List[EvalResultEntry]):
                     e.replace_key(k, k.replace(var_name, operator_original_name))
         return self
 
+    def by_key(self, key: str) -> 'EvalResult':
+        if key not in self.all_keys():
+            return EvalResult.empty(range(0, len(self)))
+
+        return EvalResult([
+            EvalResultEntry(time=e.time, results=[EvalResultPair(key, e[key])], replacements=e.replacements)
+            for e in self
+        ])
+
 
 EvalFunction = Callable[[int, int, int, int], EvalResult]
