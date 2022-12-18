@@ -304,6 +304,9 @@ class Archive(object):
     def get_by_line_no(self, line_no: int) -> Dict[Rk, List[Rv]]:
         return self.filter(lambda vv: vv.line_no == line_no)
 
+    def get_assignments_by_line_no(self, line_no: int) -> Dict[Rk, List[Rv]]:
+        return self.filter([lambda vv: vv.line_no == line_no, lambda vv: vv.key.stub_name == '__AS__'])
+
     def get_by_container_id(self, container_id: int):
         return self.filter([lambda vv: vv.key.container_id == container_id, lambda vv: vv.key.stub_name == '__AS__'])
 

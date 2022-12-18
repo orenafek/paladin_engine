@@ -253,7 +253,6 @@ class PaladinNativeParser(object):
             return json.dumps(grouped)
 
         except BaseException as e:
-            print(e)
             return json.dumps("")
 
     def _eval_operators(self, visitor):

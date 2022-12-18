@@ -81,11 +81,15 @@ def find_closest_parent(n: ast.AST, c: ast.AST, t: type):
 
 
 def is_tuple(s: str) -> bool:
-    return len(split_tuple(s)) > 0
+    return len(split_tuple(s)) > 1
+
 
 def split_tuple(s: str) -> List[str]:
     node = ast.parse(s).body[0]
-    if not isinstance(node, ast.Expr) or not isinstance(node.value, ast.Tuple):
+    if not isinstance(node, ast.Expr):
         return []
+
+    if not isinstance(node.value, ast.Tuple):
+        return [ast2str(node)]
 
     return list(map(lambda e: ast2str(e), node.value.elts))

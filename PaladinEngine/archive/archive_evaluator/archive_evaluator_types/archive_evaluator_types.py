@@ -52,7 +52,7 @@ class EvalResultEntry(dict):
         return [rr.value for rr in self.results]
 
     def satisfies(self) -> bool:
-        return all([r.value is not None and r.value is not False for r in self.results])
+        return all([r.value is not None and r.value is not False and r.value != [None] for r in self.results])
 
     @classmethod
     def empty(cls, t: Time = -1) -> 'EvalResultEntry':
@@ -130,7 +130,10 @@ class EvalResult(List[EvalResultEntry]):
 
         if first is not None and last is not None:
             ranges.append(range(first, last + 1))
-        return ranges
+        return set(ranges)
+
+    def satisfaction_times(self) -> Iterable[Time]:
+        return [t for rng in self.satisfaction_ranges() for t in rng]
 
     @staticmethod
     def _create_key(entries: Iterable[int]):
@@ -206,6 +209,9 @@ class EvalResult(List[EvalResultEntry]):
             return EvalResultEntry.empty()
 
         return matches_time[0]
+
+    def __repr__(self):
+        return [_ for _ in self].__repr__()
 
     @classmethod
     def empty(cls, time_range: Iterable[Time]) -> 'EvalResult':

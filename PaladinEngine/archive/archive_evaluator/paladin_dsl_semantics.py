@@ -125,10 +125,18 @@ class Operator(ABC):
             return self._times
 
         # Assuming here that _times is an iterable of ranges.
-        if IS_ITERABLE(self._times):
-            return reduce(lambda times, rng: times + list(rng), self._times, [])
+        result = []
+        for t in self._times:
+            if isinstance(t, range):
+                result.extend(list(t))
 
-        return self._times
+            elif isinstance(t, Time):
+                result.append(t)
+
+            else:
+                raise TypeError(f'A weird time of type {type(t)}')
+
+        return result
 
     @times.setter
     def times(self, value):
@@ -225,8 +233,6 @@ class Raw(Operator):
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
                 result = eval(ast2str(replacer.visit(ast.parse(self.query))))
-                if not isinstance(result, Iterable):
-                    result = (result,)
             except IndexError:
                 result = [None] * len(queries)
             except KeyError:
@@ -294,6 +300,43 @@ FALSE = Const(False)
 TRUE = Const(True)
 
 
+class TimeOperator(Operator, ABC):
+    TIME_KEY = '__TIME'
+
+    def __init__(self, times: Iterable[Time]):
+        super().__init__(times)
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        raise NotImplementedError()
+
+    def _get_args(self) -> Collection['Operator']:
+        return [self.op]
+
+    @staticmethod
+    def create_time_eval_result_entry(t: Time, res: bool,
+                                      rep: Optional[List[Replacement]] = None) -> EvalResultEntry:
+        return EvalResultEntry(t, [EvalResultPair(TimeOperator.TIME_KEY, res)], rep if rep else [])
+
+
+class TimeSatisfactory(VariadicLateralOperator, TimeOperator):
+
+    def __init__(self, times: Iterable[Time], *args: Operator):
+        VariadicLateralOperator.__init__(self, times, *args)
+        TimeOperator.__init__(self, times)
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        evaled_args = list(map(lambda arg: arg.eval(archive, query_locals), self.args))
+        arg_results = list(map(lambda er: lambda t: er[t].satisfies(), evaled_args))
+
+        return EvalResult([
+            TimeOperator.create_time_eval_result_entry(t, all([arg_res(t) for arg_res in arg_results]),
+                                                       list(reduce(lambda l, rep: l + rep,
+                                                                   map(lambda ar: ar[t].replacements, evaled_args),
+                                                                   [])))
+            for t in self.times
+        ])
+
+
 class Globally(UniLateralOperator):
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
         return Release(self.times, FALSE, self.first).eval(archive)
@@ -330,50 +373,30 @@ class Next(UniLateralOperator):
         return [r if r.time != first.time else r.create_const_copy(False) for r in formula_result]
 
 
-class Until(BiLateralOperator):
+class Until(BiLateralOperator, TimeOperator):
+
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
+        BiLateralOperator.__init__(self, times, first, second)
+        TimeOperator.__init__(self, times)
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = self.first.eval(archive)
-        second = self.second.eval(archive)
+        first = TimeSatisfactory(self.times, self.first).eval(archive, query_locals)
+        second = self.second.eval(archive, query_locals)
+        not_second = Not(self.times, self.second).eval(archive, query_locals)
 
-        if type(first) is bool and type(second) is bool:
-            """
-            U(T, T) = T
-            U(T, F) = U(F, T) = F
-            U(F, F) = F
-            """
-            return first and second
-
-        if isinstance(first, bool) and not isinstance(second, bool):
-            if first:
-                """
-                U(T, ϕ) = ϕ 
-                """
-                return second
-
-            """
-            U(F, ϕ) = F
-            """
-            return False
-
-        if not isinstance(first, bool) and isinstance(second, bool):
-            if second:
-                """
-                ω ⊨ U(ϕ, T) ↔ ∃i >= 0, ω_i ⊨ ϕ  
-                """
-                return [r for r in first if r.time >= first.first_satisfaction().time]
-
-            return False
+        min_max_times = range(first.first_satisfaction().time,
+                              min(second.last_satisfaction().time + 1, self.times.stop))
 
         # Both formulas are of type EvalResult:
         """
         ω ⊨ U(ϕ, ψ) ↔ ∃i >= 0, ω_i ⊨ ψ ∧ ∀ <= 0 k <= i, ω_k ⊨ ϕ  
         """
-        formula2_first_satisfaction = second.first_satisfaction()
-        if not formula2_first_satisfaction:
-            return False
-
-        return [r for r in first if r.time <= formula2_first_satisfaction.time and r.satisfies()]
+        return EvalResult(
+            [TimeOperator.create_time_eval_result_entry(t,
+                                                        False
+                                                        if t not in min_max_times
+                                                        else first[t].satisfies() and not_second[t].satisfies())
+             for t in self.times])
 
 
 class Or(BiLateralOperator):
@@ -404,16 +427,18 @@ class Or(BiLateralOperator):
         # return {t: (r1[0] or r2[0], r1[1] + r2[1]) for t, r1 in first.items() for t2, r2 in second.items() if t == t2}
 
 
-class Not(UniLateralOperator):
+class Not(UniLateralOperator, TimeOperator):
+
+    def __init__(self, times: Iterable[Time], first: Operator):
+        UniLateralOperator.__init__(self, times, first)
+        TimeOperator.__init__(self, times)
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = self.first.eval(archive)
-        if isinstance(first, bool):
-            return not first
+        first = TimeSatisfactory(self.times, self.first).eval(archive, query_locals)
 
-        # FIXME: See note in Or
-        # return {t: ({k: not v[0][k] if v[0][k] is not None else None for k in v[0]}, v[1]) for t, v in first.items()}
-        return []
+        return EvalResult([
+            TimeOperator.create_time_eval_result_entry(t, not first[t].satisfies(), first[t].replacements)
+            for t in self.times])
 
 
 class And(BiLateralOperator):
@@ -701,66 +726,6 @@ class NextAfter(BiLateralOperator):
         return {t: r if t in b_relevant_keys else SemanticsUtils.create_empty_result(b) for (t, r) in b.items()}
 
 
-class TimeOperator(Operator):
-    TIME_KEY = 'time'
-
-    def __init__(self, op: Operator):
-        super().__init__(op.times)
-        self.op = op
-
-    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        results = self.op.eval(archive)
-        return EvalResult(
-            [EvalResultEntry(e.time, [EvalResultPair(TimeOperator.TIME_KEY, e.satisfies())], []) for e in results])
-
-    def _get_args(self) -> Collection['Operator']:
-        return [self.op]
-
-
-class TimeFilter(BiLateralOperator):
-    """
-        TimeFilter(<c1>,<c2>): Creates a time window of times t in which t ⊨ <c1> and t ⊨ <c2>
-    """
-
-    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = TimeOperator(self.first).eval(archive)
-        second = TimeOperator(self.second).eval(archive)
-
-        results = []
-        for t in set(first.ti).union(second.keys()):
-            satisfaction = satisfies(first, t) and satisfies(second, t)
-            replacements = list(set(first[t][1] + second[t][1]))
-            results[t] = {TimeOperator.TIME_KEY: satisfaction}, replacements
-
-        return results
-
-    def eval_ranges(self):
-        filtered_times = self.eval(archive)
-        if not filtered_times:
-            return []
-
-        ranges = []
-        range_start = None
-        range_end = range_start
-        for t in sorted(filtered_times.keys()):
-            if satisfies(filtered_times, t):
-                if not range_start:
-                    range_start = t
-                else:
-                    range_end = t
-            else:
-                if range_start:
-                    ranges.append(range(range_start, range_end))
-                    range_start = range_end = None
-
-        if range_start and range_end:
-            ranges.append(range(range_start, range_end))
-
-        if range_start and not range_end:
-            ranges.append((range(range_start, range_start + 1)))
-        return ranges
-
-
 class VarSelector(UniLateralOperator):
     """
         VarSelector(<time_range>): Selects all vars that were changed in a time range.
@@ -872,23 +837,72 @@ class LoopSummary(UniLateralOperator):
                              ** <line> should be a Raw Operator, i.e. [[<line>]]
     """
 
-    def __init__(self, times: Iterable[Time], first: Operator):
-        UniLateralOperator.__init__(self, times, first)
+    def __init__(self, times: Iterable[Time], line_no: int):
+        UniLateralOperator.__init__(self, times, Const(line_no, times))
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        line_no: int = int(SemanticsUtils.raw_to_const_str(self.first.eval(archive)))
+        line_no: int = self.first.eval(archive)[0].values[0]
 
-        assignments_by_line_no: Dict[Rk, List[Rv]] = archive.filter(
-            [lambda rv: rv.line_no == line_no, lambda rv: rv.key.stub_name == __AS__.__name__])
+        assignments_by_line_no: Dict[Rk, List[Rv]] = archive.get_assignments_by_line_no(line_no)
+        iterators = {rk.field: [vv.value for vv in rv] for rk, rv in assignments_by_line_no.items()}
+        iterator_names = tuple(iterators.keys())
+        iterator_values = tuple(zip(*iterators.values()))
 
-        res = {}
-        for rk, lrv in assignments_by_line_no.items():
-            iterator = Raw(archive, rk.field, line_no, self.times)
-            for rv in filter(lambda rv: rv.line_no == line_no, lrv):
-                li = LoopIteration(archive, self.times, iterator, Raw(archive, rv.value, line_no, self.times))
-                res.update({t: r for (t, r) in li.eval(archive).items() if t <= rv.time})
+        iterator_values_times = [
+            TimeSatisfactory(self.times, *self._iterators_equals_values(iterator_names, iv, line_no))
+            for iv in iterator_values
+        ]
+        if not iterator_values_times:
+            return EvalResult.empty(self.times)
 
-        return res
+        if len(iterator_values_times) == 1:
+            # Add the last iteration it there is only one.
+            iterator_values_times.append(iterator_values_times[::-1][0])
+
+        iterations_operators = []
+        for time_from, time_to in zip(iterator_values_times, iterator_values_times[1::]):
+            iterations_operators.extend(self._create_iterations_operators(time_from, time_to, archive, query_locals))
+
+        return Union(self.times, *iterations_operators).eval(archive, query_locals)
+
+    def _create_iterations_operators(self, time_from: TimeSatisfactory, time_to: TimeSatisfactory, archive: Archive,
+                                     query_locals: Optional[Dict[str, EvalResult]]) -> EvalResult:
+        time_range_operator = Until(self.times, time_from, time_to)
+        vars_selector_result = VarSelector(self.times, time_range_operator).eval(archive, query_locals)
+
+        if len(vars_selector_result) == 0:
+            return EvalResult.empty(self.times)
+
+        changed_vars = list(vars_selector_result)[0][VarSelector.VARS_KEY].value
+        changed_vars_diffs = []
+        for v in sorted(changed_vars):
+            ###
+            # FIXME: The var is not located using a specific scope in here (line_no=-1)
+            #  therefore other vars can get in the way...
+            #  For example:
+            #  ```
+            #   1: for i in range(1,4):
+            #      j = 1
+            #      ...
+            #   10: for i in range(5,8):
+            #     ...
+            #  ```
+            #  If We look for the first iter of the second loop (i == 5), with LoopIteration([[i]]@10, [[5]]),
+            #  the last value of the first iteration (i@1 == 4) will also be presented.
+            #  There is Currently a trouble to fix this, because i have a scope (i@10) but after the VarSelection,
+            #  j@10 is incorrect.
+            #
+            #  TODO: Maybe if a range of lines that compound the loop is used, a range of scopes can be used:
+            #   E.g.: LoopIteration([[i]], [[0]], 1, 10)
+            ###
+            selector = Raw(v, times=self.times)
+            changed_vars_diffs.append(Where(self.times, selector, time_range_operator))
+
+        return changed_vars_diffs
+
+    def _iterators_equals_values(self, iterators: Iterable[str], values: Iterable[object], line_no: int):
+        return [Raw(i + " == " + (str(v) if not isinstance(v, str) else f'"{v}"'), line_no, self.times) for
+                i, v in zip(iterators, values)]
 
 
 class Line(UniLateralOperator):
