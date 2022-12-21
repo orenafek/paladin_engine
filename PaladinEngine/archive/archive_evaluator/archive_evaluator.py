@@ -101,10 +101,18 @@ class ArchiveEvaluator(object):
             return ast.Constant(value=value, kind=str if type(value) is str else None)
 
         def visit_Name(self, node: ast.Name) -> Any:
-            return self.__create_constant(node.id, self.names)
+            try:
+                return self.__create_constant(node.id, self.names)
+
+            except KeyError or IndexError:
+                return node
 
         def visit_Attribute(self, node: ast.Attribute) -> Any:
-            return self.__create_constant(ast2str(node), self.attributes)
+            try:
+                return self.__create_constant(ast2str(node), self.attributes)
+
+            except KeyError or IndexError:
+                return node
 
 
 if __name__ == '__main__':

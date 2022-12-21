@@ -263,6 +263,10 @@ class Raw(Operator):
         """
 
         resolved = {name: archive.find_by_line_no(name, line_no, time)[name] for name in names}
+
+        # Delete empty results (for names that couldn't be found).
+        resolved = {name: resolved[name] for name in resolved if resolved[name]}
+
         if query_locals:
             resolved.update({name: query_locals[name][time].value for name in names if name in query_locals})
 
@@ -271,7 +275,10 @@ class Raw(Operator):
     @staticmethod
     def _resolve_attributes(archive: Archive, attributes: Set[str], line_no: int, time: int,
                             query_locals: Dict[str, EvalResult]) -> ExpressionMapper:
+
         resolved = {attr: archive.find_by_line_no(attr, line_no, time)[attr] for attr in attributes}
+        # Delete empty results (for names that couldn't be found).
+        resolved = {name: resolved[name] for name in resolved if resolved[name]}
 
         if query_locals:
             for attr in attributes:

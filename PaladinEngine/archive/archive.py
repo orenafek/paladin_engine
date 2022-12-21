@@ -414,6 +414,9 @@ class Archive(object):
                 attr_str = ast2str(node)
                 self.values[attr_str] = {}
 
+                if value_str not in self.values:
+                    return None
+
                 # Add attribute's value.
                 for t, v in self.values[value_str].items():
                     if type(v) is int:
