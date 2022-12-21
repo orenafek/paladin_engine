@@ -116,14 +116,6 @@ class Archive(object):
             def __repr__(self):
                 return self.__str__()
 
-            def to_json(self):
-                return (self.rtype.__name__,
-                        represent(self.value),
-                        self.expression,
-                        self.line_no,
-                        self.time,
-                        self.extra)
-
     def __init__(self) -> None:
         self.records: Dict[Archive.Record.RecordKey, List[Archive.Record.RecordValue]] = {}
         self._time = -1
@@ -165,9 +157,9 @@ class Archive(object):
                     k.container_id,
                     k.field,
                     k.stub_name,
+                    k.kind.name,
                     id(v.key),
                     str(v.rtype.__name__),
-                    # represent(v.value).replace('\n', ' '),
                     represent(v.value),
                     v.expression,
                     v.line_no,

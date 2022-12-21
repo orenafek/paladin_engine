@@ -3,7 +3,7 @@ import ast
 import re
 import sys
 from dataclasses import dataclass
-from typing import Optional, Union, TypeVar, Tuple, List, Dict
+from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
@@ -230,7 +230,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
 
         return None
 
-    def _store_lists_tuples_and_sets(v: Union[List, Tuple]):
+    def _store_lists_tuples_and_sets(v: Union[List, Tuple, Set]):
         for index, item in enumerate(v):
             irv = archive.store_new \
                 .key(id(v), index, __AS__.__name__, Archive.Record.StoreKind.INNER_FIELD) \
@@ -243,7 +243,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         for k, v in d.items():
             irv = archive.store_new \
                 .key(id(d), POID(k), __AS__.__name__, Archive.Record.StoreKind.INNER_FIELD) \
-                .value(type(v), v, f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
+                .value(type(v), POID(v), f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
 
             irv.time = rv.time
             _store_inner(k)
