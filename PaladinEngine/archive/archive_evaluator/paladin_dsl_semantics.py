@@ -156,8 +156,11 @@ class Operator(ABC):
 
     @classmethod
     def all(cls) -> List[Type['Operator']]:
-        return functools.reduce(lambda res, sub: res + sub._all(), cls.__subclasses__(), [])
+        subclasses = cls.__subclasses__()
+        for subclass in subclasses:
+            subclasses.extend(subclass.all())
 
+        return list(set(subclasses))
     @classmethod
     def _all(cls):
         return cls.__subclasses__()
@@ -303,6 +306,10 @@ TRUE = Const(True)
 class TimeOperator(Operator, ABC):
     TIME_KEY = '__TIME'
 
+    @classmethod
+    def make(cls, op: Operator):
+        return op if isinstance(op, TimeOperator) else TimeSatisfactory(op.times, op)
+
     def __init__(self, times: Iterable[Time]):
         super().__init__(times)
 
@@ -373,6 +380,27 @@ class Next(UniLateralOperator):
         return [r if r.time != first.time else r.create_const_copy(False) for r in formula_result]
 
 
+class BiTimeOperator(BiLateralOperator, TimeOperator, ABC):
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator,
+                 bi_result_maker: Callable[[bool, bool], bool]):
+        BiLateralOperator.__init__(self, times, first, second)
+        TimeOperator.__init__(self, times)
+        self.bi_result_maker = bi_result_maker
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first = TimeOperator.make(self.first).eval(archive, query_locals)
+        second = TimeOperator.make(self.second).eval(archive, query_locals)
+
+        return EvalResult([
+            TimeOperator.create_time_eval_result_entry(e1.time, self._make_res(e1, e2),
+                                                       e1.replacements + e2.replacements)
+
+            for e1, e2 in zip(first, second)])
+
+    def _make_res(self, e1: EvalResultEntry, e2: EvalResultEntry) -> bool:
+        return self.bi_result_maker(e1[TimeOperator.TIME_KEY].value, e2[TimeOperator.TIME_KEY].value)
+
+
 class Until(BiLateralOperator, TimeOperator):
 
     def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
@@ -399,32 +427,14 @@ class Until(BiLateralOperator, TimeOperator):
              for t in self.times])
 
 
-class Or(BiLateralOperator):
+class Or(BiTimeOperator):
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
+        super().__init__(times, first, second, lambda r1, r2: r1 or r2)
 
-    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = self.first.eval(archive)
-        second = self.second.eval(archive)
 
-        if isinstance(first, bool) and isinstance(second, bool):
-            return first or second
-
-        if isinstance(first, bool) and isinstance(second, EvalResult):
-            if first:
-                return True
-
-            return second
-        if isinstance(first, EvalResult) and isinstance(second, bool):
-            if second:
-                return True
-
-            return first
-
-        #
-        # FIXME: How do boolean operators fit in the DSL? What is the meaning of
-        #        Or('x': 1, 'y': 2)?
-        return []
-        # return [EvalResult([EvalResultEntry(e1.time, [EvalResultPair(e)]) for e1 in first for e2 in second])]
-        # return {t: (r1[0] or r2[0], r1[1] + r2[1]) for t, r1 in first.items() for t2, r2 in second.items() if t == t2}
+class And(BiTimeOperator):
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
+        super().__init__(times, first, second, lambda r1, r2: r1 and r2)
 
 
 class Not(UniLateralOperator, TimeOperator):
@@ -439,11 +449,6 @@ class Not(UniLateralOperator, TimeOperator):
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(t, not first[t].satisfies(), first[t].replacements)
             for t in self.times])
-
-
-class And(BiLateralOperator):
-    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        return Not(self.times, Or(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval(archive)
 
 
 class Before(BiLateralOperator):
