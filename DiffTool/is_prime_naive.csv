@@ -1,23 +1,23 @@
-container_id,field,stub_name,key,rtype,value,expression,line_no,time,extra
-2314265552448,main,__FC__,2314265593456,function,,main(),17,0,"args = , kwargs = "
-2314265547840,main,__DEF__,2314265593792,function,main,main,1,1,
-2314265547840,number,__AS__,2314265594752,int,13,number,11,2,
-2314265547840,is_prime_naive_solution,__FC__,2314265606704,function,,is_prime_naive_solution(number),12,3,"args = 13, kwargs = "
-2314264071520,is_prime_naive_solution,__DEF__,2314265607856,function,is_prime_naive_solution,is_prime_naive_solution,1,4,
-2314264071520,number,__ARG__,2314265607760,int,13,number,1,5,
-2314264071520,range,__FC__,2314265604640,function,,"range(2, number)",4,6,"args = 2, 13, kwargs = "
-2314264071520,i,__AS__,2314265601472,int,2,i,4,7,
-2314264071520,i,__AS__,2314265600128,int,3,i,4,8,
-2314264071520,i,__AS__,2314265606320,int,4,i,4,9,
-2314264071520,i,__AS__,2314265602912,int,5,i,4,10,
-2314264071520,i,__AS__,2314265601760,int,6,i,4,11,
-2314264071520,i,__AS__,2314265598880,int,7,i,4,12,
-2314264071520,i,__AS__,2314265597776,int,8,i,4,13,
-2314264071520,i,__AS__,2314265598784,int,9,i,4,14,
-2314264071520,i,__AS__,2314265593648,int,10,i,4,15,
-2314264071520,i,__AS__,2314265591968,int,11,i,4,16,
-2314264071520,i,__AS__,2314265597440,int,12,i,4,17,
-2314264071520,is_prime_naive_solution,__UNDEF__,2314265596816,function,is_prime_naive_solution,is_prime_naive_solution,1,18,
-2314265547840,result,__AS__,2314265596432,bool,True,result,12,19,
-2313951873120,print,__FC__,2314265598496,function,,print(result),13,20,"args = True, kwargs = "
-2314265547840,main,__UNDEF__,2314265599744,function,main,main,1,21,
+container_id,field,stub_name,kind,key,rtype,value,expression,line_no,time,extra
+1809502219328,main,__FC__,VAR,1809502194608,function,,main(),17,0,"args = , kwargs = "
+1809500645760,main,__DEF__,VAR,1809502194272,function,main,main,1,1,
+1809500645760,number,__AS__,VAR,1809502201136,int,13,number,11,2,
+1809500645760,is_prime_naive_solution,__FC__,VAR,1809502206080,function,,is_prime_naive_solution(number),12,3,"args = 13, kwargs = "
+1809500647200,is_prime_naive_solution,__DEF__,VAR,1809502207088,function,is_prime_naive_solution,is_prime_naive_solution,1,4,
+1809500647200,number,__ARG__,VAR,1809502207904,int,13,number,1,5,
+1809500647200,range,__FC__,VAR,1809502204928,function,,"range(2, number)",4,6,"args = 2, 13, kwargs = "
+1809500647200,i,__AS__,VAR,1809502198208,int,2,i,4,7,
+1809500647200,i,__AS__,VAR,1809501930016,int,3,i,4,8,
+1809500647200,i,__AS__,VAR,1809502200224,int,4,i,4,9,
+1809500647200,i,__AS__,VAR,1809502202912,int,5,i,4,10,
+1809500647200,i,__AS__,VAR,1809502201472,int,6,i,4,11,
+1809500647200,i,__AS__,VAR,1809502201712,int,7,i,4,12,
+1809500647200,i,__AS__,VAR,1809502197344,int,8,i,4,13,
+1809500647200,i,__AS__,VAR,1809502195280,int,9,i,4,14,
+1809500647200,i,__AS__,VAR,1809502197824,int,10,i,4,15,
+1809500647200,i,__AS__,VAR,1809502200464,int,11,i,4,16,
+1809500647200,i,__AS__,VAR,1809502203824,int,12,i,4,17,
+1809500647200,is_prime_naive_solution,__UNDEF__,VAR,1809502198784,function,is_prime_naive_solution,is_prime_naive_solution,1,18,
+1809500645760,result,__AS__,VAR,1809502196480,bool,True,result,12,19,
+1809184819296,print,__FC__,VAR,1809502193024,function,,print(result),13,20,"args = True, kwargs = "
+1809500645760,main,__UNDEF__,VAR,1809502203536,function,main,main,1,21,

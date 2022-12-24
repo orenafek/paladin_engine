@@ -1,16 +1,16 @@
-container_id,field,stub_name,key,rtype,value,expression,line_no,time,extra
-1622344135328,main,__FC__,1622344225680,function,,main(),21,0,"args = , kwargs = "
-1622344199744,main,__DEF__,1622344226016,function,main,main,4,1,
-1622344199744,number,__AS__,1622344226976,int,13,number,15,2,
-1622344199744,is_prime_square_solution,__FC__,1622344232832,function,,is_prime_square_solution(number),16,3,"args = 13, kwargs = "
-1622339481776,is_prime_square_solution,__DEF__,1622344236480,function,is_prime_square_solution,is_prime_square_solution,4,4,
-1622339481776,number,__ARG__,1622344236576,int,13,number,4,5,
-1622339481776,int,__FC__,1622344230864,function,,int(math.sqrt(number)),7,6,"args = 3.605551275463989, kwargs = "
-1622339481776,stopping_point,__AS__,1622344226592,int,4,stopping_point,7,7,
-1622339481776,range,__FC__,1622344233696,function,,"range(2, stopping_point)",8,8,"args = 2, 4, kwargs = "
-1622339481776,i,__AS__,1622344235040,int,2,i,8,9,
-1622339481776,i,__AS__,1622344230720,int,3,i,8,10,
-1622339481776,is_prime_square_solution,__UNDEF__,1622344234800,function,is_prime_square_solution,is_prime_square_solution,4,11,
-1622344199744,result,__AS__,1622344231008,bool,True,result,16,12,
-1622030452832,print,__FC__,1622344227840,function,,print(result),17,13,"args = True, kwargs = "
-1622344199744,main,__UNDEF__,1622344225584,function,main,main,4,14,
+container_id,field,stub_name,kind,key,rtype,value,expression,line_no,time,extra
+2077179428928,main,__FC__,VAR,2077179546496,function,,main(),21,0,"args = , kwargs = "
+2077179482176,main,__DEF__,VAR,2077179546832,function,main,main,4,1,
+2077179482176,number,__AS__,VAR,2077179547792,int,13,number,15,2,
+2077179482176,is_prime_square_solution,__FC__,VAR,2077179558448,function,,is_prime_square_solution(number),16,3,"args = 13, kwargs = "
+2077174801680,is_prime_square_solution,__DEF__,VAR,2077179559456,function,is_prime_square_solution,is_prime_square_solution,4,4,
+2077174801680,number,__ARG__,VAR,2077179553936,int,13,number,4,5,
+2077174801680,int,__FC__,VAR,2077179557296,function,,int(math.sqrt(number)),7,6,"args = 3.605551275463989, kwargs = "
+2077174801680,stopping_point,__AS__,VAR,2077179550672,int,4,stopping_point,7,7,
+2077174801680,range,__FC__,VAR,2077179553648,function,,"range(2, stopping_point)",8,8,"args = 2, 4, kwargs = "
+2077174801680,i,__AS__,VAR,2077179555088,int,2,i,8,9,
+2077174801680,i,__AS__,VAR,2077179546976,int,3,i,8,10,
+2077174801680,is_prime_square_solution,__UNDEF__,VAR,2077179548080,function,is_prime_square_solution,is_prime_square_solution,4,11,
+2077179482176,result,__AS__,VAR,2077179553552,bool,True,result,16,12,
+2076862089312,print,__FC__,VAR,2077179549712,function,,print(result),17,13,"args = True, kwargs = "
+2077179482176,main,__UNDEF__,VAR,2077179552112,function,main,main,4,14,
