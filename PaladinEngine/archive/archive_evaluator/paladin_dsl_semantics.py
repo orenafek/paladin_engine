@@ -236,10 +236,9 @@ class Raw(Operator):
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
                 result = eval(ast2str(replacer.visit(ast.parse(self.query))))
-            except IndexError:
-                result = [None] * len(queries)
-            except KeyError:
-                result = [None] * len(queries)
+            except (IndexError, KeyError):
+                result = [None] * len(queries) if len(queries) > 1 else None
+
             results.append(EvalResultEntry(t,
                                            [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)]
                                            if len(queries) > 1
