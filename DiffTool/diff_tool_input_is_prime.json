@@ -4,13 +4,15 @@
       "csv_file_path": "is_prime_naive.csv",
       "query": "Union(i@4,number@11,result@12)",
       "start_time": 0,
-      "end_time": 500
+      "end_time": 500,
+      "suffix": "_1"
     },
     {
       "csv_file_path": "is_prime_square.csv",
       "query": "Union(i@8,number@15,result@16)",
       "start_time": 0,
-      "end_time": 500
+      "end_time": 500,
+      "suffix": "_2"
     }
   ],
   "result_merge_condition": {
