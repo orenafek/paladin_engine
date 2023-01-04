@@ -1,0 +1,81 @@
+container_id,field,stub_name,kind,key,rtype,value,expression,line_no,time,extra
+2111602062544,sample,__AS__,VAR,2111604458688,list,2111604235712,sample,13,0,
+2111604235712,0,__AS__,INNER_FIELD,2111604472416,int,3,<class 'list'>[0],13,0,
+2111604235712,1,__AS__,INNER_FIELD,2111604472944,int,4,<class 'list'>[1],13,0,
+2111604235712,2,__AS__,INNER_FIELD,2111604466368,int,3,<class 'list'>[2],13,0,
+2111604235712,3,__AS__,INNER_FIELD,2111604469584,int,5,<class 'list'>[3],13,0,
+2111604235712,4,__AS__,INNER_FIELD,2111604472512,int,4,<class 'list'>[4],13,0,
+2111602062544,super_duper_naive,__FC__,VAR,2111604470112,function,,super_duper_naive(sample),14,6,"args = [3, 4, 3, 5, 4], kwargs = "
+2111582078752,super_duper_naive,__DEF__,VAR,2111604468432,function,super_duper_naive,super_duper_naive,2,7,
+2111582078752,a,__ARG__,VAR,2111604467232,list,"['3', '4', '3', '5', '4']",a,2,8,
+2111582078752,total_slices,__AS__,VAR,2111604467280,int,0,total_slices,3,9,
+2111582078752,range,__FC__,VAR,2111604463728,function,,range(len(a)),4,10,"args = 5, kwargs = "
+2111582078752,i,__AS__,VAR,2111604463680,int,0,i,4,11,
+2111291033696,len,__FC__,VAR,2111604466656,function,,len(a),5,12,"args = [3, 4, 3, 5, 4], kwargs = "
+2111582078752,range,__FC__,VAR,2111604461904,function,,"range(i + 1, __FC__('len(a)', len, locals(), globals(), __FRAME__(), 5, a) + 1)",5,13,"args = 1, 6, kwargs = "
+2111582078752,j,__AS__,VAR,2111604462912,int,1,j,5,14,
+2111291033696,len,__FC__,VAR,2111604467136,function,,len(set(a[i:j])),6,15,"args = {3}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604460560,int,1,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,16,
+2111582078752,total_slices,__AS__,VAR,2111604457776,int,1,total_slices,7,17,
+2111582078752,j,__AS__,VAR,2111604462672,int,2,j,5,18,
+2111291033696,len,__FC__,VAR,2111604459360,function,,len(set(a[i:j])),6,19,"args = {3, 4}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604473472,int,2,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,20,
+2111582078752,total_slices,__AS__,VAR,2111604466560,int,2,total_slices,7,21,
+2111582078752,j,__AS__,VAR,2111604472752,int,3,j,5,22,
+2111291033696,len,__FC__,VAR,2111604469296,function,,len(set(a[i:j])),6,23,"args = {3, 4}, kwargs = "
+2111582078752,j,__AS__,VAR,2111604470640,int,4,j,5,24,
+2111291033696,len,__FC__,VAR,2111604469824,function,,len(set(a[i:j])),6,25,"args = {3, 4, 5}, kwargs = "
+2111582078752,j,__AS__,VAR,2111604473328,int,5,j,5,26,
+2111291033696,len,__FC__,VAR,2111604468048,function,,len(set(a[i:j])),6,27,"args = {3, 4, 5}, kwargs = "
+2111582078752,i,__AS__,VAR,2111604359376,int,1,i,4,28,
+2111291033696,len,__FC__,VAR,2111604365088,function,,len(a),5,29,"args = [3, 4, 3, 5, 4], kwargs = "
+2111582078752,range,__FC__,VAR,2111604360672,function,,"range(i + 1, __FC__('len(a)', len, locals(), globals(), __FRAME__(), 5, a) + 1)",5,30,"args = 2, 6, kwargs = "
+2111582078752,j,__AS__,VAR,2111604365952,int,2,j,5,31,
+2111291033696,len,__FC__,VAR,2111604371184,function,,len(set(a[i:j])),6,32,"args = {4}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604360288,int,3,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,33,
+2111582078752,total_slices,__AS__,VAR,2111604361632,int,3,total_slices,7,34,
+2111582078752,j,__AS__,VAR,2111604467376,int,3,j,5,35,
+2111291033696,len,__FC__,VAR,2111604471600,function,,len(set(a[i:j])),6,36,"args = {3, 4}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604462192,int,4,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,37,
+2111582078752,total_slices,__AS__,VAR,2111604463872,int,4,total_slices,7,38,
+2111582078752,j,__AS__,VAR,2111604465120,int,4,j,5,39,
+2111291033696,len,__FC__,VAR,2111604470928,function,,len(set(a[i:j])),6,40,"args = {3, 4, 5}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604464688,int,5,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,41,
+2111582078752,total_slices,__AS__,VAR,2111604370704,int,5,total_slices,7,42,
+2111582078752,j,__AS__,VAR,2111604359472,int,5,j,5,43,
+2111291033696,len,__FC__,VAR,2111604365376,function,,len(set(a[i:j])),6,44,"args = {3, 4, 5}, kwargs = "
+2111582078752,i,__AS__,VAR,2111604365040,int,2,i,4,45,
+2111291033696,len,__FC__,VAR,2111604371616,function,,len(a),5,46,"args = [3, 4, 3, 5, 4], kwargs = "
+2111582078752,range,__FC__,VAR,2111604369648,function,,"range(i + 1, __FC__('len(a)', len, locals(), globals(), __FRAME__(), 5, a) + 1)",5,47,"args = 3, 6, kwargs = "
+2111582078752,j,__AS__,VAR,2111604365904,int,3,j,5,48,
+2111291033696,len,__FC__,VAR,2111604361440,function,,len(set(a[i:j])),6,49,"args = {3}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604374736,int,6,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,50,
+2111582078752,total_slices,__AS__,VAR,2111604373968,int,6,total_slices,7,51,
+2111582078752,j,__AS__,VAR,2111604460368,int,4,j,5,52,
+2111291033696,len,__FC__,VAR,2111604464928,function,,len(set(a[i:j])),6,53,"args = {3, 5}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604468864,int,7,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,54,
+2111582078752,total_slices,__AS__,VAR,2111604464160,int,7,total_slices,7,55,
+2111582078752,j,__AS__,VAR,2111604374112,int,5,j,5,56,
+2111291033696,len,__FC__,VAR,2111604373344,function,,len(set(a[i:j])),6,57,"args = {3, 4, 5}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604361776,int,8,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,58,
+2111582078752,total_slices,__AS__,VAR,2111604368016,int,8,total_slices,7,59,
+2111582078752,i,__AS__,VAR,2111604372960,int,3,i,4,60,
+2111291033696,len,__FC__,VAR,2111604368160,function,,len(a),5,61,"args = [3, 4, 3, 5, 4], kwargs = "
+2111582078752,range,__FC__,VAR,2111604372240,function,,"range(i + 1, __FC__('len(a)', len, locals(), globals(), __FRAME__(), 5, a) + 1)",5,62,"args = 4, 6, kwargs = "
+2111582078752,j,__AS__,VAR,2111604360000,int,4,j,5,63,
+2111291033696,len,__FC__,VAR,2111604370992,function,,len(set(a[i:j])),6,64,"args = {5}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604375072,int,9,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,65,
+2111582078752,total_slices,__AS__,VAR,2111604370608,int,9,total_slices,7,66,
+2111582078752,j,__AS__,VAR,2111604363936,int,5,j,5,67,
+2111291033696,len,__FC__,VAR,2111604374448,function,,len(set(a[i:j])),6,68,"args = {4, 5}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604364704,int,10,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,69,
+2111582078752,total_slices,__AS__,VAR,2111604359280,int,10,total_slices,7,70,
+2111582078752,i,__AS__,VAR,2111604367248,int,4,i,4,71,
+2111291033696,len,__FC__,VAR,2111604363504,function,,len(a),5,72,"args = [3, 4, 3, 5, 4], kwargs = "
+2111582078752,range,__FC__,VAR,2111604369312,function,,"range(i + 1, __FC__('len(a)', len, locals(), globals(), __FRAME__(), 5, a) + 1)",5,73,"args = 5, 6, kwargs = "
+2111582078752,j,__AS__,VAR,2111604468960,int,5,j,5,74,
+2111291033696,len,__FC__,VAR,2111604459840,function,,len(set(a[i:j])),6,75,"args = {4}, kwargs = "
+2111582078752,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,__AS__,VAR,2111604461472,int,11,__PALADIN_TEMP_AUG_ASSIGN_VAR__0,7,76,
+2111582078752,total_slices,__AS__,VAR,2111604461664,int,11,total_slices,7,77,
+2111582078752,super_duper_naive,__UNDEF__,VAR,2111604462624,function,super_duper_naive,super_duper_naive,2,78,
+2111602062544,sdn,__AS__,VAR,2111604374304,int,11,sdn,14,79,
