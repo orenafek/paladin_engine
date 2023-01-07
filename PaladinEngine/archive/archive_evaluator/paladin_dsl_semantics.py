@@ -830,7 +830,7 @@ class LoopIteration(BiLateralOperator):
 
         loop_iteration_starts_and_ends: List[Tuple[Rk, Rv]] = sorted(archive.get_loop_iterations(line_no),
                                                                      key=lambda t: t[1].time)
-        if index * 2 > len(loop_iteration_starts_and_ends) or index*2 + 1 > len(loop_iteration_starts_and_ends):
+        if index * 2 > len(loop_iteration_starts_and_ends) or index * 2 + 1 > len(loop_iteration_starts_and_ends):
             return EvalResult.empty(self.times)
 
         loop_iteration_start = loop_iteration_starts_and_ends[index * 2]
@@ -925,3 +925,31 @@ class Line(UniLateralOperator):
                 results = results.join(results, Raw(v, None, time_range).eval(archive))
 
         return results
+
+
+class LoopIterationsTimes(UniLateralOperator, TimeOperator):
+    """
+        LoopIterationsTimes(<ln>): Shows the time ranges in which the iterations of the loop in line <ln> have taken place.
+    """
+
+    def __init__(self, times: Iterable[Time], line_no: int):
+        UniLateralOperator.__init__(self, times, Const(line_no, times))
+        TimeOperator.__init__(self, times)
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        line_no: int = self.first.eval(archive, query_locals)[0].values[0]
+
+        loop_iteration_starts_and_ends: Collection[Time] = list(
+            map(lambda t: t[1].time, sorted(archive.get_loop_iterations(line_no),
+                                            key=lambda t: t[1].time)))
+
+        if len(loop_iteration_starts_and_ends) % 2 != 0:
+            return EvalResult.empty(self.times)
+
+        loop_iteration_ranges = list(zip(loop_iteration_starts_and_ends[::2], loop_iteration_starts_and_ends[1::2]))
+
+        return EvalResult([
+            TimeOperator.create_time_eval_result_entry(t,
+                                                       any([start <= t <= end for start, end in loop_iteration_ranges]),
+                                                       [])
+            for t in self.times])
