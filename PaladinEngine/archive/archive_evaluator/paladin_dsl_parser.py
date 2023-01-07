@@ -65,8 +65,9 @@ class PaladinDSLParser(object):
 
     def _nested_query(self, query):
         return (Suppress('{{') + CaselessKeyword('for') + Word(alphanums) + CaselessKeyword('in') + query
-                 + SkipTo('}}') + Suppress('}}')).setParseAction(lambda q: Raw(self.archive, q.asList()[1], None, self.timer,
-                                                                               query))
+                + SkipTo('}}') + Suppress('}}')).setParseAction(
+            lambda q: Raw(self.archive, q.asList()[1], None, self.timer,
+                          query))
 
     def _eval_compound_query(self, compound_query: list[str]):
         evaluated = [q(self) if callable(q) else q for q in compound_query]
@@ -96,7 +97,8 @@ class PaladinDSLParser(object):
 
     @classmethod
     def docs(cls):
-        return '```' '\n' + '\n'.join([op.__doc__.strip() for op in Operator.all() if op.__doc__]) + '\n' + '```'
+        return '```' '\n' + '\n'.join(
+            sorted([op.__doc__.strip() for op in Operator.all() if op.__doc__])) + '\n' + '```'
 
 
 if __name__ == '__main__':
