@@ -13,6 +13,10 @@ class Replacement(NamedTuple):
 
 Time = int
 
+BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
+BUILTIN_CONSTANTS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
+BAD_JSON_VALUES = ['Infinity']
+
 
 @dataclass
 class EvalResultPair(object):

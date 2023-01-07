@@ -228,8 +228,8 @@ class Raw(Operator):
             replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                result = eval(ast2str(replacer.visit(ast.parse(self.query))))
-            except (IndexError, KeyError):
+                result = eval(ast2str(replacer.visit(ast.parse(self.query))), BUILTIN_CONSTANTS)
+            except (IndexError, KeyError, NameError):
                 result = [None] * len(queries) if len(queries) > 1 else None
 
             results.append(EvalResultEntry(t,

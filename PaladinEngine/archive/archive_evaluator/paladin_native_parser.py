@@ -6,7 +6,7 @@ from typing import *
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
-    EvalResultPair
+    EvalResultPair, BAD_JSON_VALUES
 from archive.archive_evaluator.paladin_dsl_semantics import Operator, Time, Raw
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
@@ -250,7 +250,8 @@ class PaladinNativeParser(object):
             # Add the keys in the first row.
             grouped['keys'] = list(results.all_keys())
 
-            return json.dumps(grouped)
+            # Remove bad JSON values.
+            return PaladinNativeParser._remove_bad_json_values(json.dumps(grouped))
 
         except BaseException as e:
             return json.dumps("")
@@ -314,3 +315,10 @@ class PaladinNativeParser(object):
             result.rename_key(var_name, operator_original_name)
 
         return result
+
+    @classmethod
+    def _remove_bad_json_values(cls, json_string: str):
+        for bad_json_word in BAD_JSON_VALUES:
+            json_string = json_string.replace(str(bad_json_word), f'"{str(bad_json_word)}"')
+
+        return json_string
