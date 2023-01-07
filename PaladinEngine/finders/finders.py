@@ -538,7 +538,8 @@ class AssignmentFinder(GenericFinder):
                 return node.value
 
             def visit_Tuple(self, node):
-                return ", ".join([str(self.visit(elem)) for elem in node.elts])
+                visited_elts = [self.visit(e) for e in node.elts]
+                return ", ".join(["'%s'" % ve if isinstance(ve, str) else str(ve) for ve in visited_elts])
 
             def visit_Name(self, node):
                 return node.id
