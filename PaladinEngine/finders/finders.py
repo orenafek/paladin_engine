@@ -362,38 +362,24 @@ class DecoratorFinder(GenericFinder):
             return self._params
 
 
-class PaladinForLoopFinder(GenericFinder):
+class PaladinLoopFinder(GenericFinder):
     """
-    A finder for While & For loops invariants.
+    A finder for While & For loops.
     """
 
-    def __init__(self) -> None:
-        """
-            Constructor.
-        """
-        # Call the super's constructor.
-        super().__init__()
-
-        # Initialize a dict of loops and their inline definitions.
-        self.for_loops = []
-
-    def visit_For(self, node) -> None:
+    def visit_For(self, node) -> Any:
         """
             A visitor for For Loops.
         :param node: (ast.AST) An AST node.
         :return: None.
         """
-        self.for_loops.append(node)
         return True
 
-    def _extract_extra(self, node: ast.AST):
-        if node in self.for_loops:
-            return self.for_loops[node]
-
-        return None
+    def visit_While(self, node: ast.While) -> Any:
+        return True
 
     def types_to_find(self) -> Union:
-        return [ast.For]
+        return [ast.For, ast.While]
 
 
 class PaladinForLoopInvariantsFinder(GenericFinder):

@@ -327,6 +327,19 @@ def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_
     return field
 
 
+def __SOLI__(line_no: int, frame):
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), '__end_of_loop_iteration', __SOLI__.__name__) \
+            .value(object, None, '__end_of_loop_iteration', line_no)
+
+def __EOLI__(line_no: int, frame):
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), '__end_of_loop_iteration', __EOLI__.__name__) \
+            .value(object, None, '__end_of_loop_iteration', line_no)
+
+
 def __BREAK__(line_no: int, frame):
     if archive.should_record:
         archive.store_new \

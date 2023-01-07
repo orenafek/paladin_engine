@@ -9,7 +9,7 @@ from typing import List
 
 from ast_common.ast_common import ast2str, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, PaladinForLoopFinder, FunctionCallFinder, FunctionDefFinder, \
+    PaladinPostConditionFinder, PaladinLoopFinder, FunctionCallFinder, FunctionDefFinder, \
     AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder, BreakFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForLoopStubber, \
     FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber, BreakStubber
@@ -44,22 +44,22 @@ class ModuleTransformer(object):
 
         return self
 
-    def transform_for_loops(self) -> 'ModuleTransformer':
-        plf = PaladinForLoopFinder()
+    def transform_loops(self) -> 'ModuleTransformer':
+        plf = PaladinLoopFinder()
         plf.visit(self._module)
-        for_loop_entries = plf.find()
+        loop_entries = plf.find()
 
-        while for_loop_entries:
-            for_loop_entry = for_loop_entries.pop()
+        while loop_entries:
+            loop_entry = loop_entries.pop()
 
             # Create a stubber.
             stubber = ForLoopStubber(self._module)
 
             # Stub.
-            self._module = stubber.stub_for_loop(for_loop_entry.node)
+            self._module = stubber.stub_loop(loop_entry.node)
 
             plf.visit(self._module)
-            for_loop_entries = plf.find()
+            loop_entries = plf.find()
 
         return self
 

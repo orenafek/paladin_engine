@@ -1,12 +1,6 @@
-import abc
-import collections.abc
-import functools
 import re
-from abc import ABC, abstractmethod
-from copy import deepcopy
-from dataclasses import dataclass
-from functools import reduce
-from itertools import product
+from abc import ABC
+from math import floor
 
 import more_itertools
 

@@ -2,11 +2,11 @@ import ast
 import copy
 from abc import ABC, abstractmethod
 from ast import *
-from typing import Union, List
+from typing import Union, List, Callable
 
 from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param
 from finders.finders import StubEntry
-from stubs.stubs import __FRAME__
+from stubs.stubs import __FRAME__, __EOLI__, __SOLI__
 from utils.utils import assert_not_raise
 
 
@@ -364,21 +364,42 @@ class ForLoopStubber(LoopStubber):
         super().__init__(root_module)
         ForLoopStubber.ITERATOR_NUMBER += 1
 
-    def stub_for_loop(self, for_loop_node: ast.For) -> ast.Module:
-        # Create a new target.
-        new_for_target = ast.Name(id=f'__iter_{ForLoopStubber.ITERATOR_NUMBER}')
+    def stub_loop(self, loop_node: Union[ast.For, ast.While]) -> ast.Module:
+        # Create a loop iteraetion start stub.
+        # Create a loop iteration end stub.
+        loop_iteration_start_stub = ast.Expr(ast.Call(func=lit2ast(__SOLI__.__name__),
+                                                      args=[lit2ast(loop_node.lineno),
+                                                            ast.Call(lit2ast(__FRAME__.__name__), args=[],
+                                                                     keywords=[])],
+                                                      keywords=[],
+                                                      ))
+        loop_node.body.insert(0, loop_iteration_start_stub)
 
-        # Create a target assignment.
-        for_target_assignment = ast.Assign(targets=[for_loop_node.target], ctx=ast.Store(), value=new_for_target)
+        if isinstance(loop_node, ast.For):
+            # Create a new target.
+            new_for_target = ast.Name(id=f'__iter_{ForLoopStubber.ITERATOR_NUMBER}')
 
-        # Override target.
-        self.stub(
-            Stubber.ReplacingStubRecord(for_loop_node.target, for_loop_node, 'target', new_for_target))
+            # Create a target assignment.
+            for_target_assignment = ast.Assign(targets=[loop_node.target], ctx=ast.Store(), value=new_for_target)
 
-        # Override body.
-        for_loop_node.body.insert(0, for_target_assignment)
+            # Override body.
+            loop_node.body.insert(1, for_target_assignment)
 
-        ast.fix_missing_locations(for_loop_node)
+            # Override target.
+            self.stub(
+                Stubber.ReplacingStubRecord(loop_node.target, loop_node, 'target', new_for_target))
+
+        # Create a loop iteration end stub.
+        loop_iteration_end_stub = ast.Expr(ast.Call(func=lit2ast(__EOLI__.__name__),
+                                                    args=[lit2ast(loop_node.lineno),
+                                                          ast.Call(lit2ast(__FRAME__.__name__), args=[], keywords=[])],
+                                                    keywords=[],
+                                                    ))
+
+        # noinspection PyTypeChecker
+        loop_node.body.append(loop_iteration_end_stub)
+
+        ast.fix_missing_locations(loop_node)
 
         return self.root_module
 
@@ -473,13 +494,13 @@ class FunctionCallStubber(Stubber):
     def stub_func(self, node: ast.Call, container: ast.AST, attr_name: str, stub_name: str):
         try:
             stub_args = [
-                lit2ast(wrap_str_param(ast2str(node))),
-                lit2ast(ast2str(node.func)),
-                ast.Call(func=lit2ast(locals.__name__), args=[], keywords=[]),
-                ast.Call(func=lit2ast(globals.__name__), args=[], keywords=[]),
-                ast.Call(func=lit2ast(__FRAME__.__name__), args=[], keywords=[]),
-                lit2ast(node.lineno)
-            ] + [ast.fix_missing_locations(a) for a in copy.deepcopy(node.args)]
+                            lit2ast(wrap_str_param(ast2str(node))),
+                            lit2ast(ast2str(node.func)),
+                            ast.Call(func=lit2ast(locals.__name__), args=[], keywords=[]),
+                            ast.Call(func=lit2ast(globals.__name__), args=[], keywords=[]),
+                            ast.Call(func=lit2ast(__FRAME__.__name__), args=[], keywords=[]),
+                            lit2ast(node.lineno)
+                        ] + [ast.fix_missing_locations(a) for a in copy.deepcopy(node.args)]
 
             stub_kwargs = node.keywords
 

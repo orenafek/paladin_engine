@@ -170,7 +170,7 @@ class EvalResult(List[EvalResultEntry]):
             # Otherwise, the range is complete, add it to res.
             res[EvalResult._create_key(rng)] = vals
             vals = None
-            rng = []
+            rng = [e.time]
 
         # Add last range if such exist.
         if rng and vals:
