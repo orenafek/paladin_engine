@@ -307,7 +307,7 @@ class TimeOperator(Operator, ABC):
 
     @classmethod
     def make(cls, op: Operator):
-        return op if isinstance(op, TimeOperator) else TimeSatisfactory(op.times, op)
+        return op if isinstance(op, TimeOperator) else Whenever(op.times, op)
 
     def __init__(self, times: Iterable[Time]):
         super().__init__(times)
@@ -324,7 +324,7 @@ class TimeOperator(Operator, ABC):
         return EvalResultEntry(t, [EvalResultPair(TimeOperator.TIME_KEY, res)], rep if rep else [])
 
 
-class TimeSatisfactory(VariadicLateralOperator, TimeOperator):
+class Whenever(VariadicLateralOperator, TimeOperator):
 
     def __init__(self, times: Iterable[Time], *args: Operator):
         VariadicLateralOperator.__init__(self, times, *args)
@@ -339,6 +339,19 @@ class TimeSatisfactory(VariadicLateralOperator, TimeOperator):
                                                        list(reduce(lambda l, rep: l + rep,
                                                                    map(lambda ar: ar[t].replacements, evaled_args),
                                                                    [])))
+            for t in self.times
+        ])
+
+
+class ConstTime(TimeOperator):
+
+    def __init__(self, times: Iterable[Time], const_time: int):
+        super().__init__(times)
+        self.const_time = const_time
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        return EvalResult([
+            TimeOperator.create_time_eval_result_entry(t, t == self.const_time, [])
             for t in self.times
         ])
 
@@ -407,7 +420,7 @@ class Until(BiLateralOperator, TimeOperator):
         TimeOperator.__init__(self, times)
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = TimeSatisfactory(self.times, self.first).eval(archive, query_locals)
+        first = Whenever(self.times, self.first).eval(archive, query_locals)
         second = self.second.eval(archive, query_locals)
         not_second = Not(self.times, self.second).eval(archive, query_locals)
 
@@ -424,6 +437,21 @@ class Until(BiLateralOperator, TimeOperator):
                                                         if t not in min_max_times
                                                         else first[t].satisfies() and not_second[t].satisfies())
              for t in self.times])
+
+
+class Range(BiLateralOperator, TimeOperator):
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
+        BiLateralOperator.__init__(self, times, first, second)
+        TimeOperator.__init__(self, times)
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first = self.first.eval(archive, query_locals)
+        second = self.second.eval(archive, query_locals)
+
+        min_max_times = range(first.first_satisfaction().time,
+                              min(second.last_satisfaction().time + 1, self.times.stop))
+
+        return EvalResult([TimeOperator.create_time_eval_result_entry(t, t in min_max_times) for t in self.times])
 
 
 class Or(BiTimeOperator):
@@ -443,7 +471,7 @@ class Not(UniLateralOperator, TimeOperator):
         TimeOperator.__init__(self, times)
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = TimeSatisfactory(self.times, self.first).eval(archive, query_locals)
+        first = Whenever(self.times, self.first).eval(archive, query_locals)
 
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(t, not first[t].satisfies(), first[t].replacements)
@@ -789,102 +817,33 @@ class Diff(BiLateralOperator):
 
 class LoopIteration(BiLateralOperator):
     """
-    LoopIteration(<i>, <v>): Shows changes that have taken place in a loop where its iterator <i> had a value (<v>).
-                             ** i, v ** must be a Raw operators, i.e. [[ ... ]] or [[ ... ]]@...
+    LoopIteration(<ln>, <i>): Shows changes that have taken place in a loop in row <ln> in its <i>'th index.
+                             ** i, v ** must be numbers.
     """
 
-    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
-        BiLateralOperator.__init__(self, times, first, second)
-
-    # noinspection PyTypeChecker
-    @property
-    def _iterator_equals_value(self):
-        iterator: Raw = self.first
-        value: Raw = self.second
-        return Raw(f'{iterator.query} == {value.query}', iterator.line_no, self.times).eval(archive)
-
-    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        if not isinstance(self.first, Raw) or not isinstance(self.second, Raw):
-            raise TypeError('iterator and its value must be Raw operators')
-
-        relevant_times = TimeFilter(self.times, self._iterator_equals_value, self._iterator_equals_value).eval_ranges()
-
-        self.update_times(relevant_times)
-
-        changed_vars_selector = VarSelector(archive, self.times, self.first, self.first)
-
-        changed_vars_selector_result = changed_vars_selector.eval(archive)
-        if len(changed_vars_selector_result) == 0:
-            return {}
-
-        changed_vars = list(changed_vars_selector_result.values())[0][0][VarSelector.VARS_KEY]
-        changed_vars_diffs = []
-        for v in sorted(changed_vars):
-            ###
-            # FIXME: The var is not located using a specific scope in here (line_no=-1)
-            #  therefore other vars can get in the way...
-            #  For example:
-            #  ```
-            #   1: for i in range(1,4):
-            #      j = 1
-            #      ...
-            #   10: for i in range(5,8):
-            #     ...
-            #  ```
-            #  If We look for the first iter of the second loop (i == 5), with LoopIteration([[i]]@10, [[5]]),
-            #  the last value of the first iteration (i@1 == 4) will also be presented.
-            #  There is Currently a trouble to fix this, because i have a scope (i@10) but after the VarSelection,
-            #  j@10 is incorrect.
-            #
-            #  TODO: Maybe if a range of lines that compound the loop is used, a range of scopes can be used:
-            #   E.g.: LoopIteration([[i]], [[0]], 1, 10)
-            ###
-            selector = Raw(archive, v, times=self.times)
-            changed_var_diff = Where(self.times, selector, self._iterator_equals_value)
-            changed_vars_diffs.append(changed_var_diff)
-            # x = changed_var_diff.eval(archive)
-            # print(x)
-
-        return Union(self.times, *changed_vars_diffs).eval(archive)
-
-
-class LoopSummary(UniLateralOperator):
-    """
-        LoopSummary(<line>): Creates a summary of a loop which header (for i in ...) is in <line>
-                             ** <line> should be a Raw Operator, i.e. [[<line>]]
-    """
-
-    def __init__(self, times: Iterable[Time], line_no: int):
-        UniLateralOperator.__init__(self, times, Const(line_no, times))
+    def __init__(self, times: Iterable[Time], line_no: int, index: int):
+        BiLateralOperator.__init__(self, times, Const(line_no, times), Const(index, times))
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
         line_no: int = self.first.eval(archive)[0].values[0]
+        index: int = self.second.eval(archive)[0].values[0]
 
-        assignments_by_line_no: Dict[Rk, List[Rv]] = archive.get_assignments_by_line_no(line_no)
-        iterators = {rk.field: [vv.value for vv in rv] for rk, rv in assignments_by_line_no.items()}
-        iterator_names = tuple(iterators.keys())
-        iterator_values = tuple(zip(*iterators.values()))
-
-        iterator_values_times = [
-            TimeSatisfactory(self.times, *self._iterators_equals_values(iterator_names, iv, line_no))
-            for iv in iterator_values
-        ]
-        if not iterator_values_times:
+        loop_iteration_starts_and_ends: List[Tuple[Rk, Rv]] = sorted(archive.get_loop_iterations(line_no),
+                                                                     key=lambda t: t[1].time)
+        if index * 2 > len(loop_iteration_starts_and_ends) or index*2 + 1 > len(loop_iteration_starts_and_ends):
             return EvalResult.empty(self.times)
 
-        if len(iterator_values_times) == 1:
-            # Add the last iteration it there is only one.
-            iterator_values_times.append(iterator_values_times[::-1][0])
+        loop_iteration_start = loop_iteration_starts_and_ends[index * 2]
+        loop_iteration_end = loop_iteration_starts_and_ends[index * 2 + 1]
+        iterator_values_times = Range(self.times,
+                                      ConstTime(self.times, loop_iteration_start[1].time),
+                                      ConstTime(self.times, loop_iteration_end[1].time))
 
-        iterations_operators = []
-        for time_from, time_to in zip(iterator_values_times, iterator_values_times[1::]):
-            iterations_operators.extend(self._create_iterations_operators(time_from, time_to, archive, query_locals))
+        return Union(self.times, *self._create_iterations_operators(iterator_values_times, archive, query_locals)) \
+            .eval(archive, query_locals)
 
-        return Union(self.times, *iterations_operators).eval(archive, query_locals)
-
-    def _create_iterations_operators(self, time_from: TimeSatisfactory, time_to: TimeSatisfactory, archive: Archive,
-                                     query_locals: Optional[Dict[str, EvalResult]]) -> EvalResult:
-        time_range_operator = Until(self.times, time_from, time_to)
+    def _create_iterations_operators(self, time_range_operator: Range, archive: Archive,
+                                     query_locals: Optional[Dict[str, EvalResult]]) -> Iterable[Operator]:
         vars_selector_result = VarSelector(self.times, time_range_operator).eval(archive, query_locals)
 
         if len(vars_selector_result) == 0:
@@ -917,9 +876,23 @@ class LoopSummary(UniLateralOperator):
 
         return changed_vars_diffs
 
-    def _iterators_equals_values(self, iterators: Iterable[str], values: Iterable[object], line_no: int):
-        return [Raw(i + " == " + (str(v) if not isinstance(v, str) else f'"{v}"'), line_no, self.times) for
-                i, v in zip(iterators, values)]
+
+class LoopSummary(UniLateralOperator):
+    """
+        LoopSummary(<line>): Creates a summary of a loop which header (for i in ...) is in <line>
+                             ** <line> should be a Raw Operator, i.e. [[<line>]]
+    """
+
+    def __init__(self, times: Iterable[Time], line_no: int):
+        UniLateralOperator.__init__(self, times, Const(line_no, times))
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        line_no: int = self.first.eval(archive)[0].values[0]
+
+        iterations = floor(len(archive.get_loop_iterations(line_no)) / 2)
+
+        return Union(self.times, *[LoopIteration(self.times, line_no, i) for i in range(iterations)]).eval(archive,
+                                                                                                           query_locals)
 
 
 class Line(UniLateralOperator):
