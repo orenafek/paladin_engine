@@ -58,6 +58,7 @@ const mainComponent = {
             queryInProgress: false,
             queryResult: {},
             dsl_docs: '',
+            run_output: '',
             codemirror_options: {
                 mode: "text/x-python",
                 theme: "darcula",
@@ -78,6 +79,7 @@ const mainComponent = {
         this.exception_msg = exception != null ? exception['exception_msg'] : null;
         this.exception_archive_time = exception != null ? exception['exception_archive_time'] : null;
         this.dsl_docs = (await request_debug_info('docs')).toString().trim();
+        this.run_output = (await request_debug_info('run_output')).toString().trim();
     },
     mounted() {
         persistField(this, 'query', new LocalStore('app:query'));

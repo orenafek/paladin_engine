@@ -16,87 +16,93 @@
 <body>
 
 <div id="app">
-<div id="header">
-    <h1 style="position: center">PaLaDiN: Time-travel Debugger</h1>
-</div>
-<div id="main">
-<splitpanes class="default-theme" ref="mainSplit" @resize="store_layout_panes">
-<pane :size="layout.panes[0].size">
-    <Codemirror id="source-editor" ref="sourceEditor" class="original-style"
-                :value="source_code.join('\n')"
-                :options="{mode: 'python', theme: 'darcula', scrollbarStyle: 'overlay'}"></Codemirror>
-</pane>
-<pane id="query-pane">
-<div class="flex-container">
-    <div v-if="exception_line_no != null"
-         v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, archive time: ${exception_archive_time}`"
-         style="color: red;">
+    <div id="header">
+        <h1 style="position: center">PaLaDiN: Time-travel Debugger</h1>
     </div>
-    <div>
-        <h3> Run Query: </h3>
-        <div>
-            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto" :width="600"
-                        style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
-        </div>
-        <loading-spinner :is-loading="queryInProgress"
-                         @loading-button-click="run_query">Run</loading-spinner>
-        <div class="range-spec">
-            <span>Time range: </span>
-            <input v-model="query.startTime" type="number" placeholder="start"/>
-            <input v-model="query.endTime" type="number" placeholder="end"/>
-        </div>
-        <br/>
-        <tabular :value="queryResult"></tabular>
-        <br />
-        <div> PaLaDiN DSL Operators: </div>
-        <Markdown :source="dsl_docs" :breaks="true" />
-    </div>
-    <div hidden="hidden">
-        <h3>Create a time window:</h3>
-        <br/>
-        <input type="number" id="time_window_from" placeholder="Start Time">
-        <input type="number" id="time_window_to" placeholder="End Time"/>
-        <button @click="create_time_window()">
-            Create time window
-        </button>
-        <div id="time_window_archive_table" style="visibility: hidden;" class="collapsible_archive_table_div">
-            <table>
-                <thead>
-                    <td v-if="time_window.length > 0"
-                        v-for="k in Object.keys(time_window[0])"
-                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
-                </thead>
-                <tbody>
-                <tr v-for="entry in time_window">
-                    <td v-for="value, key in entry">
-                        <highlighted :code="value"/>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <div id="span_line_debug" style="visibility: hidden" hidden="hidden">
-        <table>
-            <thead>
-            <td>
-                <highlighted v-if="line_to_debug != null" :code="line_no_to_debug"/>
-            </td>
-            <td>
-                <highlighted v-if="line_to_debug != null" :code="line_to_debug"/>
-            </td>
-            </thead>
-        </table>
-        <h3>Archive entries for line:</h3>
-        <div class="collapsible_archive_table_div">
-            <archive-Table :entries="archive_entries"></archive-Table>
-        </div>
-        </table>
-    </div>
-</div>
-</pane>
-</splitpanes>
-</div> <!-- #main -->
+    <div id="main">
+        <splitpanes class="default-theme" ref="mainSplit" @resize="store_layout_panes">
+            <pane :size="layout.panes[0].size">
+                <Codemirror id="source-editor" ref="sourceEditor" class="original-style"
+                            :value="source_code.join('\n')"
+                            :options="{mode: 'python', theme: 'darcula', scrollbarStyle: 'overlay'}"></Codemirror>
+            </pane>
+            <pane id="query-pane">
+                <div class="flex-container">
+                    <div v-if="exception_line_no != null"
+                         v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, archive time: ${exception_archive_time}`"
+                         style="color: red;">
+                    </div>
+                    <div>
+                        <h3> Output: </h3>
+                        <Markdown :source="run_output" :breaks="true" style="background-color: #333"/>
+                    </div>
+                    <div>
+                        <h3> Run Query: </h3>
+                        <div>
+                            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto" :width="600"
+                                        style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
+                        </div>
+                        <loading-spinner :is-loading="queryInProgress"
+                                         @loading-button-click="run_query">Run
+                        </loading-spinner>
+                        <div class="range-spec">
+                            <span>Time range: </span>
+                            <input v-model="query.startTime" type="number" placeholder="start"/>
+                            <input v-model="query.endTime" type="number" placeholder="end"/>
+                        </div>
+                        <br/>
+                        <tabular :value="queryResult"></tabular>
+                        <br/>
+                        <div> PaLaDiN DSL Operators:</div>
+                        <Markdown :source="dsl_docs" :breaks="true"/>
+                    </div>
+                    <div hidden="hidden">
+                        <h3>Create a time window:</h3>
+                        <br/>
+                        <input type="number" id="time_window_from" placeholder="Start Time">
+                        <input type="number" id="time_window_to" placeholder="End Time"/>
+                        <button @click="create_time_window()">
+                            Create time window
+                        </button>
+                        <div id="time_window_archive_table" style="visibility: hidden;"
+                             class="collapsible_archive_table_div">
+                            <table>
+                                <thead>
+                                <td v-if="time_window.length > 0"
+                                    v-for="k in Object.keys(time_window[0])"
+                                    v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
+                                </thead>
+                                <tbody>
+                                <tr v-for="entry in time_window">
+                                    <td v-for="value, key in entry">
+                                        <highlighted :code="value"/>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="span_line_debug" style="visibility: hidden" hidden="hidden">
+                        <table>
+                            <thead>
+                            <td>
+                                <highlighted v-if="line_to_debug != null" :code="line_no_to_debug"/>
+                            </td>
+                            <td>
+                                <highlighted v-if="line_to_debug != null" :code="line_to_debug"/>
+                            </td>
+                            </thead>
+                        </table>
+                        <h3>Archive entries for line:</h3>
+                        <div class="collapsible_archive_table_div">
+                            <archive-Table :entries="archive_entries"></archive-Table>
+                        </div>
+                        </table>
+                    </div>
+                </div>
+            </pane>
+        </splitpanes>
+    </div> <!-- #main -->
 </div> <!-- #app -->
 
 </body>

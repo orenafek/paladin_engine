@@ -12,8 +12,12 @@ import re
 import signal
 import sys
 import traceback
+from contextlib import redirect_stdout
+from io import StringIO
 from types import CodeType
+from typing import Tuple, Any, Optional
 
+from archive.archive import Archive
 from ast_common.ast_common import ast2str
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
 from module_transformer.module_transformator import ModuleTransformer
@@ -120,11 +124,15 @@ class PaLaDiNEngine(object):
         return compile(source_code, PALADIN_ERROR_FILE_PATH, mode=PaLaDiNEngine.__COMPILATION_MODE)
 
     @staticmethod
-    def execute_with_paladin(source_code: str, paladinized_code: str, original_file_name: str, timeout: int=-1):
+    def execute_with_paladin(source_code: str, paladinized_code: str, original_file_name: str, timeout: int = -1,
+                             output_capture: StringIO = None) -> Tuple[Any, Archive, Optional[PaladinRunExceptionData]]:
         """
             Execute a source code with the paladin environment.
         :param source_code:
         :param paladinized_code:
+        :param original_file_name
+        :param timeout
+        :param output_capture
         :return:
         """
         # Set the variables for the run.
@@ -161,17 +169,18 @@ class PaLaDiNEngine(object):
             if timeout > 0:
                 signal.alarm(timeout)
 
+            if output_capture is not None:
+                with redirect_stdout(output_capture):
+                    return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
+
             return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
 
-        except PaladinTimeoutError as e:
-            return None, archive, PaLaDiNEngine.PaladinRunExceptionData.create(source_code, paladinized_code,
-                                                                               sys.exc_info(),
-                                                                               archive.time, e.line_no)
-
-        except BaseException:
-            return None, archive, PaLaDiNEngine.PaladinRunExceptionData.create(source_code, paladinized_code,
-                                                                               sys.exc_info(),
-                                                                               archive.time)
+        except (PaladinTimeoutError, BaseException) as e:
+            return None, archive, PaLaDiNEngine.PaladinRunExceptionData \
+                .create(source_code, paladinized_code,
+                        sys.exc_info(),
+                        archive.time,
+                        e.line_no if isinstance(e, PaladinTimeoutError) else -1)
 
     @staticmethod
     def __collect_imports_to_execution():

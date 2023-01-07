@@ -24,6 +24,7 @@ JSON_FILE_NAME = 'input_graph_tree.json'
 SOURCE_CODE: str = ''
 EVALUATOR: Optional[ArchiveEvaluator] = None
 ARCHIVE: Optional[Archive] = None
+RUN_OUTPUT: str = ''
 
 # FIXME: Currently for debugging purposes.
 THROWN_EXCEPTION: Optional[PaLaDiNEngine.PaladinRunExceptionData] = None
@@ -52,9 +53,11 @@ class PaladinServer(FlaskView):
     @classmethod
     def create(cls, source_code: str,
                archive: Archive,
+               run_output: str,
                thrown_exception: Optional[Tuple[int, str]] = None) -> 'PaladinServer':
-        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE, EVALUATOR
+        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE, EVALUATOR, RUN_OUTPUT
         server = PaladinServer()
+        RUN_OUTPUT = run_output
         SOURCE_CODE = source_code
         THROWN_EXCEPTION = thrown_exception
         ARCHIVE = archive
@@ -191,6 +194,10 @@ class PaladinServer(FlaskView):
     @route('/debug_info/docs')
     def docs(self):
         return PaladinServer.create_response(PaladinDSLParser.docs())
+
+    @route('/debug_info/run_output')
+    def run_output(self):
+        return PaladinServer.create_response(RUN_OUTPUT)
 
     @route('/debug_info/query_dsl_words')
     def query_dsl_words(self):

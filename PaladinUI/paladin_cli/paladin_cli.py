@@ -1,6 +1,7 @@
 import argparse
 import csv
 import traceback
+from io import StringIO
 
 from PaladinUI.paladin_server.paladin_server import PaladinServer
 from archive.archive import Archive
@@ -69,11 +70,14 @@ def main():
                 fo.write(paladinized_code)
 
         try:
+            output_capture = StringIO() if args.run_debug_server else None
+
             if args.run:
                 result, archive, thrown_exception = PaLaDiNEngine.execute_with_paladin(source_code,
                                                                                        paladinized_code,
                                                                                        args.input_file,
-                                                                                       args.timeout)
+                                                                                       args.timeout,
+                                                                                       output_capture)
                 print(result)
 
         except BaseException:  # Plot a graph.
@@ -82,7 +86,8 @@ def main():
         finally:
             if args.run_debug_server:
                 try:
-                    server = PaladinServer.create(source_code, archive, thrown_exception)
+                    run_output = output_capture.getvalue()
+                    server = PaladinServer.create(source_code, archive, run_output, thrown_exception)
                     server.run(args.port)
                 except KeyboardInterrupt:
                     pass
