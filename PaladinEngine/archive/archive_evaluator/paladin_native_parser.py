@@ -6,7 +6,7 @@ from typing import *
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
-    EvalResultPair, BAD_JSON_VALUES
+    EvalResultPair, BAD_JSON_VALUES, BUILTIN_CONSTANTS
 from archive.archive_evaluator.paladin_dsl_semantics import Operator, Time, Raw
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
@@ -213,8 +213,27 @@ class PaladinNativeParser(object):
             # Return the extra object has been stored in the visit or none otherwise.
             return self._get_visited_node_extra(arg)
 
-    def parse(self, query: str, start_time: int, end_time: int) -> str:
+    class PaladinJSONEncoder(json.JSONEncoder):
 
+        def __init__(self, *, skipkeys: bool = ..., ensure_ascii: bool = ..., check_circular: bool = ...,
+                     allow_nan: bool = ..., sort_keys: bool = ..., indent: int | None = ...,
+                     separators: tuple[str, str] | None = ..., default: Callable[..., Any] | None = ...) -> None:
+            super().__init__(skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
+                             allow_nan=allow_nan, sort_keys=sort_keys, indent=indent, separators=separators,
+                             default=default)
+            self.nan_str = 'NaN'
+
+        def default(self, o: Any) -> Any:
+            if isinstance(o, set):
+                return list(o)
+
+            print(o)
+            if isinstance(o, float) and o in BUILTIN_CONSTANTS.values():
+                return str(super().default(o))
+
+            return super().default(o)
+
+    def parse(self, query: str, start_time: int, end_time: int) -> str:
         try:
             times = range(start_time, end_time + 1)
             query_ast = str2ast(query.strip())
@@ -251,7 +270,8 @@ class PaladinNativeParser(object):
             grouped['keys'] = list(results.all_keys())
 
             # Remove bad JSON values.
-            return PaladinNativeParser._remove_bad_json_values(json.dumps(grouped))
+            return PaladinNativeParser._remove_bad_json_values(
+                json.dumps(grouped, cls=PaladinNativeParser.PaladinJSONEncoder))
 
         except BaseException as e:
             return json.dumps("")
@@ -319,6 +339,6 @@ class PaladinNativeParser(object):
     @classmethod
     def _remove_bad_json_values(cls, json_string: str):
         for bad_json_word in BAD_JSON_VALUES:
-            json_string = json_string.replace(str(bad_json_word), f'"{str(bad_json_word)}"')
+            json_string = json_string.replace(str(bad_json_word), BAD_JSON_VALUES[str(bad_json_word)])
 
         return json_string
