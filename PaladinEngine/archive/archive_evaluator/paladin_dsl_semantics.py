@@ -15,8 +15,6 @@ from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import *
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import *
 from ast_common.ast_common import *
-from common.common import IS_ITERABLE
-from stubs.stubs import __AS__
 
 SemanticsArgType = Union[bool, EvalResult]
 Time = int
@@ -161,6 +159,7 @@ class Operator(ABC):
             subclasses.extend(subclass.all())
 
         return list(set(subclasses))
+
     @classmethod
     def _all(cls):
         return cls.__subclasses__()
@@ -755,11 +754,24 @@ class VarSelector(UniLateralOperator):
         ])
 
     @staticmethod
-    def _get_all_vars(archive: Archive, time_range: range):
-        assignments = archive.get_all_assignments_in_time_range(time_range.start, time_range.stop)
-        return list(set(map(lambda r: r[1].expression,
-                            filter(lambda r: r[0].kind != Archive.Record.StoreKind.INNER_FIELD and '[' not in
-                                             r[1].expression, assignments))))
+    def _get_all_vars(archive: Archive, time_range: range) -> Iterable[str]:
+        vars = set()
+        assignments = archive.get_all_assignments_in_time_range(time_range.start, time_range.stop - 1)
+        for rk, vv in assignments:
+            if rk.kind != Archive.Record.StoreKind.VAR:
+                continue
+
+            if '__PALADIN' in vv.expression:
+                continue
+
+            if '[' in vv.expression:
+                # TODO: Should this always be the case?
+                vars.add(vv.expression.split('[')[0])
+                continue
+
+            vars.add(vv.expression)
+
+        return vars
 
 
 class Diff(BiLateralOperator):

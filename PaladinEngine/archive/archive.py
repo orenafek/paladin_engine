@@ -10,7 +10,7 @@ from ast import *
 from dataclasses import dataclass
 from enum import Enum
 from itertools import product
-from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable
+from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type
 
 import pandas as pd
 
@@ -64,8 +64,39 @@ class Archive(object):
     class Record(object):
 
         class StoreKind(Enum):
-            VAR = 0
-            INNER_FIELD = 1
+            LIST_ITEM = 1, list
+            SET_ITEM = 2, set
+            TUPLE_ITEM = 3, tuple
+            DICT_ITEM = 4, dict
+            VAR = 5, object
+
+            @property
+            def value(self) -> int:
+                return super().value[0]
+
+            @property
+            def type(self) -> Type:
+                return super().value[1]
+
+            @classmethod
+            def kind_by_type(cls, t: Type) -> 'Archive.Record.StoreKind':
+                if issubclass(t, list):
+                    return Archive.Record.StoreKind.LIST_ITEM
+
+                if issubclass(t, set):
+                    return Archive.Record.StoreKind.SET_ITEM
+
+                if issubclass(t, tuple):
+                    return Archive.Record.StoreKind.TUPLE_ITEM
+
+                if issubclass(t, dict):
+                    return Archive.Record.StoreKind.DICT_ITEM
+
+                return Archive.Record.StoreKind.VAR
+
+            @classmethod
+            def type_by_kind(cls, k: 'Archive.Record.StoreKind') -> Type:
+                return list(filter(lambda _k: _k == k, cls))[0].type
 
         @dataclass
         class RecordKey(object):
@@ -119,7 +150,7 @@ class Archive(object):
     def __init__(self) -> None:
         self.records: Dict[Archive.Record.RecordKey, List[Archive.Record.RecordValue]] = {}
         self._time = -1
-        self._should_record = True
+        self.should_record = True
 
     @property
     def time(self):
@@ -127,7 +158,7 @@ class Archive(object):
         return self._time
 
     def store(self, record_key: Record.RecordKey, record_value: Record.RecordValue):
-        if not self._should_record:
+        if not self.should_record:
             return self
 
         if record_key not in self.records:
@@ -187,37 +218,29 @@ class Archive(object):
         data_frame = pd.DataFrame(columns=header, data=rows)
         return data_frame.to_markdown(index=True)
 
-    def build_object(self, object_id: int, time: int = -1) -> Union[List[Dict], Tuple]:
+    def build_object(self, object_id: int, time: int = -1) -> Any:
         try:
             def time_filter(rv: Archive.Record.RecordValue):
                 return rv.time <= time if time != -1 else True
 
-            relevant_records = [(rk, v) for rk, rv in self.records.items() if
-                                rk.container_id == object_id and rk.stub_name == '__AS__' for v in rv if time_filter(v)]
+            relevant_records = self.flatten_and_filter([lambda vv: vv.key.container_id == object_id,
+                                                        lambda vv: vv.key.stub_name == '__AS__',
+                                                        lambda vv: time_filter(vv)])
+
             # noinspection PyTypeChecker
             d = {
                 rk.field: v.value if ISP(v.rtype) else self.build_object(v.value, time)
                 for rk, v in relevant_records
             }
 
-            # TODO: Patchy...
-            if any([isinstance(f, int) for f in d.keys()]):
-                if list.__name__ in relevant_records[0][1].expression:
-                    return list(d.values())
-                elif tuple.__name__ in relevant_records[0][1].expression:
-                    return tuple(d.values())
-                elif relevant_records[0][1].rtype == list:
-                    return list(d.values())
-                elif relevant_records[0][1].rtype == tuple:
-                    return tuple(d.values())
+            if any([k.kind not in [Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.DICT_ITEM] for k, _ in
+                    relevant_records]):
+                return relevant_records[0][0].kind.type(d.values())
 
-                # FIXME: Assuming the object to build is a dict in-which one of its keys is an integer.
-                return d
+            return d
 
-            return [dict(zip(keys, values)) for keys, values in product([d.keys()], zip(*d.values()))]
-
-        except TypeError as e:
-            pass
+        except TypeError:
+            return None
 
     def search_web(self, expression: str):
         def search_web_inner(container_id, field):
@@ -278,10 +301,10 @@ class Archive(object):
         return self.__repr__()
 
     def pause_record(self):
-        self._should_record = False
+        self.should_record = False
 
     def resume_record(self):
-        self._should_record = True
+        self.should_record = True
 
     def filter(self, filters: Union[Rvf, Iterable[Rvf]]) -> Dict[Rk, List[Rv]]:
         return {k: v for (k, v) in self.records.items() for vv in v
@@ -344,7 +367,7 @@ class Archive(object):
         assignments_time = [v.time for (k, v) in assignments]
         return {t: self.retrieve_value(object_id, object, t) for t in assignments_time}
 
-    def get_all_assignments_in_time_range(self, start: int, end: int) -> List:
+    def get_all_assignments_in_time_range(self, start: int, end: int) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(
             [lambda vv: start <= vv.time <= end, lambda vv: vv.key.stub_name == '__AS__'])
 
@@ -392,10 +415,11 @@ class Archive(object):
 
         def _find_by_name_and_container_id(name: str, container_id: int) -> List['Archive.Record.RecordValue']:
             return [r[1] for r in self.flatten_and_filter(
-                lambda vv: vv.key.container_id == container_id and vv.key.field == name and vv.line_no == line_no)]
+                lambda
+                    vv: vv.key.container_id == container_id and vv.key.field == name and vv.line_no == line_no and vv.time <= time)]
 
         def _find_by_name(name: str) -> List['Archive.Record.RecordValue']:
-            return [r[1] for r in self.flatten_and_filter(lambda vv: vv.key.field == name)]
+            return [r[1] for r in self.flatten_and_filter(lambda vv: vv.key.field == name and vv.time <= time)]
 
         @dataclass
         class NodeFinder(NodeVisitor):

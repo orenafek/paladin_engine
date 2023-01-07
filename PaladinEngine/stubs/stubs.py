@@ -197,7 +197,7 @@ def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict
 
 
 def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
-    if not archive._should_record:
+    if not archive.should_record:
         return
 
     # Create variable dict.
@@ -222,18 +222,21 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
         .value(type(value), value_to_store, target, line_no)
 
     def _store_inner(v: object) -> None:
+        if ISP(type(v)) or not v:
+            return None
+
         if type(v) in [list, tuple, set]:
             return _store_lists_tuples_and_sets(v)
 
         if type(v) is dict:
             return _store_dicts(v)
 
-        return None
+        return _store_dicts(v.__dict__)
 
     def _store_lists_tuples_and_sets(v: Union[List, Tuple, Set]):
         for index, item in enumerate(v):
             irv = archive.store_new \
-                .key(id(v), index, __AS__.__name__, Archive.Record.StoreKind.INNER_FIELD) \
+                .key(id(v), index, __AS__.__name__, Archive.Record.StoreKind.kind_by_type(type(v))) \
                 .value(type(item), POID(item), f'{type(v)}[{index}]', line_no)
 
             irv.time = rv.time
@@ -242,7 +245,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     def _store_dicts(d: Dict):
         for k, v in d.items():
             irv = archive.store_new \
-                .key(id(d), POID(k), __AS__.__name__, Archive.Record.StoreKind.INNER_FIELD) \
+                .key(id(d), POID(k), __AS__.__name__, Archive.Record.StoreKind.DICT_ITEM) \
                 .value(type(v), POID(v), f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
 
             irv.time = rv.time
@@ -289,7 +292,7 @@ def __FC__(expression: str, function,
     record_value = Archive.Record.RecordValue(record_key, func_type, None, expression, line_no, extra=extra)
 
     # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
-    if archive._should_record:
+    if archive.should_record:
         archive.store(record_key, record_value)
 
     # Call the function.
@@ -301,7 +304,7 @@ def __FC__(expression: str, function,
         ret_value = ret_exc
 
     ret_value_to_store = POID(ret_value) if ret_exc is not None else ret_exc
-    if archive._should_record:
+    if archive.should_record:
         # Update the value of the called function (or exception).
         # record_value.value = ret_value
         record_value.value = ret_value_to_store
@@ -316,7 +319,7 @@ def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_
     # Access field (or method).
     field = obj.__getattribute__(attr) if type(obj) is not type else obj.__getattribute__(obj, attr)
 
-    if archive._should_record:
+    if archive.should_record:
         archive.store_new \
             .key(id(obj), attr, __AC__.__name__) \
             .value(type(field), POID(field), expr, line_no)
@@ -325,7 +328,7 @@ def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_
 
 
 def __BREAK__(line_no: int, frame):
-    if archive._should_record:
+    if archive.should_record:
         archive.store_new \
             .key(id(frame), 'break', __BREAK__.__name__) \
             .value(object, None, 'break', line_no)
