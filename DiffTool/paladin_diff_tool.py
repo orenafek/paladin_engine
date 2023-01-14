@@ -115,33 +115,24 @@ def _search_for_next_match(table_a, index_a, table_a_unmatched_rows, table_b_unm
     return is_match_found, table_a_unmatched_rows, table_b_unmatched_rows, index_a
 
 
+def _dataframe_from_rows(rows, table1_columns):
+    df = pd.DataFrame(columns=table1_columns)
+    for row in rows:
+        df = pd.concat([df, row])
+    df = df.reset_index(drop=True)
+    return df
+
+
 def _print_matching_rows(result, row1, row2):
     row1.reset_index(drop=True)
     row2.reset_index(drop=True)
     merged_row = pd.concat([row1, row2], axis=1)
     result = pd.concat([result, merged_row], ignore_index=True)
-    # print(result)
     return result
 
 
-def _print_unmatching_rows(result, rows1, rows2, table1_columns, table2_columns):
-    df1 = pd.DataFrame(columns=table1_columns)
-    print(len(rows1), len(rows2))
-    if not rows1.empty:
-        print(type(rows1), rows1)
-        for row in rows1:
-            print(row, type(row), row.empty)
-            df1 = pd.concat([df1, row])
-        df1.reset_index(drop=True)
-    df2 = pd.DataFrame(columns=table2_columns)
-    if not len(rows2):
-        for row in rows2:
-            df2 = pd.concat([df2, row])
-        df2.reset_index(drop=True)
-
-    merged_block = pd.concat([df1, df2], axis=1)
-    print(merged_block)
-    print(result)
+def _print_unmatching_rows(result, rows1, rows2):
+    merged_block = pd.concat([rows1, rows2], axis=1)
     result = pd.concat([result, merged_block], ignore_index=True)
     return result
 
@@ -190,12 +181,11 @@ def merge_tables(table1, table2, merge_condition_1, merge_condition_2, suffix1, 
             index1 = table1_unmatched_rows[-1][1] + 1
             index2 = table2_unmatched_rows[-1][1] + 1
             # Print the unmatched block
-            table1_unmatched_rows_data = [item[0] for item in table1_unmatched_rows]
-            table2_unmatched_rows_data = [item[0] for item in table2_unmatched_rows]
-            result = _print_unmatching_rows(result, table1_unmatched_rows_data, table2_unmatched_rows_data, table1_columns, table2_columns)
-    # Print remaining rows
-    # print(table1.iloc[index1:])
-    # print(table2.iloc[index2:])
-    result = _print_unmatching_rows(result, table1.iloc[index1:], table2.iloc[index2:], table1_columns, table2_columns)
+            table1_unmatched_rows_df = _dataframe_from_rows([item[0] for item in table1_unmatched_rows], table1_columns)
+            table2_unmatched_rows_df = _dataframe_from_rows([item[0] for item in table2_unmatched_rows], table2_columns)
+            result = _print_unmatching_rows(result, table1_unmatched_rows_df, table2_unmatched_rows_df)
 
-    print(result)
+    # Print remaining rows
+    result = _print_unmatching_rows(result, table1.iloc[index1:], table2.iloc[index2:])
+
+    return result
