@@ -93,15 +93,29 @@ def _create_dataframe_from_csv(csv_file_path, query, start_time, end_time):
 # ---------------------------------------------------------------------------------------------#
 
 
-def _are_matching_rows(row1, row2, merge_condition_1, merge_condition_2):
+def _are_matching_rows(row1, row2, merge_condition_1, merge_condition_2, result_condition_1, result_condition_2):
+    row1 = row1.reset_index(drop=True)
+    row2 = row2.reset_index(drop=True)
+
     sub_row1 = row1[merge_condition_1]
     sub_row2 = row2[merge_condition_2]
     sub_row1.columns = [i for i in range(sub_row1.shape[1])]
     sub_row2.columns = [i for i in range(sub_row2.shape[1])]
-    return sub_row1.equals(sub_row2)
+    body_condition = sub_row1.equals(sub_row2)
+
+    sub_result_row1 = row1[result_condition_1]
+    sub_result_row2 = row2[result_condition_2]
+    sub_result_row1.columns = [i for i in range(sub_result_row1.shape[1])]
+    sub_result_row2.columns = [i for i in range(sub_result_row2.shape[1])]
+    result_condition = sub_result_row1.notna().values.all() and \
+                       sub_result_row2.notna().values.all() and \
+                       sub_result_row1.equals(sub_result_row2)
+
+    return body_condition or result_condition
 
 
-def _search_for_next_match(table_a, index_a, table_a_unmatched_rows, table_b_unmatched_rows, merge_condition_a, merge_condition_b):
+def _search_for_next_match(table_a, index_a, table_a_unmatched_rows, table_b_unmatched_rows, merge_condition_a,
+                           merge_condition_b, result_condition_1, result_condition_2):
     index_a += 1
 
     if index_a >= len(table_a):
@@ -111,7 +125,7 @@ def _search_for_next_match(table_a, index_a, table_a_unmatched_rows, table_b_unm
     table_a_unmatched_rows.append((row_a, index_a))
     is_match_found = False
     for i, (row2_unmatched, index2_unmatched) in enumerate(table_b_unmatched_rows):
-        if _are_matching_rows(row_a, row2_unmatched, merge_condition_a, merge_condition_b):
+        if _are_matching_rows(row_a, row2_unmatched, merge_condition_a, merge_condition_b, result_condition_1, result_condition_2):
             is_match_found = True
             table_b_unmatched_rows = table_b_unmatched_rows[:i + 1]
             break
@@ -127,8 +141,8 @@ def _dataframe_from_rows(rows, table1_columns):
 
 
 def _print_matching_rows(result, row1, row2):
-    row1.reset_index(drop=True)
-    row2.reset_index(drop=True)
+    row1 = row1.reset_index(drop=True)
+    row2 = row2.reset_index(drop=True)
     merged_row = pd.concat([row1, row2], axis=1)
     result = pd.concat([result, merged_row], ignore_index=True)
     match_indices = result.tail(len(merged_row)).index.tolist()
@@ -141,6 +155,7 @@ def _print_unmatching_rows(result, rows1, rows2):
     diff_indices = result.tail(len(merged_block)).index.tolist()
     return result, diff_indices
 
+
 # ---------------------------------------------------------------------------------------------#
 # ------------------------- INTERACTIVE FUNCTIONS ---------------------------------------------#
 # ---------------------------------------------------------------------------------------------#
@@ -152,7 +167,7 @@ def get_data(csv_file_path, query, suffix, start_time=0, end_time=500):
     return dataframe
 
 
-def merge_tables(table1, table2, merge_condition_1, merge_condition_2, suffix1, suffix2):
+def merge_tables(table1, table2, merge_condition_1, merge_condition_2, result_condition_1, result_condition_2, suffix1, suffix2):
     table1_columns = table1.columns.values.tolist()
     table2_columns = table2.columns.values.tolist()
     all_columns = table1_columns + table2_columns
@@ -160,6 +175,8 @@ def merge_tables(table1, table2, merge_condition_1, merge_condition_2, suffix1, 
 
     merge_condition_1 = [item + suffix1 for item in merge_condition_1]
     merge_condition_2 = [item + suffix2 for item in merge_condition_2]
+    result_condition_1 = [item + suffix1 for item in result_condition_1]
+    result_condition_2 = [item + suffix2 for item in result_condition_2]
 
     match_indices = []
     diff_indices = []
@@ -169,7 +186,7 @@ def merge_tables(table1, table2, merge_condition_1, merge_condition_2, suffix1, 
     while index1 < len(table1) and index2 < len(table2):
         row1 = table1.iloc[[index1]]
         row2 = table2.iloc[[index2]]
-        if _are_matching_rows(row1, row2, merge_condition_1, merge_condition_2):
+        if _are_matching_rows(row1, row2, merge_condition_1, merge_condition_2, result_condition_1, result_condition_2):
             result, indices = _print_matching_rows(result, row1, row2)
             match_indices += indices
             index1 += 1
@@ -180,22 +197,36 @@ def merge_tables(table1, table2, merge_condition_1, merge_condition_2, suffix1, 
             is_match_found = False
             while not is_match_found and (index1 < len(table1) or index2 < len(table2)):
                 is_match_found, table1_unmatched_rows, table2_unmatched_rows, index1 = _search_for_next_match(
-                    table1, index1, table1_unmatched_rows, table2_unmatched_rows, merge_condition_1, merge_condition_2
+                    table1, index1, table1_unmatched_rows, table2_unmatched_rows, merge_condition_1, merge_condition_2,
+                    result_condition_1, result_condition_2
                 )
                 if is_match_found:
                     break
                 is_match_found, table2_unmatched_rows, table1_unmatched_rows, index2 = _search_for_next_match(
-                    table2, index2, table2_unmatched_rows, table1_unmatched_rows, merge_condition_2, merge_condition_1
+                    table2, index2, table2_unmatched_rows, table1_unmatched_rows, merge_condition_2, merge_condition_1,
+                    result_condition_1, result_condition_2
                 )
-            index1 = table1_unmatched_rows[-1][1] + 1
-            index2 = table2_unmatched_rows[-1][1] + 1
+            index1 = table1_unmatched_rows[-1][1]
+            index2 = table2_unmatched_rows[-1][1]
+            if is_match_found:
+                # Exclude the found row from each list, so it isn't printed as part of the unmatched block
+                table1_unmatched_rows = table1_unmatched_rows[:-1]
+                table2_unmatched_rows = table2_unmatched_rows[:-1]
             # Print the unmatched block
             table1_unmatched_rows_df = _dataframe_from_rows([item[0] for item in table1_unmatched_rows], table1_columns)
             table2_unmatched_rows_df = _dataframe_from_rows([item[0] for item in table2_unmatched_rows], table2_columns)
             result, indices = _print_unmatching_rows(result, table1_unmatched_rows_df, table2_unmatched_rows_df)
             diff_indices += indices
+            if is_match_found:
+                row1 = table1.iloc[[index1]]
+                row2 = table2.iloc[[index2]]
+                result, indices = _print_matching_rows(result, row1, row2)
+                match_indices += indices
+                index1 += 1
+                index2 += 1
 
     # Print remaining rows
+    # TODO: this block might be redundant (unmatched block will be found inside while?)
     result, indices = _print_unmatching_rows(result, table1.iloc[index1:], table2.iloc[index2:])
     diff_indices += indices
 
