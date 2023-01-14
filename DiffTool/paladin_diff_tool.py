@@ -7,10 +7,13 @@ from types import FunctionType
 from PaladinEngine.archive.archive import Archive
 from PaladinUI.paladin_server.paladin_server import PaladinServer
 
+GREEN_COLOR = '#B7F9A2'
+RED_COLOR = '#FAA085'
 
 # ---------------------------------------------------------------------------------------------#
 # ------------------------- DATAFRAMES CREATION -----------------------------------------------#
 # ---------------------------------------------------------------------------------------------#
+
 
 def _create_archive_from_csv(csv_path):
     dataframe = _load_csv_to_dataframe(csv_path)
@@ -128,13 +131,15 @@ def _print_matching_rows(result, row1, row2):
     row2.reset_index(drop=True)
     merged_row = pd.concat([row1, row2], axis=1)
     result = pd.concat([result, merged_row], ignore_index=True)
-    return result
+    match_indices = result.tail(len(merged_row)).index.tolist()
+    return result, match_indices
 
 
 def _print_unmatching_rows(result, rows1, rows2):
     merged_block = pd.concat([rows1, rows2], axis=1)
     result = pd.concat([result, merged_block], ignore_index=True)
-    return result
+    diff_indices = result.tail(len(merged_block)).index.tolist()
+    return result, diff_indices
 
 # ---------------------------------------------------------------------------------------------#
 # ------------------------- INTERACTIVE FUNCTIONS ---------------------------------------------#
@@ -156,13 +161,17 @@ def merge_tables(table1, table2, merge_condition_1, merge_condition_2, suffix1, 
     merge_condition_1 = [item + suffix1 for item in merge_condition_1]
     merge_condition_2 = [item + suffix2 for item in merge_condition_2]
 
+    match_indices = []
+    diff_indices = []
+
     index1 = 0
     index2 = 0
     while index1 < len(table1) and index2 < len(table2):
         row1 = table1.iloc[[index1]]
         row2 = table2.iloc[[index2]]
         if _are_matching_rows(row1, row2, merge_condition_1, merge_condition_2):
-            result = _print_matching_rows(result, row1, row2)
+            result, indices = _print_matching_rows(result, row1, row2)
+            match_indices += indices
             index1 += 1
             index2 += 1
         else:
@@ -183,9 +192,11 @@ def merge_tables(table1, table2, merge_condition_1, merge_condition_2, suffix1, 
             # Print the unmatched block
             table1_unmatched_rows_df = _dataframe_from_rows([item[0] for item in table1_unmatched_rows], table1_columns)
             table2_unmatched_rows_df = _dataframe_from_rows([item[0] for item in table2_unmatched_rows], table2_columns)
-            result = _print_unmatching_rows(result, table1_unmatched_rows_df, table2_unmatched_rows_df)
+            result, indices = _print_unmatching_rows(result, table1_unmatched_rows_df, table2_unmatched_rows_df)
+            diff_indices += indices
 
     # Print remaining rows
-    result = _print_unmatching_rows(result, table1.iloc[index1:], table2.iloc[index2:])
+    result, indices = _print_unmatching_rows(result, table1.iloc[index1:], table2.iloc[index2:])
+    diff_indices += indices
 
-    return result
+    return result, match_indices, diff_indices
