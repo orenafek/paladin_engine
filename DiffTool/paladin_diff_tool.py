@@ -7,6 +7,7 @@ from types import FunctionType
 from PaladinEngine.archive.archive import Archive
 from PaladinUI.paladin_server.paladin_server import PaladinServer
 
+TIMES_COLUMN_NAME = 'Time Range'
 GREEN_COLOR = '#B7F9A2'
 RED_COLOR = '#FAA085'
 
@@ -75,8 +76,7 @@ def _convert_query_result_to_presentable_table(query_result):
     json_data.pop('keys')
     result_df = pd.DataFrame.from_dict(json_data, orient="index")
     result_df.reset_index(inplace=True)
-    times_column_name = 'Time Range'
-    result_df = result_df.rename(columns={'index': times_column_name})
+    result_df = result_df.rename(columns={'index': TIMES_COLUMN_NAME})
     return result_df
 
 
@@ -161,8 +161,11 @@ def _print_unmatching_rows(result, rows1, rows2):
 # ---------------------------------------------------------------------------------------------#
 
 
-def get_data(csv_file_path, query, suffix, start_time=0, end_time=500):
+def get_data(csv_file_path, query_vars, suffix, start_time=0, end_time=500):
+    query = f"Union({','.join(query_vars)})"
     dataframe = _create_dataframe_from_csv(csv_file_path, query, start_time, end_time)
+    columns = [TIMES_COLUMN_NAME] + query_vars
+    dataframe = dataframe[columns]
     dataframe = dataframe.add_suffix(suffix)
     return dataframe
 
