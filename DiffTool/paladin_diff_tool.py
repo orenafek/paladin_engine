@@ -11,6 +11,11 @@ TIMES_COLUMN_NAME = 'Time Range'
 GREEN_COLOR = '#B7F9A2'
 RED_COLOR = '#FAA085'
 
+class TableInfo:
+    def __init__(self, csv_file_path, suffix):
+        self.csv_file_path = csv_file_path
+        self.suffix = suffix
+
 # ---------------------------------------------------------------------------------------------#
 # ------------------------- DATAFRAMES CREATION -----------------------------------------------#
 # ---------------------------------------------------------------------------------------------#
@@ -159,25 +164,25 @@ def _print_unmatching_rows(result, rows1, rows2):
 # ---------------------------------------------------------------------------------------------#
 
 
-def get_data(csv_file_path, query_vars, suffix, start_time=0, end_time=500):
+def get_data(table_info, query_vars, start_time=0, end_time=500):
     query = f"Union({','.join(query_vars)})"
-    dataframe = _create_dataframe_from_csv(csv_file_path, query, start_time, end_time)
+    dataframe = _create_dataframe_from_csv(table_info.csv_file_path, query, start_time, end_time)
     columns = [TIMES_COLUMN_NAME] + query_vars
     dataframe = dataframe[columns]
-    dataframe = dataframe.add_suffix(suffix)
+    dataframe = dataframe.add_suffix(table_info.suffix)
     return dataframe
 
 
-def merge_tables(table1, table2, merge_condition_1, merge_condition_2, result_condition_1, result_condition_2, suffix1, suffix2):
+def merge_tables(table_info_1, table_info_2, table1, table2, merge_condition_1, merge_condition_2, result_condition_1, result_condition_2):
     table1_columns = table1.columns.values.tolist()
     table2_columns = table2.columns.values.tolist()
     all_columns = table1_columns + table2_columns
     result = pd.DataFrame(columns=all_columns)
 
-    merge_condition_1 = [item + suffix1 for item in merge_condition_1]
-    merge_condition_2 = [item + suffix2 for item in merge_condition_2]
-    result_condition_1 = [item + suffix1 for item in result_condition_1]
-    result_condition_2 = [item + suffix2 for item in result_condition_2]
+    merge_condition_1 = [item + table_info_1.suffix for item in merge_condition_1]
+    merge_condition_2 = [item + table_info_2.suffix for item in merge_condition_2]
+    result_condition_1 = [item + table_info_1.suffix for item in result_condition_1]
+    result_condition_2 = [item + table_info_2.suffix for item in result_condition_2]
 
     match_indices = []
     diff_indices = []
