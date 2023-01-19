@@ -38,21 +38,19 @@ def _create_record_key_value(row):
         int(row.container_id), row_field, row.stub_name, Archive.Record.StoreKind[row.kind]
     )
 
-    if record_key.stub_name == "__AS__" and row.rtype in ['list', 'dict', 'tuple', 'set']:
+    special_types = {'list': list, 'dict': dict, 'tuple': tuple, 'set': set}
+    if record_key.stub_name == "__AS__" and row.rtype in special_types.keys():
         value_of_record = ast.literal_eval(row.value)
         type_of_record = row.rtype
     elif row.rtype == 'function':
         value_of_record = row.value
         type_of_record = FunctionType
-    elif row.rtype == 'list':
-        value_of_record = ast.literal_eval(row.value)
-        type_of_record = list
     elif row.rtype == 'bool':
         value_of_record = True if row.value == 'True' else False
         type_of_record = bool
-    elif row.rtype == 'dict':
+    elif row.rtype in special_types.keys():
         value_of_record = ast.literal_eval(row.value)
-        type_of_record = dict #TODO: add same for tuple and set
+        type_of_record = special_types[row.rtype]
     elif record_key.stub_name == "__BREAK__":
         value_of_record = None
         type_of_record = object
