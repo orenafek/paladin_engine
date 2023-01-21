@@ -1,0 +1,43 @@
+container_id,field,stub_name,kind,key,rtype,value,expression,line_no,time,extra
+3028751907392,main,__FC__,VAR,3028752058640,function,,main(),16,0,"args = , kwargs = "
+3028751934736,main,__DEF__,VAR,3028752058976,function,main,main,1,1,
+3028751934736,numbers,__AS__,VAR,3028752059936,list,3028752010112,numbers,10,2,
+3028752010112,0,__AS__,INNER_FIELD,3028752072656,int,3,<class 'list'>[0],10,2,
+3028752010112,1,__AS__,INNER_FIELD,3028752069152,int,2,<class 'list'>[1],10,2,
+3028752010112,2,__AS__,INNER_FIELD,3028752059504,int,3,<class 'list'>[2],10,2,
+3028752010112,3,__AS__,INNER_FIELD,3028752065552,int,2,<class 'list'>[3],10,2,
+3028752010112,4,__AS__,INNER_FIELD,3028752064064,int,2,<class 'list'>[4],10,2,
+3028752010112,5,__AS__,INNER_FIELD,3028752066416,int,2,<class 'list'>[5],10,2,
+3028752010112,6,__AS__,INNER_FIELD,3028752063008,int,4,<class 'list'>[6],10,2,
+3028751934736,majority_element_1,__FC__,VAR,3028752059648,function,,majority_element_1(numbers),11,10,"args = [3, 2, 3, 2, 2, 2, 4], kwargs = "
+3028747302032,majority_element_1,__DEF__,VAR,3028752064448,function,majority_element_1,majority_element_1,1,11,
+3028747302032,nums,__ARG__,VAR,3028752062288,list,"['3', '2', '3', '2', '2', '2', '4']",nums,1,12,
+3028747302032,m,__AS__,VAR,3028752066608,dict,3028751950784,m,2,13,
+3028747302032,n,__AS__,VAR,3028752061088,int,3,n,3,14,
+3028751950784,get,__FC__,VAR,3028752057872,function,,"m.get(n, 0)",4,15,"args = 3, 0, kwargs = "
+3028751950784,3,__AS__,VAR,3028752056576,int,1,m[n],4,16,
+3028434651232,len,__FC__,VAR,3028752061856,function,,len(nums),5,17,"args = [3, 2, 3, 2, 2, 2, 4], kwargs = "
+3028747302032,n,__AS__,VAR,3028752057248,int,2,n,3,18,
+3028751950784,get,__FC__,VAR,3028752066176,function,,"m.get(n, 0)",4,19,"args = 2, 0, kwargs = "
+3028751950784,2,__AS__,VAR,3028752058208,int,1,m[n],4,20,
+3028434651232,len,__FC__,VAR,3028752061904,function,,len(nums),5,21,"args = [3, 2, 3, 2, 2, 2, 4], kwargs = "
+3028747302032,n,__AS__,VAR,3028752062384,int,3,n,3,22,
+3028751950784,get,__FC__,VAR,3028752064688,function,,"m.get(n, 0)",4,23,"args = 3, 0, kwargs = "
+3028751950784,3,__AS__,VAR,3028752063104,int,2,m[n],4,24,
+3028434651232,len,__FC__,VAR,3028752061808,function,,len(nums),5,25,"args = [3, 2, 3, 2, 2, 2, 4], kwargs = "
+3028747302032,n,__AS__,VAR,3028752064352,int,2,n,3,26,
+3028751950784,get,__FC__,VAR,3028752065744,function,,"m.get(n, 0)",4,27,"args = 2, 0, kwargs = "
+3028751950784,2,__AS__,VAR,3028752065312,int,2,m[n],4,28,
+3028434651232,len,__FC__,VAR,3028752066368,function,,len(nums),5,29,"args = [3, 2, 3, 2, 2, 2, 4], kwargs = "
+3028747302032,n,__AS__,VAR,3028752070688,int,2,n,3,30,
+3028751950784,get,__FC__,VAR,3028752068048,function,,"m.get(n, 0)",4,31,"args = 2, 0, kwargs = "
+3028751950784,2,__AS__,VAR,3028751966336,int,3,m[n],4,32,
+3028434651232,len,__FC__,VAR,3028751962736,function,,len(nums),5,33,"args = [3, 2, 3, 2, 2, 2, 4], kwargs = "
+3028747302032,n,__AS__,VAR,3028751965568,int,2,n,3,34,
+3028751950784,get,__FC__,VAR,3028751967920,function,,"m.get(n, 0)",4,35,"args = 2, 0, kwargs = "
+3028751950784,2,__AS__,VAR,3028751973440,int,4,m[n],4,36,
+3028434651232,len,__FC__,VAR,3028751965616,function,,len(nums),5,37,"args = [3, 2, 3, 2, 2, 2, 4], kwargs = "
+3028747302032,majority_element_1,__UNDEF__,VAR,3028751966240,function,majority_element_1,majority_element_1,1,38,
+3028751934736,result,__AS__,VAR,3028751971520,int,2,result,11,39,
+3028434651232,print,__FC__,VAR,3028751962544,function,,print(result),12,40,"args = 2, kwargs = "
+3028751934736,main,__UNDEF__,VAR,3028752061520,function,main,main,1,41,

@@ -12,8 +12,8 @@ def majority_element_2(nums):
 
 def main():
     numbers = [3, 2, 3, 2, 2, 2, 4]
-    result2 = majority_element_2(numbers)
-    print(result2)
+    result = majority_element_2(numbers)
+    print(result)
 
 
 if __name__ == "__main__":

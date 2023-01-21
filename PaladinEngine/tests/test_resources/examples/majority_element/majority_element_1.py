@@ -8,8 +8,8 @@ def majority_element_1(nums):
 
 def main():
     numbers = [3, 2, 3, 2, 2, 2, 4]
-    result1 = majority_element_1(numbers)
-    print(result1)
+    result = majority_element_1(numbers)
+    print(result)
 
 
 if __name__ == "__main__":
