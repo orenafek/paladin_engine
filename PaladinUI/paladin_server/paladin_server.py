@@ -180,6 +180,10 @@ class PaladinServer(FlaskView):
 
         return PaladinServer.create_response(nodes)
 
+    @route('/debug_info/last_run_time')
+    def last_run_time(self):
+        return PaladinServer.create_response(ARCHIVE.last_time)
+
     @route('/debug_info/time_window/<int:from_time>/<int:to>')
     def time_window(self, from_time: int, to: int):
         return PaladinServer.create_response(
@@ -246,3 +250,7 @@ class PaladinServer(FlaskView):
                 value.time
             ) for (key, value_list) in archive_entries for value in value_list
         ], key=lambda aev: aev.time, reverse=True)
+
+    @staticmethod
+    def _run_time_window():
+        return {'TIME_WINDOW': (0, ARCHIVE.last_time)}

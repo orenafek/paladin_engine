@@ -15,6 +15,7 @@ import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
 import ArchiveTable from "./components/archive_entries_table.vue";
 import tabular from "./components/tabular.vue";
 import { persistField, LocalStore } from "./infra/store";
+import Slider from "@vueform/slider";
 
 import LoadingSpinner from "./components/loading_spinner.vue";
 import './main.scss';
@@ -29,6 +30,7 @@ const mainComponent = {
         loadingSpinner: LoadingSpinner,
         tabular,
         Markdown,
+        Slider,
         Splitpanes, Pane
     },
     data: function () {
@@ -59,6 +61,8 @@ const mainComponent = {
             queryResult: {},
             dsl_docs: '',
             run_output: '',
+            lastRunTime: 10000,
+            runTimeWindow: [0, 10000],
             codemirror_options: {
                 mode: "text/x-python",
                 theme: "darcula",
@@ -80,9 +84,12 @@ const mainComponent = {
         this.exception_archive_time = exception != null ? exception['exception_archive_time'] : null;
         this.dsl_docs = (await request_debug_info('docs')).toString().trim();
         this.run_output = (await request_debug_info('run_output')).toString().trim();
+        this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
+        this.query.endTime = this.lastRunTime;
+        this.runTimeWindow = [0, this.lastRunTime];
     },
     mounted() {
-        persistField(this, 'query', new LocalStore('app:query'));
+        persistField(this.query, 'select', new LocalStore('app:querySelect'));
         persistField(this.layout, 'panes', new LocalStore('app:layout.panes'));
     },
     compilerOptions: {
@@ -149,6 +156,11 @@ const mainComponent = {
 
         store_layout_panes(ev) {
             this.layout.panes = ev.map(x => ({size: x.size}));
+        },
+
+        sliderChange(sliderValue) {
+            this.query.startTime = sliderValue[0];
+            this.query.endTime = sliderValue[1];
         }
     }
 

@@ -47,8 +47,7 @@
                         </loading-spinner>
                         <div class="range-spec">
                             <span>Time range: </span>
-                            <input v-model="query.startTime" type="number" placeholder="start"/>
-                            <input v-model="query.endTime" type="number" placeholder="end"/>
+                            <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow" @change="sliderChange" />
                         </div>
                         <br/>
                         <tabular :value="queryResult"></tabular>
