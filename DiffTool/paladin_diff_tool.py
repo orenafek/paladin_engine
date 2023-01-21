@@ -91,7 +91,6 @@ def _create_record_key_value(row):
 
 
 def _convert_query_result_to_presentable_table(query_result):
-    print(query_result)
     result = query_result['result']['query']
     if result == '""':
         raise Exception("Empty query result!")
@@ -155,7 +154,7 @@ def _collect_unmatching_rows(merge_table_instance_1, merge_table_instance_2, row
     index1 = table1_unmatched_rows[-1][1]
     index2 = table2_unmatched_rows[-1][1]
     if is_match_found:
-        # Exclude the found row from each list, so it isn't printed as part of the unmatched block
+        # Exclude the found row from each list, so it isn't added as part of the unmatched block
         table1_unmatched_rows = table1_unmatched_rows[:-1]
         table2_unmatched_rows = table2_unmatched_rows[:-1]
     return index1, index2, table1_unmatched_rows, table2_unmatched_rows
