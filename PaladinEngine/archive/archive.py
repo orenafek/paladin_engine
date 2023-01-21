@@ -10,11 +10,13 @@ from ast import *
 from dataclasses import dataclass
 from enum import Enum
 from itertools import product
-from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type
+from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type, Collection
 
 import pandas as pd
+from frozendict import frozendict
 
 from ast_common.ast_common import ast2str
+from builtin_manipulation_calls.builtin_manipulation_calls import MAINPULATION_BY_OBJ_TYPE_AND_FUNC_NAME
 from common.common import ISP, IS_ITERABLE
 
 Rk = 'Archive.Record.RecordKey'
@@ -68,7 +70,10 @@ class Archive(object):
             SET_ITEM = 2, set
             TUPLE_ITEM = 3, tuple
             DICT_ITEM = 4, dict
-            VAR = 5, object
+            BUILTIN_MANIP = 5, object
+            OBJ_ITEM = 6, object
+            VAR = 7, object
+            UNAMED_OBJECT = 8, object
 
             @property
             def value(self) -> int:
@@ -151,6 +156,7 @@ class Archive(object):
         self.records: Dict[Archive.Record.RecordKey, List[Archive.Record.RecordValue]] = {}
         self._time = -1
         self.should_record = True
+        self._cache = {}
 
     @property
     def time(self):
@@ -223,23 +229,47 @@ class Archive(object):
             def time_filter(rv: Archive.Record.RecordValue):
                 return rv.time <= time if time != -1 else True
 
-            relevant_records = self.flatten_and_filter([lambda vv: vv.key.container_id == object_id,
-                                                        lambda vv: vv.key.stub_name == '__AS__',
-                                                        lambda vv: time_filter(vv)])
+            if (object_id, time) in self._cache:
+                return self._cache[(object_id, time)]
 
-            # noinspection PyTypeChecker
-            d = {
-                rk.field: v.value if ISP(v.rtype) else self.build_object(v.value, time)
-                for rk, v in relevant_records
-            }
+            relevant_records = sorted(self.flatten_and_filter([lambda vv: vv.key.container_id == object_id,
+                                                               lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'},
+                                                               lambda vv: time_filter(vv)]), key=lambda t: t[1].time)
 
-            if any([k.kind not in [Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.DICT_ITEM] for k, _ in
-                    relevant_records]):
-                return relevant_records[0][0].kind.type(d.values())
+            col = {list: [], dict: {}, set: set()}
 
-            return d
+            col_type_to_return = None
 
-        except TypeError:
+            for k, v in relevant_records:
+
+                value = v.value if ISP(v.rtype) else self.build_object(v.value, time)
+                if k.stub_name == '__AS__' and value is None and v.rtype in col:
+                    value = col[v.rtype]
+
+                if k.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.DICT_ITEM}:
+                    col[dict][k.field] = value
+                    col_type_to_return = dict
+
+                elif k.kind == Archive.Record.StoreKind.LIST_ITEM:
+                    col[list].append(value)
+                    col_type_to_return = list
+
+                elif k.kind == Archive.Record.StoreKind.SET_ITEM:
+                    col[set].add(value)
+                    col_type_to_return = set
+
+                elif k.kind == Archive.Record.StoreKind.BUILTIN_MANIP:
+                    col[v.rtype].__getattribute__(k.field)(value)
+                    col_type_to_return = v.rtype
+
+            col[dict] = frozendict(col[dict])
+            if not col_type_to_return:
+                return None
+
+            self._cache[(object_id, time)] = col[col_type_to_return]
+            return col[col_type_to_return]
+
+        except (TypeError, IndexError):
             return None
 
     def search_web(self, expression: str):
@@ -324,7 +354,7 @@ class Archive(object):
 
     def get_loop_iterations(self, loop_line_no: int) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(
-            [lambda vv: vv.line_no == loop_line_no, lambda vv: vv.key.stub_name in {'__SOLI__', '__EOLI__'}])
+            lambda vv: vv.key.stub_name in {'__SOLI__', '__EOLI__'} and vv.value == loop_line_no)
 
     def get_by_container_id(self, container_id: int):
         return self.filter([lambda vv: vv.key.container_id == container_id, lambda vv: vv.key.stub_name == '__AS__'])
@@ -371,9 +401,14 @@ class Archive(object):
         assignments_time = [v.time for (k, v) in assignments]
         return {t: self.retrieve_value(object_id, object, t) for t in assignments_time}
 
-    def get_all_assignments_in_time_range(self, start: int, end: int) -> List[Tuple[Rk, Rv]]:
+    def get_assignments(self, time_range: range = None, line_no_range: range = None) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(
-            [lambda vv: start <= vv.time <= end, lambda vv: vv.key.stub_name == '__AS__'])
+            [
+                lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'},
+                lambda vv: vv.time in time_range if time_range else lambda vv: True,
+                lambda vv: vv.line_no in line_no_range if line_no_range else lambda vv: True,
+                lambda vv: vv.key.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.BUILTIN_MANIP}
+            ])
 
     def get_scope_by_line_no(self, line_no: int) -> int:
         """

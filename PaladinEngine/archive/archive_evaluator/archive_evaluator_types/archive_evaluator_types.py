@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import *
 
+import frozendict
+
 ExpressionMapper = Mapping[str, Dict[int, object]]
 
 
@@ -14,7 +16,8 @@ class Replacement(NamedTuple):
 Time = int
 
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
-BUILTIN_CONSTANTS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
+BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
+EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict}
 BAD_JSON_VALUES = {'Infinity': '"∞"', 'NaN': '"NaN"'}
 
 
@@ -34,7 +37,7 @@ class EvalResultEntry(dict):
 
     def __init__(self, time: Time, results: List[EvalResultPair], replacements: Optional[List[Replacement]]) -> None:
         self.time = time
-        self.results = results
+        self.evaled_results = results
         self.replacements = replacements
         for p in results:
             self.__setattr__(p.key, p.value)
@@ -45,18 +48,18 @@ class EvalResultEntry(dict):
         """
         :param c: A const value
         """
-        return EvalResultEntry(self.time, [EvalResultPair(rr.key, c) for rr in self.results], self.replacements)
+        return EvalResultEntry(self.time, [EvalResultPair(rr.key, c) for rr in self.evaled_results], self.replacements)
 
     @property
     def keys(self) -> Iterable[str]:
-        return list({rr.key for rr in self.results})
+        return list({rr.key for rr in self.evaled_results})
 
     @property
     def values(self) -> Iterable[Optional[object]]:
-        return [rr.value for rr in self.results]
+        return [rr.value for rr in self.evaled_results]
 
     def satisfies(self) -> bool:
-        return all([r.value is not None and r.value is not False and r.value != [None] for r in self.results])
+        return all([r.value is not None and r.value is not False and r.value != [None] for r in self.evaled_results])
 
     @classmethod
     def empty(cls, t: Time = -1) -> 'EvalResultEntry':
@@ -67,10 +70,10 @@ class EvalResultEntry(dict):
         if e1.time != e2.time:
             return EvalResultEntry.empty()
 
-        return EvalResultEntry(e1.time, e1.results + e2.results, e1.replacements + e2.replacements)
+        return EvalResultEntry(e1.time, e1.evaled_results + e2.evaled_results, e1.replacements + e2.replacements)
 
     def __getitem__(self, key) -> Optional[EvalResultPair]:
-        filtered = list(filter(lambda p: p.key == key, self.results))
+        filtered = list(filter(lambda p: p.key == key, self.evaled_results))
         if not filtered:
             return None
 
@@ -85,8 +88,8 @@ class EvalResultEntry(dict):
         if not item:
             raise RuntimeError(f'{key} is not a valid key.')
 
-        self.results.remove(item)
-        self.results.append(EvalResultPair(new_key, item.value))
+        self.evaled_results.remove(item)
+        self.evaled_results.append(EvalResultPair(new_key, item.value))
 
         self.__delitem__(key)
         self.__setitem__(new_key, item.value)
@@ -110,7 +113,10 @@ class EvalResult(List[EvalResultEntry]):
         return next(self.satisfies_iterator())
 
     def last_satisfaction(self) -> EvalResultEntry:
-        return list(self.satisfies_iterator())[::-1][0]
+        it = list(self.satisfies_iterator())
+        if not it:
+            return EvalResultEntry.empty()
+        return it[::-1][0]
 
     def satisfaction_ranges(self) -> Collection[range]:
         ranges = []

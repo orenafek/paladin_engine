@@ -3,6 +3,7 @@ from abc import ABC
 from math import floor
 
 import more_itertools
+import frozendict
 
 from archive.archive import Archive, Rk, Rv
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
@@ -228,7 +229,7 @@ class Raw(Operator):
             replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                result = eval(ast2str(replacer.visit(ast.parse(self.query))), BUILTIN_CONSTANTS)
+                result = eval(ast2str(replacer.visit(ast.parse(self.query))), EVAL_BUILTIN_CLOSURE)
             except (IndexError, KeyError, NameError):
                 result = [None] * len(queries) if len(queries) > 1 else None
 
@@ -448,8 +449,13 @@ class Range(BiLateralOperator, TimeOperator):
         first = self.first.eval(archive, query_locals)
         second = self.second.eval(archive, query_locals)
 
-        min_max_times = range(first.first_satisfaction().time,
-                              min(second.last_satisfaction().time + 1, self.times.stop))
+        first_satisfaction = first.first_satisfaction().time
+        last_satisfaction = second.last_satisfaction().time
+
+        if first_satisfaction < 0 or last_satisfaction < 0:
+            return EvalResult.empty(self.times)
+
+        min_max_times = range(first_satisfaction, min(last_satisfaction + 1, self.times.stop))
 
         return EvalResult([TimeOperator.create_time_eval_result_entry(t, t in min_max_times) for t in self.times])
 
@@ -771,29 +777,23 @@ class VarSelector(UniLateralOperator):
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
         return EvalResult([
             EvalResultEntry(t, [
-                EvalResultPair(VarSelector.VARS_KEY, VarSelector._get_all_vars(archive, time_range))], [])
-            for time_range in self.first.eval(archive).satisfaction_ranges() for t in time_range
+                EvalResultPair(VarSelector.VARS_KEY, self._get_all_vars(archive, time_range))], [])
+            for time_range in self.first.eval(archive, query_locals).satisfaction_ranges() for t in time_range
         ])
 
-    @staticmethod
-    def _get_all_vars(archive: Archive, time_range: range) -> Iterable[str]:
-        vars = set()
-        assignments = archive.get_all_assignments_in_time_range(time_range.start, time_range.stop - 1)
-        for rk, vv in assignments:
-            if rk.kind != Archive.Record.StoreKind.VAR:
-                continue
+    def _get_assignments(self, archive: Archive, time_range: range):
+        return archive.get_assignments(time_range=time_range)
 
-            if '__PALADIN' in vv.expression:
-                continue
+    def _get_all_vars(self, archive: Archive, time_range: range) -> Iterable[str]:
+        return {vv.expression for k, vv in self._get_assignments(archive, time_range)}
 
-            if '[' in vv.expression:
-                # TODO: Should this always be the case?
-                vars.add(vv.expression.split('[')[0])
-                continue
+class VarSelectorByTimeAndLines(VarSelector):
+    def __init__(self, times: Iterable[Time], time: Operator, lines: range):
+        super().__init__(times, time)
+        self.lines = lines
 
-            vars.add(vv.expression)
-
-        return vars
+    def _get_assignments(self, archive: Archive, time_range: range):
+        return archive.get_assignments(time_range=time_range, line_no_range=self.lines)
 
 
 class Diff(BiLateralOperator):
@@ -839,12 +839,16 @@ class LoopIteration(BiLateralOperator):
                                       ConstTime(self.times, loop_iteration_start[1].time),
                                       ConstTime(self.times, loop_iteration_end[1].time))
 
-        return Union(self.times, *self._create_iterations_operators(iterator_values_times, archive, query_locals)) \
+        return Union(self.times, *self._create_iterations_operators(iterator_values_times, archive, query_locals,
+                                                                    range(loop_iteration_start[1].line_no,
+                                                                          loop_iteration_end[1].line_no + 1))) \
             .eval(archive, query_locals)
 
     def _create_iterations_operators(self, time_range_operator: Range, archive: Archive,
-                                     query_locals: Optional[Dict[str, EvalResult]]) -> Iterable[Operator]:
-        vars_selector_result = VarSelector(self.times, time_range_operator).eval(archive, query_locals)
+                                     query_locals: Optional[Dict[str, EvalResult]],
+                                     line_no_range: range) -> Iterable[Operator]:
+        vars_selector_result = VarSelectorByTimeAndLines(self.times, time_range_operator, line_no_range).eval(archive,
+                                                                                                              query_locals)
 
         if len(vars_selector_result) == 0:
             return EvalResult.empty(self.times)

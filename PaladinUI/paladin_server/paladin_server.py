@@ -184,7 +184,7 @@ class PaladinServer(FlaskView):
     def time_window(self, from_time: int, to: int):
         return PaladinServer.create_response(
             PaladinServer._present_archive_entries(
-                ARCHIVE.get_all_assignments_in_time_range(from_time, to).items()))
+                ARCHIVE.get_assignments(from_time, to).items()))
 
     @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>')
     def query(self, select_query: str, start_time: int, end_time: int):

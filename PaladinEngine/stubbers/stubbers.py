@@ -5,8 +5,9 @@ from ast import *
 from typing import Union, List, Callable
 
 from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param
+from builtin_manipulation_calls.builtin_manipulation_calls import IS_SUSPECT_BUILTIN_MANIPULATION_FUNCTION_CALL
 from finders.finders import StubEntry
-from stubs.stubs import __FRAME__, __EOLI__, __SOLI__
+from stubs.stubs import __FRAME__, __EOLI__, __SOLI__, __BMFCS__
 from utils.utils import assert_not_raise
 
 
@@ -14,6 +15,10 @@ class Stubber(ABC, ast.NodeTransformer):
     """
         An abstract basic stubber.
     """
+
+    _LOCALS_CALL = ast.Call(func=lit2ast(locals.__name__), args=[], keywords=[])
+    _GLOBALS_CALL = ast.Call(func=lit2ast(globals.__name__), args=[], keywords=[])
+    _FRAME_CALL = ast.Call(func=lit2ast(__FRAME__.__name__), args=[], keywords=[])
 
     class _StubRecord(ABC):
         """
@@ -369,8 +374,7 @@ class ForLoopStubber(LoopStubber):
         # Create a loop iteration end stub.
         loop_iteration_start_stub = ast.Expr(ast.Call(func=lit2ast(__SOLI__.__name__),
                                                       args=[lit2ast(loop_node.lineno),
-                                                            ast.Call(lit2ast(__FRAME__.__name__), args=[],
-                                                                     keywords=[])],
+                                                            Stubber._FRAME_CALL],
                                                       keywords=[],
                                                       ))
         loop_node.body.insert(0, loop_iteration_start_stub)
@@ -391,9 +395,12 @@ class ForLoopStubber(LoopStubber):
 
         # Create a loop iteration end stub.
         loop_iteration_end_stub = ast.Expr(ast.Call(func=lit2ast(__EOLI__.__name__),
-                                                    args=[lit2ast(loop_node.lineno),
-                                                          ast.Call(lit2ast(__FRAME__.__name__), args=[], keywords=[])],
-                                                    keywords=[],
+                                                    args=[Stubber._FRAME_CALL],
+                                                    keywords=[
+                                                        ast.keyword(arg='loop_start_line_no',
+                                                                    value=lit2ast(loop_node.lineno)),
+                                                        ast.keyword(arg='loop_end_line_no',
+                                                                    value=lit2ast(loop_node.end_lineno))]
                                                     ))
 
         # noinspection PyTypeChecker
@@ -496,9 +503,9 @@ class FunctionCallStubber(Stubber):
             stub_args = [
                             lit2ast(wrap_str_param(ast2str(node))),
                             lit2ast(ast2str(node.func)),
-                            ast.Call(func=lit2ast(locals.__name__), args=[], keywords=[]),
-                            ast.Call(func=lit2ast(globals.__name__), args=[], keywords=[]),
-                            ast.Call(func=lit2ast(__FRAME__.__name__), args=[], keywords=[]),
+                            Stubber._LOCALS_CALL,
+                            Stubber._GLOBALS_CALL,
+                            Stubber._FRAME_CALL,
                             lit2ast(node.lineno)
                         ] + [ast.fix_missing_locations(a) for a in copy.deepcopy(node.args)]
 
@@ -507,6 +514,14 @@ class FunctionCallStubber(Stubber):
             stub_func_call = ast.Call(func=lit2ast(stub_name),
                                       args=stub_args,
                                       keywords=stub_kwargs)
+
+            if isinstance(node.func, ast.Attribute) and IS_SUSPECT_BUILTIN_MANIPULATION_FUNCTION_CALL(node.func.attr):
+                stub_func_call = FunctionCallStubber._add_suspect_builtin_manipulation_function_call_stub(
+                    node.func.attr,
+                    node.func.value,
+                    stub_func_call,
+                    node.args,
+                    node.func.lineno)
 
             # Create a stub record.
             stub_record = Stubber.ReplacingStubRecord(node, container, attr_name, stub_func_call)
@@ -521,6 +536,27 @@ class FunctionCallStubber(Stubber):
         except BaseException as e:
             print(e)
             raise e
+
+        # noinspection PyTypeChecker
+
+    @staticmethod
+    def _add_suspect_builtin_manipulation_function_call_stub(func_name: str,
+                                                             caller: ast.expr,
+                                                             stub_func_call: ast.Call,
+                                                             args: list,
+                                                             line_no: int) -> ast.Call:
+        return ast.Call(func=lit2ast(__BMFCS__.__name__),
+                        args=[stub_func_call,
+                              caller,
+                              lit2ast(wrap_str_param(ast2str(caller))),
+                              lit2ast(wrap_str_param(func_name)),
+                              lit2ast(line_no),
+                              *args,
+                              Stubber._FRAME_CALL,
+                              Stubber._LOCALS_CALL,
+                              Stubber._GLOBALS_CALL
+                              ],
+                        keywords=[])
 
 
 class FunctionDefStubber(Stubber):

@@ -1,12 +1,14 @@
 import abc
 import ast
+import functools
 import re
 import sys
 from dataclasses import dataclass
-from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set
+from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Iterable, Collection, Callable
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
+from builtin_manipulation_calls.builtin_manipulation_calls import IS_BUILTIN_MANIPULATION_FUNCTION_CALL
 from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
 
 archive = Archive()
@@ -200,26 +202,26 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     if not archive.should_record:
         return
 
-    # Create variable dict.
-    vars_dict = {**locals, **globals}
-
     container_id, field, container, is_container_value = _separate_to_container_and_field(target, frame, locals,
                                                                                           globals)
-
-    # value = _search_in_vars_dict(field, vars_dict)
-    if is_container_value:
-        value = container
-    else:
-        value = container.__getattribute__(field) if field in container.__dict__ else None
-
+    value = container if is_container_value else container.__getattribute__(
+        field) if field in container.__dict__ else None
     if value is None:
         # TODO: handle?
         return
 
+    __store(container_id, field, line_no, target, value)
+
+
+def __store(container_id, field, line_no, target, value, _time: Optional[int] = None,
+            kind: Archive.Record.StoreKind = Archive.Record.StoreKind.VAR):
     value_to_store = POID(value)
     rv = archive.store_new \
-        .key(container_id, field, __AS__.__name__, Archive.Record.StoreKind.VAR) \
+        .key(container_id, field, __AS__.__name__, kind) \
         .value(type(value), value_to_store, target, line_no)
+
+    if _time:
+        rv.time = _time
 
     def _store_inner(v: object) -> None:
         if ISP(type(v)) or not v:
@@ -229,9 +231,9 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
             return _store_lists_tuples_and_sets(v)
 
         if type(v) is dict:
-            return _store_dicts(v)
+            return _store_dicts(id(v), v)
 
-        return _store_dicts(v.__dict__)
+        return _store_dicts(id(v), v.__dict__)
 
     def _store_lists_tuples_and_sets(v: Union[List, Tuple, Set]):
         for index, item in enumerate(v):
@@ -242,10 +244,10 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
             irv.time = rv.time
             _store_inner(item)
 
-    def _store_dicts(d: Dict):
+    def _store_dicts(d_id: int, d: Dict):
         for k, v in d.items():
             irv = archive.store_new \
-                .key(id(d), POID(k), __AS__.__name__, Archive.Record.StoreKind.DICT_ITEM) \
+                .key(d_id, POID(k), __AS__.__name__, Archive.Record.StoreKind.DICT_ITEM) \
                 .value(type(v), POID(v), f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
 
             irv.time = rv.time
@@ -315,14 +317,25 @@ def __FC__(expression: str, function,
     return ret_value
 
 
+def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, arg: object, frame, locals, globals):
+    if IS_BUILTIN_MANIPULATION_FUNCTION_CALL(caller):
+        rv = archive.store_new \
+            .key(id(caller), func_name, __BMFCS__.__name__, Archive.Record.StoreKind.BUILTIN_MANIP) \
+            .value(type(caller), POID(arg), caller_str, line_no)
+
+        # Store args that are temporary objects.
+        # E.g.: l.add(Animal(...))
+        if not ISP(type(arg)) and not id(arg) in {**locals, **globals}.values():
+            __store(frame, '', line_no, id(arg), arg, rv.time, Archive.Record.StoreKind.UNAMED_OBJECT)
+
+
 def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
     # Access field (or method).
     field = obj.__getattribute__(attr) if type(obj) is not type else obj.__getattribute__(obj, attr)
 
-    if archive.should_record:
-        archive.store_new \
-            .key(id(obj), attr, __AC__.__name__) \
-            .value(type(field), POID(field), expr, line_no)
+    archive.store_new \
+        .key(id(obj), attr, __AC__.__name__) \
+        .value(type(field), POID(field), expr, line_no)
 
     return field
 
@@ -330,14 +343,15 @@ def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_
 def __SOLI__(line_no: int, frame):
     if archive.should_record:
         archive.store_new \
-            .key(id(frame), '__end_of_loop_iteration', __SOLI__.__name__) \
-            .value(object, None, '__end_of_loop_iteration', line_no)
+            .key(id(frame), '__start_of_loop_iteration', __SOLI__.__name__) \
+            .value(int, line_no, '__start_of_loop_iteration', line_no)
 
-def __EOLI__(line_no: int, frame):
+
+def __EOLI__(frame, loop_start_line_no: int, loop_end_line_no: int):
     if archive.should_record:
         archive.store_new \
             .key(id(frame), '__end_of_loop_iteration', __EOLI__.__name__) \
-            .value(object, None, '__end_of_loop_iteration', line_no)
+            .value(int, loop_start_line_no, '__end_of_loop_iteration', loop_end_line_no)
 
 
 def __BREAK__(line_no: int, frame):

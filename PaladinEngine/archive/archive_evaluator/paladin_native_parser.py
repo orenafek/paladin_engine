@@ -1,14 +1,16 @@
 import ast
+import dataclasses
 import json
+import traceback
 from _ast import BinOp, AST
 from dataclasses import dataclass
 from typing import *
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
-    EvalResultPair, BAD_JSON_VALUES, BUILTIN_CONSTANTS
+    EvalResultPair, BAD_JSON_VALUES, EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS
 from archive.archive_evaluator.paladin_dsl_semantics import Operator, Time, Raw
-from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
+from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple, wrap_str_param
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
 from stubbers.stubbers import Stubber
 
@@ -213,25 +215,45 @@ class PaladinNativeParser(object):
             # Return the extra object has been stored in the visit or none otherwise.
             return self._get_visited_node_extra(arg)
 
-    class PaladinJSONEncoder(json.JSONEncoder):
+    def json_dumps(self, obj: Any):
+        # noinspection PyMethodParameters
+        class _encoder(json.JSONEncoder):
 
-        def __init__(self, *, skipkeys: bool = ..., ensure_ascii: bool = ..., check_circular: bool = ...,
-                     allow_nan: bool = ..., sort_keys: bool = ..., indent: int | None = ...,
-                     separators: tuple[str, str] | None = ..., default: Callable[..., Any] | None = ...) -> None:
-            super().__init__(skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
-                             allow_nan=allow_nan, sort_keys=sort_keys, indent=indent, separators=separators,
-                             default=default)
-            self.nan_str = 'NaN'
+            def __init__(_self, *, skipkeys: bool = ..., ensure_ascii: bool = ..., check_circular: bool = ...,
+                         allow_nan: bool = ..., sort_keys: bool = ..., indent: int | None = ...,
+                         separators: tuple[str, str] | None = ..., default: Callable[..., Any] | None = ...) -> None:
+                super().__init__(skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
+                                 allow_nan=allow_nan, sort_keys=sort_keys, indent=indent, separators=separators,
+                                 default=default)
+                _self.nan_str = 'NaN'
 
-        def default(self, o: Any) -> Any:
-            if isinstance(o, set):
-                return list(o)
+            def default(_self, o: Any) -> Any:
+                if isinstance(o, set):
+                    return list(o)
 
-            print(o)
-            if isinstance(o, float) and o in BUILTIN_CONSTANTS.values():
-                return str(super().default(o))
+                if any([isinstance(o, t) for t in self.archive.created_data_types.values()]):
+                    return dataclasses.asdict(o)
 
-            return super().default(o)
+                if isinstance(o, float) and o in BUILTIN_SPECIAL_FLOATS.values():
+                    return str(super().default(o))
+
+                return super().default(o)
+
+            def iterencode(_self, o: Any, _one_shot=False) -> Iterator[str]:
+                # noinspection PyMethodParameters
+                class Tuple2StrReplacer(ast.NodeTransformer):
+                    def visit_Dict(_self, node: ast.Dict) -> Any:
+                        # noinspection PyTypeChecker
+                        node.keys = [
+                            ast.Constant(value=ast2str(k)) if isinstance(k, ast.Tuple) else k for k in
+                            node.keys
+                        ]
+                        return _self.generic_visit(node)
+
+                return super().iterencode(
+                    eval(ast2str(Tuple2StrReplacer().visit(str2ast(str(o))), _one_shot), EVAL_BUILTIN_CLOSURE))
+
+        return PaladinNativeParser._remove_bad_json_values(json.dumps(obj, cls=_encoder))
 
     def parse(self, query: str, start_time: int, end_time: int) -> str:
         try:
@@ -255,6 +277,9 @@ class PaladinNativeParser(object):
             if isinstance(query_result, EvalResult):
                 query_result = PaladinNativeParser._restore_original_operator_keys(visitor, query_result)
 
+            elif not query_result:
+                return self.json_dumps(EvalResult.empty(times))
+
             results = [
                 EvalResultEntry(t,
                                 [EvalResultPair(k, v) for (k, v) in query_result[t].items()]
@@ -270,8 +295,7 @@ class PaladinNativeParser(object):
             grouped['keys'] = list(results.all_keys())
 
             # Remove bad JSON values.
-            return PaladinNativeParser._remove_bad_json_values(
-                json.dumps(grouped, cls=PaladinNativeParser.PaladinJSONEncoder))
+            return self.json_dumps(grouped)
 
         except BaseException as e:
             return json.dumps("")
