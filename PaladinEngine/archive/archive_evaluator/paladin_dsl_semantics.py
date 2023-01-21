@@ -825,8 +825,8 @@ class LoopIteration(BiLateralOperator):
         BiLateralOperator.__init__(self, times, Const(line_no, times), Const(index, times))
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        line_no: int = self.first.eval(archive)[0].values[0]
-        index: int = self.second.eval(archive)[0].values[0]
+        line_no: int = self.first.eval(archive)[self.times[0]].values[0]
+        index: int = self.second.eval(archive)[self.times[0]].values[0]
 
         loop_iteration_starts_and_ends: List[Tuple[Rk, Rv]] = sorted(archive.get_loop_iterations(line_no),
                                                                      key=lambda t: t[1].time)
@@ -891,7 +891,7 @@ class LoopSummary(UniLateralOperator):
         UniLateralOperator.__init__(self, times, Const(line_no, times))
 
     def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
-        line_no: int = self.first.eval(archive)[0].values[0]
+        line_no: int = self.first.eval(archive)[self.times[0]].values[0]
 
         iterations = floor(len(archive.get_loop_iterations(line_no)) / 2)
 
@@ -909,7 +909,7 @@ class Line(UniLateralOperator):
 
     def eval(self, archive: Optional[Archive] = None,
              query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
-        line_no = self.first.eval(archive)[0].values[0]
+        line_no = self.first.eval(archive)[self.times[0]].values[0]
         events_by_line_no: List[Tuple[Rk, Rv]] = archive.find_events(line_no)
         if not events_by_line_no:
             return EvalResult.empty(self.times)
