@@ -7,7 +7,7 @@ from typing import Union, List, Callable
 from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param
 from builtin_manipulation_calls.builtin_manipulation_calls import IS_SUSPECT_BUILTIN_MANIPULATION_FUNCTION_CALL
 from finders.finders import StubEntry
-from stubs.stubs import __FRAME__, __EOLI__, __SOLI__, __BMFCS__
+from stubs.stubs import __FRAME__, __EOLI__, __SOLI__, __BMFCS__, __PRINT__, __FC__
 from utils.utils import assert_not_raise
 
 
@@ -498,16 +498,27 @@ class AssignmentStubber(Stubber):
 
 
 class FunctionCallStubber(Stubber):
-    def stub_func(self, node: ast.Call, container: ast.AST, attr_name: str, stub_name: str):
+    def stub_func(self, node: ast.Call, container: ast.AST, attr_name: str):
         try:
-            stub_args = [
-                            lit2ast(wrap_str_param(ast2str(node))),
-                            lit2ast(ast2str(node.func)),
-                            Stubber._LOCALS_CALL,
-                            Stubber._GLOBALS_CALL,
-                            Stubber._FRAME_CALL,
-                            lit2ast(node.lineno)
-                        ] + [ast.fix_missing_locations(a) for a in copy.deepcopy(node.args)]
+            # In case of a print call, wrap with a different stub.
+            if isinstance(node.func, ast.Name) and node.func.id == print.__name__:
+                stub_name = __PRINT__.__name__
+                stub_args = [
+                    lit2ast(node.lineno),
+                    Stubber._FRAME_CALL
+                ]
+            else:
+                stub_name = __FC__.__name__
+                stub_args = [
+                                lit2ast(wrap_str_param(ast2str(node))),
+                                lit2ast(ast2str(node.func)),
+                                Stubber._LOCALS_CALL,
+                                Stubber._GLOBALS_CALL,
+                                Stubber._FRAME_CALL,
+                                lit2ast(node.lineno)
+                    ]
+
+            stub_args += [ast.fix_missing_locations(a) for a in copy.deepcopy(node.args)]
 
             stub_kwargs = node.keywords
 

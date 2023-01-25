@@ -3,7 +3,9 @@ import ast
 import functools
 import re
 import sys
+from contextlib import redirect_stdout
 from dataclasses import dataclass
+from io import StringIO
 from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Iterable, Collection, Callable
 
 from archive.archive import Archive
@@ -317,7 +319,8 @@ def __FC__(expression: str, function,
     return ret_value
 
 
-def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, arg: object, frame, locals, globals):
+def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, arg: object, frame,
+              locals, globals):
     if IS_BUILTIN_MANIPULATION_FUNCTION_CALL(caller):
         rv = archive.store_new \
             .key(id(caller), func_name, __BMFCS__.__name__, Archive.Record.StoreKind.BUILTIN_MANIP) \
@@ -410,6 +413,20 @@ def __PAUSE__():
 
 def __RESUME__():
     archive.resume_record()
+
+
+def __PRINT__(line_no: int, frame, *print_args):
+
+    with StringIO() as capturer, redirect_stdout(capturer):
+        print(*print_args)
+        output = capturer.getvalue().strip('\n')
+
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), 'print', __PRINT__.__name__, Archive.Record.StoreKind.EVENT) \
+            .value(type(print), f'{output}', f'print({", ".join([str(arg) for arg in print_args])}', line_no)
+
+    print(output)
 
 
 _T = TypeVar("_T")

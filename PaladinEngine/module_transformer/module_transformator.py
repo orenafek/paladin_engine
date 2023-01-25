@@ -197,7 +197,7 @@ class ModuleTransformer(object):
                     continue
 
                 self.module = function_call_stubber.stub_func(stub_entry.node, stub_entry.container,
-                                                              stub_entry.attr_name, __FC__.__name__)
+                                                              stub_entry.attr_name)
 
         except BaseException as e:
             print(e)

@@ -74,6 +74,7 @@ class Archive(object):
             OBJ_ITEM = 6, object
             VAR = 7, object
             UNAMED_OBJECT = 8, object
+            EVENT = 9, object
 
             @property
             def value(self) -> int:
@@ -513,6 +514,9 @@ class Archive(object):
 
     def find_events(self, line_no: int) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(lambda vv: vv.line_no == line_no)
+
+    def get_print_events(self, output: str) -> List[Tuple[Rk, Rv]]:
+        return self.flatten_and_filter(lambda vv: vv.key.stub_name == '__PRINT__' and vv.value == output)
 
     @property
     def last_time(self) -> int:

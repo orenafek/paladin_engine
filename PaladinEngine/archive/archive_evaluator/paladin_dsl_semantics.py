@@ -787,6 +787,7 @@ class VarSelector(UniLateralOperator):
     def _get_all_vars(self, archive: Archive, time_range: range) -> Iterable[str]:
         return {vv.expression for k, vv in self._get_assignments(archive, time_range)}
 
+
 class VarSelectorByTimeAndLines(VarSelector):
     def __init__(self, times: Iterable[Time], time: Operator, lines: range):
         super().__init__(times, time)
@@ -929,6 +930,22 @@ class Line(UniLateralOperator):
                 results = results.join(results, Raw(v, None, time_range).eval(archive))
 
         return results
+
+
+class WhenPrinted(UniLateralOperator, TimeOperator):
+    """
+    WhenPrinted(<s>): TimeOperator to find the times in which a string <s> was printed.
+    """
+    def __init__(self, times: Iterable[Time], output: Raw):
+        TimeOperator.__init__(self, times)
+        UniLateralOperator.__init__(self, times, Const(output.query, times))
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        str_to_search = self.first.eval(archive, query_locals)[self.times[0]].values[0]
+
+        print_event_times = list(map(lambda r: r[1].time, archive.get_print_events(str_to_search)))
+
+        return EvalResult([TimeOperator.create_time_eval_result_entry(t, t in print_event_times) for t in self.times])
 
 
 class LoopIterationsTimes(UniLateralOperator, TimeOperator):
