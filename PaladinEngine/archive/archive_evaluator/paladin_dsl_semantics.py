@@ -229,18 +229,18 @@ class Raw(Operator):
             resolved_names = Raw._resolve_names(archive, extractor.names, self.line_no, t, query_locals)
             resolved_attributes = Raw._resolve_attributes(archive, extractor.attributes, self.line_no, t, query_locals)
 
+            replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, t)
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                result = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **{n: resolved_names[n][t] for n in resolved_names},
-                                           **{a: resolved_attributes[a][t] for a in resolved_attributes}})
-            except (IndexError, KeyError, NameError, AttributeError):
+                result = eval(ast2str(replacer.visit(ast.parse(self.query))), EVAL_BUILTIN_CLOSURE)
+            except (IndexError, KeyError, NameError):
                 result = [None] * len(queries) if len(queries) > 1 else None
 
             results.append(EvalResultEntry(t,
                                            [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)]
                                            if len(queries) > 1
                                            else [EvalResultPair(self.create_key(self.query), result)],
-                                           []))
+                                           replacer.replacements))
 
         return EvalResult(results)
 
