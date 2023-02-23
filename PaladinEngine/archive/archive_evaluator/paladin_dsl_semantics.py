@@ -92,6 +92,10 @@ class SemanticsUtils(object):
     def raw_to_const_str(res: EvalResult):
         return list(list(res.values())[0][0].keys())[0]
 
+    @staticmethod
+    def get_first(times: Iterable[Time], res: EvalResult):
+        return res[times[0]].values[0]
+
 
 @dataclass
 class Operator(ABC):
@@ -223,21 +227,20 @@ class Raw(Operator):
 
         for t in self.times:
             resolved_names = Raw._resolve_names(archive, extractor.names, self.line_no, t, query_locals)
-            resolved_attributes = Raw._resolve_attributes(archive, extractor.attributes, self.line_no, t,
-                                                          query_locals)
+            resolved_attributes = Raw._resolve_attributes(archive, extractor.attributes, self.line_no, t, query_locals)
 
-            replacer = ArchiveEvaluator.SymbolReplacer(resolved_names, resolved_attributes, t)
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                result = eval(ast2str(replacer.visit(ast.parse(self.query))), EVAL_BUILTIN_CLOSURE)
-            except (IndexError, KeyError, NameError):
+                result = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **{n: resolved_names[n][t] for n in resolved_names},
+                                           **{a: resolved_attributes[a][t] for a in resolved_attributes}})
+            except (IndexError, KeyError, NameError, AttributeError):
                 result = [None] * len(queries) if len(queries) > 1 else None
 
             results.append(EvalResultEntry(t,
                                            [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)]
                                            if len(queries) > 1
                                            else [EvalResultPair(self.create_key(self.query), result)],
-                                           replacer.replacements))
+                                           []))
 
         return EvalResult(results)
 
@@ -261,7 +264,9 @@ class Raw(Operator):
         resolved = {name: resolved[name] for name in resolved if resolved[name]}
 
         if query_locals:
-            resolved.update({name: query_locals[name][time].value for name in names if name in query_locals})
+            resolved.update(
+                {name: sorted([e for e in query_locals[name] if e.time <= time], reverse=True)[0] for name in names if
+                 name in query_locals})
 
         return resolved
 
@@ -277,7 +282,7 @@ class Raw(Operator):
             for attr in attributes:
                 attr_base = attr.split('.')[0]
                 if attr_base in query_locals:
-                    resolved[attr] = query_locals[time][attr_base].value
+                    resolved[attr] = query_locals[attr_base][time]
 
         return resolved
 
@@ -936,6 +941,7 @@ class WhenPrinted(UniLateralOperator, TimeOperator):
     """
     WhenPrinted(<s>): TimeOperator to find the times in which a string <s> was printed.
     """
+
     def __init__(self, times: Iterable[Time], output: Raw):
         TimeOperator.__init__(self, times)
         UniLateralOperator.__init__(self, times, Const(output.query, times))
@@ -974,3 +980,33 @@ class LoopIterationsTimes(UniLateralOperator, TimeOperator):
                                                        any([start <= t <= end for start, end in loop_iteration_ranges]),
                                                        [])
             for t in self.times])
+
+
+class LineHit(UniLateralOperator, TimeOperator):
+    def __init__(self, times: Iterable[Time], line_no: int):
+        UniLateralOperator.__init__(self, times, Const(line_no, times))
+        TimeOperator.__init__(self, times)
+
+    def eval(self, archive: Optional[Archive] = None, query_locals: Optional[Dict[str, EvalResult]] = None):
+        line_no: int = self.first.eval(archive, query_locals)[0].values[0]
+
+        events: Collection[Time] = list(
+            map(lambda t: t[1].time, sorted(archive.find_events(line_no), key=lambda t: t[1].time)))
+
+        return EvalResult([TimeOperator.create_time_eval_result_entry(t, t in events, []) for t in self.times])
+
+
+class Bounded(TriLateralOperator):
+    def __init__(self, times: Iterable[Time], name: Raw, value: Operator, rest: Operator):
+        super(Bounded, self).__init__(times, Const(name.query, times), value, rest)
+
+    def eval(self, archive: Optional[Archive] = None,
+             query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
+        # Eval name of first.
+        name = SemanticsUtils.get_first(self.times, self.first.eval(archive, query_locals))
+
+        # Eval value of second.
+        value_result = self.second.eval(archive, query_locals)
+
+        # Eval rest.
+        return self.third.eval(archive, {**query_locals, name: value_result})

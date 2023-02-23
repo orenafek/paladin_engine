@@ -1,6 +1,8 @@
 import functools
 from typing import Type, Union, List, Set, Dict, Callable
 
+__BUILTIN_COLLECTIONS__ = {list, set, dict}
+
 __BUILTIN_COLLECTIONS_MANIPULATION_METHODS__ = {
     list: [list.append, list.remove, list.extend, list.reverse, list.clear, list.__setitem__],
     set: [set.add, set.remove, set.clear, set.update],

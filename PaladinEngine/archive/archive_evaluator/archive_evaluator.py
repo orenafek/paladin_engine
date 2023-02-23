@@ -78,7 +78,6 @@ class ArchiveEvaluator(object):
     @dataclass
     class SymbolReplacer(ast.NodeTransformer):
         names: ExpressionMapper
-        attributes: ExpressionMapper
         time: int
         replacements: List[Replacement] = field(default_factory=list)
 
@@ -107,12 +106,12 @@ class ArchiveEvaluator(object):
             except KeyError or IndexError:
                 return node
 
-        def visit_Attribute(self, node: ast.Attribute) -> Any:
-            try:
-                return self.__create_constant(ast2str(node), self.attributes)
-
-            except KeyError or IndexError:
-                return node
+        # def visit_Attribute(self, node: ast.Attribute) -> Any:
+        #     try:
+        #         return self.__create_constant(ast2str(node), self.attributes)
+        #
+        #     except KeyError or IndexError:
+        #         return node
 
 
 if __name__ == '__main__':

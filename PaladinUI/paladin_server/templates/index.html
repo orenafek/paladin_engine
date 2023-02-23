@@ -39,7 +39,7 @@
                     <div>
                         <h3> Run Query: </h3>
                         <div>
-                            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto" :width="600"
+                            <Codemirror placeholder="Selection" :options="codemirror_options" :height="auto" :width="600"
                                         style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
                         </div>
                         <loading-spinner :is-loading="queryInProgress"

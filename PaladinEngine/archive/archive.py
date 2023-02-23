@@ -6,17 +6,19 @@
 """
 import dataclasses
 import json
+import traceback
 from ast import *
 from dataclasses import dataclass
 from enum import Enum
-from itertools import product
-from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type, Collection
+from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type
 
 import pandas as pd
 from frozendict import frozendict
 
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from ast_common.ast_common import ast2str
-from builtin_manipulation_calls.builtin_manipulation_calls import MAINPULATION_BY_OBJ_TYPE_AND_FUNC_NAME
+from builtin_manipulation_calls.builtin_manipulation_calls import __BUILTIN_COLLECTIONS_MANIPULATION_METHODS__, \
+    __BUILTIN_COLLECTIONS__
 from common.common import ISP, IS_ITERABLE
 
 Rk = 'Archive.Record.RecordKey'
@@ -157,7 +159,7 @@ class Archive(object):
         self.records: Dict[Archive.Record.RecordKey, List[Archive.Record.RecordValue]] = {}
         self._time = -1
         self.should_record = True
-        self._cache = {}
+        self.object_builder = Archive.ObjectBuilder(self)
 
     @property
     def time(self):
@@ -225,53 +227,99 @@ class Archive(object):
         data_frame = pd.DataFrame(columns=header, data=rows)
         return data_frame.to_markdown(index=True)
 
-    def build_object(self, object_id: int, time: int = -1) -> Any:
-        try:
-            def time_filter(rv: Archive.Record.RecordValue):
-                return rv.time <= time if time != -1 else True
+    def build_object(self, object_id: int, rtype: type = Any, time: int = -1) -> Any:
+        return self.object_builder.build(object_id, rtype, time)
 
-            if (object_id, time) in self._cache:
-                return self._cache[(object_id, time)]
+    class ObjectBuilder(object):
+        SUPPOERTED_BUILTIN_COLLECTION_TYPES = {*__BUILTIN_COLLECTIONS__, tuple}
 
-            relevant_records = sorted(self.flatten_and_filter([lambda vv: vv.key.container_id == object_id,
-                                                               lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'},
-                                                               lambda vv: time_filter(vv)]), key=lambda t: t[1].time)
+        def __init__(self, archive: 'Archive'):
+            self.archive = archive
+            self.built_objects = {}
+            self.used_records = []
 
-            col = {list: [], dict: {}, set: set()}
+        @staticmethod
+        def time_filter(rv: 'Archive.Record.RecordValue', time: Time):
+            return rv.time <= time if time != -1 else True
 
-            col_type_to_return = None
+        def get_relevant_records(self, object_id: int, time: int) -> List[Tuple[Rk, Rv]]:
+            return sorted(self.archive.flatten_and_filter([lambda vv: vv.key.container_id == object_id,
+                                                           lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'},
+                                                           lambda vv: Archive.ObjectBuilder.time_filter(vv, time),
+                                                           #lambda vv: vv not in self.used_records
+                                                           ]), key=lambda t: t[1].time)
 
-            for k, v in relevant_records:
+        def build(self, object_id: int, rtype: type = Any, time: int = -1) -> Any:
+            try:
+                # Extract from built objects' cache.
+                obj = self.built_objects[object_id] if object_id in self.built_objects else None
 
-                value = v.value if ISP(v.rtype) else self.build_object(v.value, time)
-                if k.stub_name == '__AS__' and value is None and v.rtype in col:
-                    value = col[v.rtype]
+                relevant_records = self.get_relevant_records(object_id, time)
 
-                if k.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.DICT_ITEM}:
-                    col[dict][k.field] = value
-                    col_type_to_return = dict
+                if not relevant_records:
+                    # The object is already built and there are no relevant records to update its value.
+                    if obj is not None:
+                        return obj
 
-                elif k.kind == Archive.Record.StoreKind.LIST_ITEM:
-                    col[list].append(value)
-                    col_type_to_return = list
+                    # The object is not already built and no relevant records.
+                    if rtype in Archive.ObjectBuilder.SUPPOERTED_BUILTIN_COLLECTION_TYPES:
+                        # The object should be an empty builtin collection
+                        return rtype()
 
-                elif k.kind == Archive.Record.StoreKind.SET_ITEM:
-                    col[set].add(value)
-                    col_type_to_return = set
+                    # Otherwise, no object has been built and no relevant records to update it.
+                    return None
 
-                elif k.kind == Archive.Record.StoreKind.BUILTIN_MANIP:
-                    col[v.rtype].__getattribute__(k.field)(value)
-                    col_type_to_return = v.rtype
+                while relevant_records:
+                    k, v = relevant_records.pop()
+                    value = v.value if ISP(v.rtype) else self.build(v.value, v.rtype, time)
+                    self.used_records.append(v)
 
-            col[dict] = frozendict(col[dict])
-            if not col_type_to_return:
+                    obj = Archive.ObjectBuilder.update_object_by_kind(k, obj, rtype, value)
+
+                    relevant_records = self.get_relevant_records(object_id, time)
+
+                if isinstance(obj, dict):
+                    obj = frozendict(obj)
+
+                self.built_objects[object_id] = obj
+                return obj
+
+            except (TypeError, IndexError):
+                traceback.print_exc()
                 return None
 
-            self._cache[(object_id, time)] = col[col_type_to_return]
-            return col[col_type_to_return]
+        @staticmethod
+        def update_object_by_kind(k, obj, rtype, value):
+            if k.kind == Archive.Record.StoreKind.BUILTIN_MANIP:
+                if not obj:
+                    obj = rtype()
+                obj.__getattribute__(k.field)(value)
 
-        except (TypeError, IndexError):
-            return None
+            elif k.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.DICT_ITEM}:
+                if not obj:
+                    obj = {}
+
+                if isinstance(obj, frozendict):
+                    obj = dict(obj)
+
+                obj[k.field] = value
+
+            elif k.kind == Archive.Record.StoreKind.LIST_ITEM:
+                if not obj:
+                    obj = []
+                if k.field < len(obj):
+                    obj[k.field] = value
+                else:
+                    obj.insert(k.field, value)
+
+            elif k.kind == Archive.Record.StoreKind.SET_ITEM:
+                if not obj:
+                    obj = set()
+                obj.add(value)
+
+            elif k.kind == Archive.Record.StoreKind.TUPLE_ITEM:
+                obj = (*obj, value) if obj else (value,)
+            return obj
 
     def search_web(self, expression: str):
         def search_web_inner(container_id, field):
@@ -456,7 +504,7 @@ class Archive(object):
         def _find_by_name_and_container_id(name: str, container_id: int) -> List['Archive.Record.RecordValue']:
             return [r[1] for r in self.flatten_and_filter(
                 lambda
-                    vv: vv.key.container_id == container_id and vv.key.field == name and vv.line_no == line_no and vv.time <= time)]
+                    vv: vv.key.container_id == container_id and vv.key.field == name and vv.time <= time)]
 
         def _find_by_name(name: str) -> List['Archive.Record.RecordValue']:
             return [r[1] for r in self.flatten_and_filter(lambda vv: vv.key.field == name and vv.time <= time)]
@@ -485,7 +533,7 @@ class Archive(object):
                 for t, v in self.values[value_str].items():
                     if type(v) is int:
                         # v is probably an object id.
-                        obj = archive.build_object(v, time)
+                        obj = archive.build_object(v, time=time)
                         if obj == []:
                             # TODO: I don't know what to do here...
                             continue
@@ -501,7 +549,7 @@ class Archive(object):
             def visit_Name(self, node: Name) -> Any:
                 self.values[node.id] = {
                     rv.time:
-                        rv.value if ISP(rv.rtype) else archive.build_object(rv.value, time)
+                        rv.value if ISP(rv.rtype) else archive.build_object(rv.value, rv.rtype, time)
                     for rv in
                     (_find_by_name_and_container_id(node.id, scope) if scope != -1 else _find_by_name(node.id))
                 }
@@ -521,3 +569,6 @@ class Archive(object):
     @property
     def last_time(self) -> int:
         return self._time
+
+    def flatten(self) -> Iterable[Tuple[Rk, Rv]]:
+        return [(rk, vv) for rk, rv in self.records.items() for vv in rv]

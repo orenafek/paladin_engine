@@ -21,6 +21,7 @@ def super_naive(a):
 
 
 def naive(a):  # straightforward solution O(n^2)
+    a = a
     n = len(a)
     i, j = 0, 0
     total_slices = 0
@@ -76,10 +77,11 @@ def plus1over2(k):
 
 
 if __name__ == '__main__':
-    sample = [3, 4, 3, 5, 4]
-    sdn = super_duper_naive(sample)
+    sample = [3, 4, 2, 5, 4]
+    #sdn = super_duper_naive(sample)
     sn = super_naive(sample)
     n = naive(sample)
-    c = caterp(sample)
-    print(f'sdn = {sdn} sn = {sn} n = {n}, c = {c}')
-    assert sdn == sn == n == c
+    #c = caterp(sample)
+    print(f'n = {n} sn = {sn}')
+    #print(f'sdn = {sdn} sn = {sn} n = {n}, c = {c}')
+    #assert sdn == sn == n == c

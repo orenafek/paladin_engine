@@ -6,10 +6,11 @@ from _ast import BinOp, AST
 from dataclasses import dataclass
 from typing import *
 
+from archive.DiffObjectBuilder.diff_object_builder import DiffObjectBuilder
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
     EvalResultPair, BAD_JSON_VALUES, EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS
-from archive.archive_evaluator.paladin_dsl_semantics import Operator, Time, Raw
+from archive.archive_evaluator.paladin_dsl_semantics import Operator, Time, Raw, Const
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple, wrap_str_param
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
 from stubbers.stubbers import Stubber
@@ -21,8 +22,9 @@ class PaladinNativeParser(object):
                                                                    Operator.all()}
 
     def __init__(self, archive: Archive):
-        self.archive = archive
-        self._line_no = -1
+        self.archive: Archive = archive
+        self._line_no: int = -1
+        #self.diff_builder: DiffObjectBuilder = DiffObjectBuilder(archive)
 
     class HasOperatorVisitor(ast.NodeVisitor):
         def visit(self, node: ast.AST):
@@ -114,10 +116,13 @@ class PaladinNativeParser(object):
             self._add_operator(var_name, ast2str(node),
                                PaladinNativeParser.OPERATORS[node.func.id](self.times, *arg_vars))
 
-            return ast.Name(id=var_name)
+            return ast.Name(id=var_name, lineno=node.lineno)
 
         def _create_raw_op_from_arg(self, arg: ast.AST):
             return Raw(ast2str(arg), arg.lineno, self.times)
+
+        def _create_const_op_from_arg(self, arg: ast.AST):
+            return Const(ast2str(arg), self.times)
 
         @property
         def _seed(self):
@@ -257,8 +262,9 @@ class PaladinNativeParser(object):
 
     def parse(self, query: str, start_time: int, end_time: int) -> str:
         try:
+            self.archive.object_builder.built_objects.clear()
             times = range(start_time, end_time + 1)
-            query_ast = str2ast(query.strip())
+            query_ast = str2ast(query.strip().replace('\n', ' '))
 
             # Propagate line numbers indicated by "@" scope.
             line_no_replacer = PaladinNativeParser.LineNumberReplacer()
@@ -298,6 +304,7 @@ class PaladinNativeParser(object):
             return self.json_dumps(grouped)
 
         except BaseException as e:
+            traceback.print_exc()
             return json.dumps("")
 
     def _eval_operators(self, visitor):
