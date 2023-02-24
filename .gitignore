@@ -12,3 +12,4 @@ PaladinCLI/interactive_graph/static/index.js
 *.swp
 /out.csv
 /out.py
+**/.pytest_cache

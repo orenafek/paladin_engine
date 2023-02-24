@@ -10,8 +10,8 @@ from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
     EvalResultPair, BAD_JSON_VALUES, EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS
 from archive.archive_evaluator.paladin_dsl_semantics import Operator, Time, Raw, Const
+from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.object_builder import ObjectBuilder
-from archive.object_builder.recursive_object_builder.recursive_object_builder import RecursiveObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
 from stubbers.stubbers import Stubber
@@ -25,8 +25,7 @@ class PaladinNativeParser(object):
     def __init__(self, archive: Archive):
         self.archive: Archive = archive
         self._line_no: int = -1
-        #self.builder: ObjectBuilder = DiffObjectBuilder(archive)
-        self.builder: ObjectBuilder = RecursiveObjectBuilder(archive)
+        self.builder: ObjectBuilder = DiffObjectBuilder(archive)
 
     class HasOperatorVisitor(ast.NodeVisitor):
         def visit(self, node: ast.AST):
