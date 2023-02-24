@@ -45,7 +45,7 @@ def main():
 
     r0.rt = Point(-1, -2)
 
-    for i in range(10):
+    for i in range(4):
         r0.rt = Point(i, i + 1)
 
     r0.rt.setX(4)

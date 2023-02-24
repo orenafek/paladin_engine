@@ -1,8 +1,11 @@
-from dataclasses import dataclass
+import traceback
+from dataclasses import dataclass, field
 from functools import reduce
 from typing import *
 
 import frozendict
+
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 
 ExpressionMapper = Mapping[str, Dict[int, object]]
 
@@ -14,6 +17,8 @@ class Replacement(NamedTuple):
 
 
 Time = int
+ObjectId = int
+LineNo = int
 
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
@@ -39,10 +44,19 @@ class EvalResultEntry(dict):
         self.time = time
         self.evaled_results = results
         self.replacements = replacements
+        attributes = {}
         for p in results:
-            self.__setattr__(p.key, p.value)
+            if SCOPE_SIGN in p.key:
+                var_without_scope, scope = p.key.split(SCOPE_SIGN, maxsplit=1)
+                attributes[var_without_scope + "_" + scope] = p.value
+                attributes[var_without_scope] = p.value
+            else:
+                attributes[p.key] = p.value
 
-        dict.__init__(self, **{p.key: p.value for p in results})
+        for attr_k, attr_v in attributes.items():
+            self.__setattr__(attr_k, attr_v)
+
+        dict.__init__(self, **attributes)
 
     def create_const_copy(self, c: object):
         """
@@ -77,7 +91,7 @@ class EvalResultEntry(dict):
         if not filtered:
             return None
 
-        return filtered[0]
+        return filtered[0].value
 
     def __getattr__(self, item):
         # TODO: fix.
@@ -153,7 +167,7 @@ class EvalResult(List[EvalResultEntry]):
         return reduce(lambda s, keys: s.union(keys), map(lambda e: set(e.keys), self))
 
     def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
-        return {k: e[k].value if e[k] else None for k in self.all_keys()}
+        return {k: e[k] if e[k] else None for k in self.all_keys()}
 
     def group(self) -> Dict:
         if len(self) == 0:

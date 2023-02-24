@@ -135,7 +135,7 @@ class TestEngine:
     @pytest.mark.skip(reason="")
     def test_1(self):
 
-        TestEngine.basic_test(TestEngine.create_test_source_absolute_path(r'test_module2.py'), verbose=True)
+        TestEngine.basic_test(TestEngine.create_test_source_absolute_path(r'basic2.py'), verbose=True)
 
     @pytest.mark.skip(reason="")
     def test_tetris(self):
@@ -172,7 +172,7 @@ class TestEngine:
     #@pytest.mark.skip(reason="")
     def test_2(self):
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
-            r'test_module2.py'
+            r'basic2.py'
         ),
             verbose=True,
             valid_exceptions=[AssertionError]

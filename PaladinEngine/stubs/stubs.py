@@ -36,31 +36,7 @@ def __FRAME__():
 
 
 def __FLI__(locals, globals):
-    """
-        A stub for a for loop.
-    :param locals: The local names accessible from the loop.
-    :param globals: The global names accessible from the loop.
-    :return:
-    """
-    all_vars = {**locals, **globals}
-
-    n = all_vars['n']
-
-    result = all_vars['result']
-    error_line = '''
-        if |n| >= 1:
-            result >= pre(result)
-        else:
-            result < pre(result)'''
-    try:
-        values = [rv.value for rv in archive.search('result').values]
-
-        if abs(n) >= 1:
-            assert result >= all(values)
-        else:
-            assert result < all(values)
-    except BaseException:
-        pass
+    raise NotImplementedError()
 
 
 def handle_broken_commitment(condition, frame, line_no):
@@ -145,7 +121,7 @@ def _separate_to_container_and_func(function, expression: str, frame, vars_dict:
 
 
 def _separate_to_container_and_field(expression: str, frame, locals: dict, globals: dict) -> tuple[
-    int, str, object, bool]:
+    int, str, object, bool, bool]:
     expression_ast = str2ast(expression).value
     if isinstance(expression_ast, ast.Subscript):
         getitem_arg = f'''{slice.__name__}(start={ast2str(expression_ast.slice.lower)},
@@ -154,17 +130,17 @@ def _separate_to_container_and_field(expression: str, frame, locals: dict, globa
                        ''' if isinstance(expression_ast.slice, ast.Slice) else eval(ast2str(expression_ast.slice),
                                                                                     globals, locals)
         subscript_value = eval(ast2str(expression_ast.value), globals, locals)
-        return id(subscript_value), getitem_arg, eval(expression, globals, locals), True
+        return id(subscript_value), getitem_arg, eval(expression, globals, locals), True, False
 
     if not isinstance(expression_ast, ast.Attribute):
         # There is only an object.
         value = eval(expression, globals, locals)
-        return id(frame), expression, value, True
+        return id(frame), expression, value, True, True
 
     container = eval(ast2str(expression_ast.value), globals, locals)
     field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
 
-    return id(container), field, container, False
+    return id(container), field, container, False, False
 
 
 def __DEF__(func_name: str, line_no: int, frame):
@@ -190,7 +166,7 @@ def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict
             line_no: int):
     archive.store_new \
         .key(id(frame), arg, __ARG__.__name__) \
-        .value(type(value), value, arg, line_no)
+        .value(type(value), POID(value), arg, line_no)
 
     if func_name == '__init__' and arg == 'self':
         # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
@@ -204,29 +180,41 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     if not archive.should_record:
         return
 
-    container_id, field, container, is_container_value = _separate_to_container_and_field(target, frame, locals,
-                                                                                          globals)
+    container_id, field, container, is_container_value, is_container_id_frame = _separate_to_container_and_field(target,
+                                                                                                                 frame,
+                                                                                                                 locals,
+                                                                                                                 globals)
     value = container if is_container_value else container.__getattribute__(
         field) if field in container.__dict__ else None
     if value is None:
         # TODO: handle?
         return
 
-    __store(container_id, field, line_no, target, value)
+    __store(container_id, field, line_no, target, value, locals, globals, __AS__,
+            kind=Archive.Record.StoreKind.VAR if is_container_id_frame else Archive.Record.StoreKind.OBJ_ITEM)
 
 
-def __store(container_id, field, line_no, target, value, _time: Optional[int] = None,
-            kind: Archive.Record.StoreKind = Archive.Record.StoreKind.VAR):
+def __store(container_id, field, line_no, target, value, locals, globals,
+            stub: Callable = __AS__,
+            _time: Optional[int] = None, kind: Archive.Record.StoreKind = Archive.Record.StoreKind.VAR,
+            extra: object = None):
+    stored_objects = set()
+
     value_to_store = POID(value)
     rv = archive.store_new \
-        .key(container_id, field, __AS__.__name__, kind) \
-        .value(type(value), value_to_store, target, line_no)
+        .key(container_id, field, stub.__name__, kind) \
+        .value(type(value), value_to_store, target, line_no, extra=extra)
 
     if _time:
         rv.time = _time
 
     def _store_inner(v: object) -> None:
-        if ISP(type(v)) or not v:
+        if id(v) in stored_objects:
+            return None
+
+        stored_objects.add(id(v))
+
+        if ISP(type(v)) or v is None or issubclass(type(v), type):
             return None
 
         if type(v) in [list, tuple, set]:
@@ -234,6 +222,9 @@ def __store(container_id, field, line_no, target, value, _time: Optional[int] = 
 
         if type(v) is dict:
             return _store_dicts(id(v), v)
+
+        if not hasattr(v, '__dict__'):
+            return None
 
         return _store_dicts(id(v), v.__dict__)
 
@@ -256,7 +247,8 @@ def __store(container_id, field, line_no, target, value, _time: Optional[int] = 
             _store_inner(k)
             _store_inner(v)
 
-    _store_inner(value)
+    if not ISP(type(value)) and not id(value) in {id(x) for x in stored_objects}:
+        _store_inner(value)
 
 
 def __FC__(expression: str, function,
@@ -274,31 +266,6 @@ def __FC__(expression: str, function,
     :return: None.
     """
 
-    vars_dict = {**locals, **globals}
-
-    # Function type.
-    func_type = type(lambda _: _)
-
-    # Find container.
-    container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
-
-    args_string = ', '.join([str(a) if function.__name__ != '__str__' else '@@@@ self @@@@' for a in args])
-    kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
-
-    # Create an extra with the args and keywords.
-    extra = f'args = {args_string}, kwargs = {kwargs_string}'
-
-    # Create a Record key.
-    record_key = Archive.Record.RecordKey(container_id, function.__name__, __FC__.__name__)
-
-    # Create Record value.
-    # First put a null value and update it after the function has been called with the value / exception.
-    record_value = Archive.Record.RecordValue(record_key, func_type, None, expression, line_no, extra=extra)
-
-    # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
-    if archive.should_record:
-        archive.store(record_key, record_value)
-
     # Call the function.
     ret_exc = None
     try:
@@ -307,11 +274,21 @@ def __FC__(expression: str, function,
         ret_exc = e
         ret_value = ret_exc
 
-    ret_value_to_store = POID(ret_value) if ret_exc is not None else ret_exc
+    vars_dict = {**locals, **globals}
+
+    # Find container.
+    container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
+
+    # args_string = ', '.join([str(a) if function.__name__ != '__str__' else '@@@@ self @@@@' for a in args])
+    # kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
+
+    # Create an extra with the args and keywords.
+    # extra = f'args = {args_string}, kwargs = {kwargs_string}'
+    extra = ''
+
     if archive.should_record:
-        # Update the value of the called function (or exception).
-        # record_value.value = ret_value
-        record_value.value = ret_value_to_store
+        # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
+        __store(container_id, function.__name__, line_no, expression, ret_value, locals, globals, __FC__, extra=extra)
 
     if ret_exc:
         raise ret_exc
@@ -328,8 +305,9 @@ def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str
 
         # Store args that are temporary objects.
         # E.g.: l.add(Animal(...))
-        if not ISP(type(arg)) and not id(arg) in {**locals, **globals}.values():
-            __store(frame, '', line_no, id(arg), arg, rv.time, Archive.Record.StoreKind.UNAMED_OBJECT)
+        if not ISP(type(arg)) and not id(arg) in [id(x) for x in {**locals, **globals}.values()]:
+            __store(frame, '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
+                    Archive.Record.StoreKind.UNAMED_OBJECT)
 
 
 def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
@@ -416,7 +394,6 @@ def __RESUME__():
 
 
 def __PRINT__(line_no: int, frame, *print_args):
-
     with StringIO() as capturer, redirect_stdout(capturer):
         print(*print_args)
         output = capturer.getvalue().strip('\n')

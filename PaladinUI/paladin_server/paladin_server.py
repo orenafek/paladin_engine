@@ -25,6 +25,7 @@ SOURCE_CODE: str = ''
 EVALUATOR: Optional[ArchiveEvaluator] = None
 ARCHIVE: Optional[Archive] = None
 RUN_OUTPUT: str = ''
+PARSER: Optional[PaladinNativeParser] = None
 
 # FIXME: Currently for debugging purposes.
 THROWN_EXCEPTION: Optional[PaLaDiNEngine.PaladinRunExceptionData] = None
@@ -55,13 +56,14 @@ class PaladinServer(FlaskView):
                archive: Archive,
                run_output: str,
                thrown_exception: Optional[Tuple[int, str]] = None) -> 'PaladinServer':
-        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE, EVALUATOR, RUN_OUTPUT
+        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE, EVALUATOR, RUN_OUTPUT, PARSER
         server = PaladinServer()
         RUN_OUTPUT = run_output
         SOURCE_CODE = source_code
         THROWN_EXCEPTION = thrown_exception
         ARCHIVE = archive
         EVALUATOR = ArchiveEvaluator(ARCHIVE)
+        PARSER = PaladinNativeParser(ARCHIVE)
         return server
 
     def run(self, port: int = 9999):
@@ -192,8 +194,7 @@ class PaladinServer(FlaskView):
 
     @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>')
     def query(self, select_query: str, start_time: int, end_time: int):
-        parser = PaladinNativeParser(ARCHIVE)
-        return PaladinServer.create_response(parser.parse(select_query, start_time, end_time))
+        return PaladinServer.create_response(PARSER.parse(select_query, start_time, end_time))
 
     @route('/debug_info/docs')
     def docs(self):

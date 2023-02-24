@@ -13,7 +13,7 @@ import signal
 import sys
 import traceback
 from contextlib import redirect_stdout
-from io import StringIO
+from io import IOBase
 from types import CodeType
 from typing import Tuple, Any, Optional
 
@@ -77,7 +77,11 @@ class PaLaDiNEngine(object):
                     if __FC__.__name__ in paladinized_line:
                         # TODO: This is a patch for __FC__ that can't add "line_no=" in it because it expects *args and **kwargs after it.
                         # TODO: Currently assuming that __FC__(expression, func_name, locals, globals, frame, line_no, *args, **kwargs)
-                        line_no = int(paladinized_line.split(',')[5].strip().strip(')'))
+                        start_of_line_no = paladinized_line.index(f'{__FRAME__.__name__}(), ') + len(
+                            f'{__FRAME__.__name__}(), ')
+                        line_no = int(
+                            re.compile(r'(?P<n>(\d+))[,)].*').match(paladinized_line[start_of_line_no::]).group('n'))
+                        # line_no = int(paladinized_line.split(',')[5].strip().strip(')'))
                     else:
                         raise e
 
@@ -126,7 +130,8 @@ class PaLaDiNEngine(object):
 
     @staticmethod
     def execute_with_paladin(source_code: str, paladinized_code: str, original_file_name: str, timeout: int = -1,
-                             output_capture: StringIO = None) -> Tuple[Any, Archive, Optional[PaladinRunExceptionData]]:
+                             output_capture: Optional[IOBase] = None) -> Tuple[
+        Any, Archive, Optional[PaladinRunExceptionData]]:
         """
             Execute a source code with the paladin environment.
         :param source_code:
@@ -200,12 +205,8 @@ class PaLaDiNEngine(object):
         try:
             t = t.transform_aug_assigns()
             m = t.module
-            t = t.transform_loop_invariants()
-            m = t.module
             t = t.transform_function_calls()
             m = t.module
-            # t = t.transform_attribute_accesses()
-            # m = t.module
             t = t.transform_loops()
             m = t.module
             t = t.transform_assignments()

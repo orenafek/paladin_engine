@@ -9,14 +9,11 @@ import json
 from ast import *
 from dataclasses import dataclass
 from enum import Enum
-from itertools import product
-from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type, Collection
+from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type
 
 import pandas as pd
-from frozendict import frozendict
 
 from ast_common.ast_common import ast2str
-from builtin_manipulation_calls.builtin_manipulation_calls import MAINPULATION_BY_OBJ_TYPE_AND_FUNC_NAME
 from common.common import ISP, IS_ITERABLE
 
 Rk = 'Archive.Record.RecordKey'
@@ -157,7 +154,6 @@ class Archive(object):
         self.records: Dict[Archive.Record.RecordKey, List[Archive.Record.RecordValue]] = {}
         self._time = -1
         self.should_record = True
-        self._cache = {}
 
     @property
     def time(self):
@@ -225,84 +221,11 @@ class Archive(object):
         data_frame = pd.DataFrame(columns=header, data=rows)
         return data_frame.to_markdown(index=True)
 
-    def build_object(self, object_id: int, time: int = -1) -> Any:
-        try:
-            def time_filter(rv: Archive.Record.RecordValue):
-                return rv.time <= time if time != -1 else True
-
-            if (object_id, time) in self._cache:
-                return self._cache[(object_id, time)]
-
-            relevant_records = sorted(self.flatten_and_filter([lambda vv: vv.key.container_id == object_id,
-                                                               lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'},
-                                                               lambda vv: time_filter(vv)]), key=lambda t: t[1].time)
-
-            col = {list: [], dict: {}, set: set()}
-
-            col_type_to_return = None
-
-            for k, v in relevant_records:
-
-                value = v.value if ISP(v.rtype) else self.build_object(v.value, time)
-                if k.stub_name == '__AS__' and value is None and v.rtype in col:
-                    value = col[v.rtype]
-
-                if k.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.DICT_ITEM}:
-                    col[dict][k.field] = value
-                    col_type_to_return = dict
-
-                elif k.kind == Archive.Record.StoreKind.LIST_ITEM:
-                    col[list].append(value)
-                    col_type_to_return = list
-
-                elif k.kind == Archive.Record.StoreKind.SET_ITEM:
-                    col[set].add(value)
-                    col_type_to_return = set
-
-                elif k.kind == Archive.Record.StoreKind.BUILTIN_MANIP:
-                    col[v.rtype].__getattribute__(k.field)(value)
-                    col_type_to_return = v.rtype
-
-            col[dict] = frozendict(col[dict])
-            if not col_type_to_return:
-                return None
-
-            self._cache[(object_id, time)] = col[col_type_to_return]
-            return col[col_type_to_return]
-
-        except (TypeError, IndexError):
-            return None
+    def build_object(self, object_id: int, rtype: type = Any, time: int = -1) -> Any:
+        return self.object_builder.build(object_id, rtype, time)
 
     def search_web(self, expression: str):
-        def search_web_inner(container_id, field):
-            for key in self.records:
-                if key.field == field and (not container_id or key.container_id == container_id):
-                    return self.records[key][0]
-
-        container_id = None
-        for element in expression.split('.'):
-            record_value: Archive.Record.RecordValue = search_web_inner(container_id, element)
-            if not record_value:
-                return ''
-
-            if record_value.rtype in [str, int, float, bool, complex]:
-                return str(record_value.value)
-
-            container_id = record_value.value if type(record_value.value) is int else id(record_value.value)
-
-        # Getting here means that the last record value found is of an object and not primitive.
-        # assert record_value and record_value.rtype is not int and type(record_value.value) is int
-        return json.dumps(self.build_object(record_value.value))
-
-    def search(self, expression: str, frame: dict = None) -> Optional[Iterable[Record.RecordValue]]:
-        for key in self.records.keys():
-            if key.field == expression:
-                return self.records[key]
-            record_values = [rv for rv in self.records[key] if rv.expression == expression]
-            if record_values:
-                return record_values
-
-        return None
+        raise NotImplementedError()
 
     @property
     def store_new(self):
@@ -411,107 +334,6 @@ class Archive(object):
                 lambda vv: vv.key.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.BUILTIN_MANIP}
             ])
 
-    def get_scope_by_line_no(self, line_no: int) -> int:
-        """
-            Returns the "scope", meaning the container_id (id of the frame) of variables (not object's fields) that are referenced in a line_no.
-        :param line_no: The line no.
-        :return: scope.
-        """
-        # Get all records by time.
-        record_values_by_time = [rv for _, rv in self.flat_and_sort_by_time()]
-
-        rv_stack = []
-        for rv in record_values_by_time:
-            if rv.key.stub_name == '__DEF__':
-                rv_stack.append(rv)
-                continue
-
-            if rv.key.stub_name == '__UNDEF__':
-                rv_stack.pop()
-                continue
-
-            if rv.line_no == line_no:
-                if len(rv_stack) > 0:
-                    return rv_stack[-1].key.container_id
-                else:
-                    return rv.key.container_id
-                # TODO: Should we continue or raise an error? This case should happen when the line_no comes before
-                #  no __DEF__.
-
-        # TODO: Raise an error?
-        return -1
-
-    def find_by_line_no(self, expression: str, line_no: int, time: int = -1) -> Dict[int, List[Rv]]:
-        """
-        Find the values of an expression in the archive throughout its time, where the names are bounded to a scope
-        of a line no.
-        @param expression: The expression to look for.
-        @param line_no: The line no to bound a scope for.
-        @param time:
-        @return:
-        """
-        scope = self.get_scope_by_line_no(line_no) if line_no != -1 else -1
-        archive = self
-
-        def _find_by_name_and_container_id(name: str, container_id: int) -> List['Archive.Record.RecordValue']:
-            return [r[1] for r in self.flatten_and_filter(
-                lambda
-                    vv: vv.key.container_id == container_id and vv.key.field == name and vv.line_no == line_no and vv.time <= time)]
-
-        def _find_by_name(name: str) -> List['Archive.Record.RecordValue']:
-            return [r[1] for r in self.flatten_and_filter(lambda vv: vv.key.field == name and vv.time <= time)]
-
-        @dataclass
-        class NodeFinder(NodeVisitor):
-            def __init__(self, archive: 'Archive'):
-                self.archive = archive
-                self.values = {}
-
-            def visit_Subscript(self, node: Subscript) -> Any:
-                # TODO: Handle.
-                raise NotImplementedError('TODO: Fix.')
-
-            def visit_Attribute(self, node: Attribute) -> Any:
-                # Resolve value (lhs of "lhs.rhs").
-                self.visit(node.value)
-                value_str = ast2str(node.value)
-                attr_str = ast2str(node)
-                self.values[attr_str] = {}
-
-                if value_str not in self.values:
-                    return None
-
-                # Add attribute's value.
-                for t, v in self.values[value_str].items():
-                    if type(v) is int:
-                        # v is probably an object id.
-                        obj = archive.build_object(v, time)
-                        if obj == []:
-                            # TODO: I don't know what to do here...
-                            continue
-                        if len(obj) > 1:
-                            # TODO: Or here...
-                            pass
-                        attr = obj[0][node.attr]
-                    else:
-                        attr = v.__getattribute__(node.attr)
-
-                    self.values[attr_str][t] = attr
-
-            def visit_Name(self, node: Name) -> Any:
-                self.values[node.id] = {
-                    rv.time:
-                        rv.value if ISP(rv.rtype) else archive.build_object(rv.value, time)
-                    for rv in
-                    (_find_by_name_and_container_id(node.id, scope) if scope != -1 else _find_by_name(node.id))
-                }
-
-            def visit(self, node: AST) -> 'NodeFinder':
-                super(NodeFinder, self).visit(node)
-                return self
-
-        return NodeFinder(self).visit(parse(expression).body[0]).values
-
     def find_events(self, line_no: int) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(lambda vv: vv.line_no == line_no)
 
@@ -521,3 +343,6 @@ class Archive(object):
     @property
     def last_time(self) -> int:
         return self._time
+
+    def flatten(self) -> Iterable[Tuple[Rk, Rv]]:
+        return [(rk, vv) for rk, rv in self.records.items() for vv in rv]

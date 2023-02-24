@@ -1,6 +1,8 @@
 import functools
 from typing import Type, Union, List, Set, Dict, Callable
 
+__BUILTIN_COLLECTIONS__ = {List, Set, Dict}
+
 __BUILTIN_COLLECTIONS_MANIPULATION_METHODS__ = {
     list: [list.append, list.remove, list.extend, list.reverse, list.clear, list.__setitem__],
     set: [set.add, set.remove, set.clear, set.update],
@@ -22,6 +24,9 @@ def IS_SUSPECT_BUILTIN_MANIPULATION_FUNCTION_CALL(func_name: str) -> bool:
 def IS_BUILTIN_MANIPULATION_FUNCTION_CALL(caller: object) -> bool:
     return any([isinstance(caller, t) for t in __BUILTIN_COLLECTIONS_MANIPULATION_METHODS__])
 
+
+def IS_BUILTIN_MANIPULATION_TYPE(t: Type) -> bool:
+    return any([issubclass(t, bt) for bt in __BUILTIN_COLLECTIONS__])
 
 # noinspection PyTypeChecker
 def MAINPULATION_BY_OBJ_TYPE_AND_FUNC_NAME(t: Type, func_name: str) -> Callable:
