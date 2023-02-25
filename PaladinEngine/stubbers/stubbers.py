@@ -562,10 +562,10 @@ class FunctionCallStubber(Stubber):
                               lit2ast(wrap_str_param(ast2str(caller))),
                               lit2ast(wrap_str_param(func_name)),
                               lit2ast(line_no),
-                              *args,
                               Stubber._FRAME_CALL,
                               Stubber._LOCALS_CALL,
-                              Stubber._GLOBALS_CALL
+                              Stubber._GLOBALS_CALL,
+                              *args # Must be last in case there is no arg at all.
                               ],
                         keywords=[])
 

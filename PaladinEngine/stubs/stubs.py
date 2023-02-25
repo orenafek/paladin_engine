@@ -10,7 +10,7 @@ from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Iterable, C
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
-from builtin_manipulation_calls.builtin_manipulation_calls import IS_BUILTIN_MANIPULATION_FUNCTION_CALL
+from builtin_manipulation_calls.builtin_manipulation_calls import IS_BUILTIN_MANIPULATION_FUNCTION_CALL, EMPTY
 from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
 
 archive = Archive()
@@ -203,7 +203,7 @@ def __store(container_id, field, line_no, target, value, locals, globals,
     value_to_store = POID(value)
     rv = archive.store_new \
         .key(container_id, field, stub.__name__, kind) \
-        .value(type(value), value_to_store, target, line_no, extra=extra)
+        .value(type(value), value_to_store, str(target), line_no, extra=extra)
 
     if _time:
         rv.time = _time
@@ -296,16 +296,16 @@ def __FC__(expression: str, function,
     return ret_value
 
 
-def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, arg: object, frame,
-              locals, globals):
+def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, frame,
+              locals, globals, arg: Optional[object] = EMPTY):
     if IS_BUILTIN_MANIPULATION_FUNCTION_CALL(caller):
         rv = archive.store_new \
             .key(id(caller), func_name, __BMFCS__.__name__, Archive.Record.StoreKind.BUILTIN_MANIP) \
-            .value(type(caller), POID(arg), caller_str, line_no)
+            .value(type(caller), POID(arg) if arg != EMPTY else EMPTY, caller_str, line_no)
 
         # Store args that are temporary objects.
         # E.g.: l.add(Animal(...))
-        if not ISP(type(arg)) and not id(arg) in [id(x) for x in {**locals, **globals}.values()]:
+        if not ISP(type(arg)) and not id(arg) in [id(x) for x in {**locals, **globals}.values()] and arg != EMPTY:
             __store(frame, '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
                     Archive.Record.StoreKind.UNAMED_OBJECT)
 
