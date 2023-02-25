@@ -8,8 +8,9 @@ from typing import *
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
-    EvalResultPair, BAD_JSON_VALUES, EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS
-from archive.archive_evaluator.paladin_dsl_semantics import Operator, Time, Raw, Const
+    EvalResultPair, BAD_JSON_VALUES, EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time
+from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
+from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple

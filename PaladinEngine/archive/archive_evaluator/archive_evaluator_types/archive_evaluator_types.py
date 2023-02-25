@@ -2,6 +2,7 @@ import traceback
 from dataclasses import dataclass, field
 from functools import reduce
 from typing import *
+from typing import Union
 
 import frozendict
 
@@ -259,3 +260,4 @@ class EvalResult(List[EvalResultEntry]):
 
 
 EvalFunction = Callable[[int, int, int, int], EvalResult]
+SemanticsArgType = Union[bool, EvalResult]

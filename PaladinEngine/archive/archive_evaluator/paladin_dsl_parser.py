@@ -1,12 +1,15 @@
 import functools
-import itertools
 import json
 import operator
+from typing import *
 
 import pyparsing
 from pyparsing import *
 
-from archive.archive_evaluator.paladin_dsl_semantics import *
+from archive.archive import Archive
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
+from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
+from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 
 
 class PaladinDSLParser(object):
@@ -66,8 +69,7 @@ class PaladinDSLParser(object):
     def _nested_query(self, query):
         return (Suppress('{{') + CaselessKeyword('for') + Word(alphanums) + CaselessKeyword('in') + query
                 + SkipTo('}}') + Suppress('}}')).setParseAction(
-            lambda q: Raw(self.archive, q.asList()[1], None, self.timer,
-                          query))
+            lambda q: Raw(self.archive, q.asList()[1], None, self.timer, query))
 
     def _eval_compound_query(self, compound_query: list[str]):
         evaluated = [q(self) if callable(q) else q for q in compound_query]
