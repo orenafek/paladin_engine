@@ -97,6 +97,7 @@ class SemanticsUtils(object):
     def get_first(times: Iterable[Time], res: EvalResult):
         return res[times[0]].values[0]
 
+
 @dataclass
 class Operator(ABC):
 
@@ -227,15 +228,11 @@ class Raw(Operator):
 
         for t in self.times:
             resolved_names = Raw._resolve_names(builder, extractor.names, self.line_no, t, query_locals)
-            resolved_attributes = Raw._resolve_attributes(builder, extractor.attributes, self.line_no, t, query_locals)
-
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                result = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **{n: resolved_names[n] for n in resolved_names},
-                                           **{a: resolved_attributes[a] for a in resolved_attributes}})
+                result = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **{n: resolved_names[n] for n in resolved_names}})
             except (IndexError, KeyError, NameError, AttributeError):
                 result = [None] * len(queries) if len(queries) > 1 else None
-
             results.append(EvalResultEntry(t,
                                            [EvalResultPair(self.create_key(q), r) for q, r in zip(queries, result)]
                                            if len(queries) > 1

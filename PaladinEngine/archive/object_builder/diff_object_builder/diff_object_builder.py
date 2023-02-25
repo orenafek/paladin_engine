@@ -19,6 +19,9 @@ class Object(dict):
 class DiffObjectBuilder(ObjectBuilder):
     ObjectEntry = Tuple[Type, Any]
 
+    class AttributedDict(Dict):
+        pass
+
     def __init__(self, archive: Archive):
         self.archive: Archive = archive
         self._data: Dict[ObjectId, RangeDict] = {}
@@ -43,17 +46,21 @@ class DiffObjectBuilder(ObjectBuilder):
 
         obj = self._data[object_id][t]
 
-        evaluated_object = {}
+        evaluated_object = DiffObjectBuilder.AttributedDict()
 
         for (field, _type), value in obj.items():
             if ISP(_type):
-                evaluated_object[field] = value
+                evaluated_value = value
             elif IS_BUILTIN_MANIPULATION_TYPE(_type):
                 # TODO: Deel with collections.
                 pass
-
             else:
-                evaluated_object[field] = self.build(value, t)
+                evaluated_value = self.build(value, t)
+                # Add attribute.
+                setattr(evaluated_object, field, evaluated_value)
+
+            # Add to dict.
+            evaluated_object[field] = evaluated_value
 
         self._built_objects[(object_id, t)] = evaluated_object
         return evaluated_object
@@ -92,6 +99,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
         key: Tuple[str, Type] = field, rv.rtype
         if key in object_id_data[last_range] and object_id_data[last_range][key] == rv.value:
+            # Extend range.
             self._last_range[object_id] = DiffObjectBuilder.__extend_range(object_id_data, last_range, t)
         else:
             # Finalize last range if needed.
@@ -122,7 +130,7 @@ class DiffObjectBuilder(ObjectBuilder):
         return new_obj
 
     @staticmethod
-    def __construct_object(obj: Any, field: str, value: Any, _type: Type,
+    def __construct_object(obj: Dict[str, Any], field: str, value: Any, _type: Type,
                            k: Archive.Record.StoreKind) -> 'DiffObjectBuilder.ObjectEntry':
         if k == Archive.Record.StoreKind.BUILTIN_MANIP:
             if not obj:
@@ -174,14 +182,10 @@ class DiffObjectBuilder(ObjectBuilder):
 
         self._named_objects[rv.expression][rv.line_no] = rv.value, rv.rtype
 
-    def _search_iterator(self, obj: Union[str, ObjectId], line_no: Optional[LineNo] = -1) -> \
+    def _build_iterator(self, obj: Union[str, ObjectId], line_no: Optional[LineNo] = -1) -> \
             Optional[Iterator[Tuple[Time, Any]]]:
         for t in range(0, self.archive.last_time):
-            result = self.build(obj, t, line_no)
-            if result is None:
-                continue
-
-            yield t, result
+            yield t, self.build(obj, t, line_no)
 
         return None
 
