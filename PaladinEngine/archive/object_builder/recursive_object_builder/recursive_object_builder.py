@@ -9,12 +9,11 @@ from archive.archive import Archive, Rk, Rv
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str
-from builtin_manipulation_calls.builtin_manipulation_calls import __BUILTIN_COLLECTIONS__
 from common.common import ISP
 
 
 class RecursiveObjectBuilder(ObjectBuilder):
-    SUPPOERTED_BUILTIN_COLLECTION_TYPES = {*__BUILTIN_COLLECTIONS__}
+    SUPPOERTED_BUILTIN_COLLECTION_TYPES = {list, set, tuple}
 
     def __init__(self, archive: 'Archive'):
         self.archive = archive

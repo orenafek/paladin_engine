@@ -8,3 +8,6 @@ class ObjectBuilder(ABC):
     @abstractmethod
     def build(self, item: Union[str, ObjectId], t: Time, line_no: Optional[LineNo] = -1) -> Any:
         raise NotImplementedError()
+
+    def find_events(self, line_no):
+        raise NotImplementedError()

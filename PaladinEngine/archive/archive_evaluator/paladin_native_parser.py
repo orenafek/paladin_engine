@@ -257,6 +257,9 @@ class PaladinNativeParser(object):
                         ]
                         return _self.generic_visit(node)
 
+                    def visit_Set(self, node: ast.Set) -> Any:
+                        return ast.List(elts=node.elts)
+
                 return super().iterencode(
                     eval(ast2str(Tuple2StrReplacer().visit(str2ast(str(o))), _one_shot), EVAL_BUILTIN_CLOSURE))
 

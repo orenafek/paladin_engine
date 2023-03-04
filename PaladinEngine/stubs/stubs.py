@@ -1,16 +1,16 @@
 import abc
 import ast
-import functools
 import re
 import sys
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from io import StringIO
-from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Iterable, Collection, Callable
+from types import NoneType
+from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Callable
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
-from builtin_manipulation_calls.builtin_manipulation_calls import IS_BUILTIN_MANIPULATION_FUNCTION_CALL, EMPTY
+from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, EMPTY, EMPTY_COLLECTION
 from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
 
 archive = Archive()
@@ -229,6 +229,15 @@ def __store(container_id, field, line_no, target, value, locals, globals,
         return _store_dicts(id(v), v.__dict__)
 
     def _store_lists_tuples_and_sets(v: Union[List, Tuple, Set]):
+
+        if len(v) == 0 and v is not None:
+            # Empty collection.
+            irv = archive.store_new \
+                .key(id(v), '', __AS__.__name__, Archive.Record.StoreKind.kind_by_type(type(v))) \
+                .value(NoneType, EMPTY_COLLECTION, '', line_no)
+            irv.time = rv.time
+            return
+
         for index, item in enumerate(v):
             irv = archive.store_new \
                 .key(id(v), index, __AS__.__name__, Archive.Record.StoreKind.kind_by_type(type(v))) \
@@ -296,12 +305,14 @@ def __FC__(expression: str, function,
     return ret_value
 
 
+# The first param "func_stub_wrapper" is not used but passed to this stub to be evaluated before entering here.
+# noinspection PyUnusedLocal
 def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, frame,
               locals, globals, arg: Optional[object] = EMPTY):
-    if IS_BUILTIN_MANIPULATION_FUNCTION_CALL(caller):
+    if BuiltinCollectionsUtils.is_builtin_collection_method(caller):
         rv = archive.store_new \
             .key(id(caller), func_name, __BMFCS__.__name__, Archive.Record.StoreKind.BUILTIN_MANIP) \
-            .value(type(caller), POID(arg) if arg != EMPTY else EMPTY, caller_str, line_no)
+            .value(type(caller), (type(arg), (POID(arg) if arg != EMPTY else EMPTY)), caller_str, line_no)
 
         # Store args that are temporary objects.
         # E.g.: l.add(Animal(...))

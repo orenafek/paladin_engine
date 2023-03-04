@@ -2,10 +2,10 @@ import ast
 import copy
 from abc import ABC, abstractmethod
 from ast import *
-from typing import Union, List, Callable
+from typing import Union, List
 
 from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param
-from builtin_manipulation_calls.builtin_manipulation_calls import IS_SUSPECT_BUILTIN_MANIPULATION_FUNCTION_CALL
+from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils
 from finders.finders import StubEntry
 from stubs.stubs import __FRAME__, __EOLI__, __SOLI__, __BMFCS__, __PRINT__, __FC__
 from utils.utils import assert_not_raise
@@ -510,13 +510,13 @@ class FunctionCallStubber(Stubber):
             else:
                 stub_name = __FC__.__name__
                 stub_args = [
-                                lit2ast(wrap_str_param(ast2str(node))),
-                                lit2ast(ast2str(node.func)),
-                                Stubber._LOCALS_CALL,
-                                Stubber._GLOBALS_CALL,
-                                Stubber._FRAME_CALL,
-                                lit2ast(node.lineno)
-                    ]
+                    lit2ast(wrap_str_param(ast2str(node))),
+                    lit2ast(ast2str(node.func)),
+                    Stubber._LOCALS_CALL,
+                    Stubber._GLOBALS_CALL,
+                    Stubber._FRAME_CALL,
+                    lit2ast(node.lineno)
+                ]
 
             stub_args += [ast.fix_missing_locations(a) for a in copy.deepcopy(node.args)]
 
@@ -526,7 +526,8 @@ class FunctionCallStubber(Stubber):
                                       args=stub_args,
                                       keywords=stub_kwargs)
 
-            if isinstance(node.func, ast.Attribute) and IS_SUSPECT_BUILTIN_MANIPULATION_FUNCTION_CALL(node.func.attr):
+            if isinstance(node.func, ast.Attribute) and \
+                    BuiltinCollectionsUtils.is_function_suspicious_as_builtin_collection_method(node.func.attr):
                 stub_func_call = FunctionCallStubber._add_suspect_builtin_manipulation_function_call_stub(
                     node.func.attr,
                     node.func.value,
@@ -565,7 +566,7 @@ class FunctionCallStubber(Stubber):
                               Stubber._FRAME_CALL,
                               Stubber._LOCALS_CALL,
                               Stubber._GLOBALS_CALL,
-                              *args # Must be last in case there is no arg at all.
+                              *args  # Must be last in case there is no arg at all.
                               ],
                         keywords=[])
 
