@@ -220,7 +220,7 @@ def __store(container_id, field, line_no, target, value, locals, globals,
         if type(v) in [list, tuple, set]:
             return _store_lists_tuples_and_sets(v)
 
-        if type(v) is dict:
+        if issubclass(type(v), dict):
             return _store_dicts(id(v), v)
 
         if not hasattr(v, '__dict__'):
@@ -250,7 +250,7 @@ def __store(container_id, field, line_no, target, value, locals, globals,
         for k, v in d.items():
             irv = archive.store_new \
                 .key(d_id, POID(k), __AS__.__name__, Archive.Record.StoreKind.DICT_ITEM) \
-                .value(type(v), POID(v), f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
+                .value((type(k), type(v)), POID(v), f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
 
             irv.time = rv.time
             _store_inner(k)

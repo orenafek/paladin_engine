@@ -1,4 +1,5 @@
 import copy
+from dataclasses import dataclass
 from functools import reduce
 from types import NoneType
 from typing import *
@@ -13,11 +14,6 @@ from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollect
 from common.common import ISP
 from stubs.stubs import __AS__, __BMFCS__
 
-
-class Object(dict):
-    pass
-
-
 _NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[LineNo, Tuple[Type, RangeDict]]]
 _NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[LineNo, Tuple[Type, ObjectId]]]
 
@@ -28,6 +24,16 @@ class DiffObjectBuilder(ObjectBuilder):
     class AttributedDict(Dict):
         def __hash__(self) -> int:
             return hash(str(self))
+
+    @dataclass
+    class _DictKeyResolve(object):
+        field_type: Type
+        field: Union[str, Any, ObjectId]
+        value_type: Type
+        value: Any
+
+        def __hash__(self) -> int:
+            return hash(hash(self.field_type) + hash(self.field) + hash(self.value_type) + hash(self.value))
 
     def __init__(self, archive: Archive):
         self.archive: Archive = archive
@@ -74,6 +80,13 @@ class DiffObjectBuilder(ObjectBuilder):
 
             if ISP(field_type):
                 evaluated_object[field] = value
+
+            elif field_type is DiffObjectBuilder._DictKeyResolve:
+                field_info: DiffObjectBuilder._DictKeyResolve = field
+                # The field is a dict key that should also be resolved (for dict keys that are objects).
+                resolved_key = self.build(field_info.field, time, field_info.field_type, line_no)
+                resolved_value = self.build(field_info.value, time, field_info.value_type, line_no)
+                evaluated_object[resolved_key] = resolved_value
 
             # Handle with postponed operations.
             elif field_type == Postpone:
@@ -139,11 +152,15 @@ class DiffObjectBuilder(ObjectBuilder):
                 self.archive.flatten_and_filter([lambda vv: vv.key.stub_name in {__AS__.__name__, __BMFCS__.__name__},
                                                  lambda vv: '__PALADIN_' not in vv.expression]),
                 key=lambda t: t[1].time):
-            object_data: RangeDict = self.__add_to_data(rv.time, rk.container_id, rk.field, rv)
+            object_data: RangeDict = self.__add_to_data(rk, rv)
             if rk.kind == Archive.Record.StoreKind.VAR:
                 self.__add_to_named_objects(rv, object_data)
 
-    def __add_to_data(self, t: Time, object_id: ObjectId, field: str, rv: Archive.Record.RecordValue) -> RangeDict:
+    def __add_to_data(self, rk: Archive.Record.RecordKey, rv: Archive.Record.RecordValue) -> RangeDict:
+        t: Time = rv.time
+        object_id: ObjectId = rk.container_id
+        field: Union[str, ObjectId] = rk.field
+
         if object_id not in self._data:
             return self.__add_first_value(object_id, t, field, rv.value, rv.rtype, rv.key.kind)
 
@@ -191,16 +208,23 @@ class DiffObjectBuilder(ObjectBuilder):
         return field in data and data[t][field] == value
 
     @staticmethod
-    def __update_value(obj: Any, field: str, value: Any, _type: Type, kind: Archive.Record.StoreKind) -> Any:
+    def __update_value(obj: Any, field: Union[str, Any, ObjectId], value: Any, _type: Union[Type, Tuple[Type, Type]],
+                       kind: Archive.Record.StoreKind) -> Any:
         new_obj = copy.copy(obj) if obj else {}
 
         if kind == Archive.Record.StoreKind.BUILTIN_MANIP:
-            new_obj = BuiltinCollectionsUtils.create_dict_object_with_postponed_builtin_collection_methods(new_obj,
-                                                                                                           _type, field,
-                                                                                                           value[0],
-                                                                                                           value[1])
+            new_obj = BuiltinCollectionsUtils \
+                .create_dict_object_with_postponed_builtin_collection_methods(new_obj, _type, field, value[0], value[1])
         elif kind == Archive.Record.StoreKind.UNAMED_OBJECT:
             new_obj = {}
+        elif kind == Archive.Record.StoreKind.DICT_ITEM:
+            key_type, value_type = _type
+            if ISP(key_type):
+                new_obj[(field, value_type)] = value
+            else:
+                new_obj[
+                    DiffObjectBuilder._DictKeyResolve(key_type, field, _type,
+                                                      value), DiffObjectBuilder._DictKeyResolve] = None
         else:
             new_obj[(field, _type)] = value
         return new_obj

@@ -252,7 +252,7 @@ class PaladinNativeParser(object):
                     def visit_Dict(_self, node: ast.Dict) -> Any:
                         # noinspection PyTypeChecker
                         node.keys = [
-                            ast.Constant(value=ast2str(k)) if isinstance(k, ast.Tuple) else k for k in
+                            ast.Constant(value=ast2str(k)) if isinstance(k, ast.Tuple) or isinstance(k, ast.Dict) else k for k in
                             node.keys
                         ]
                         return _self.generic_visit(node)

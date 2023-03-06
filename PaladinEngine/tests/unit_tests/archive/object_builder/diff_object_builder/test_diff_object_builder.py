@@ -143,6 +143,12 @@ class TestBuiltinCollections(TestDiffObjectBuilder):
 
     def test_dicts(self):
         self._test_series_of_values('d1', None, {1: 'a', 2: 'b', 3: 'c'})
+        self._test_series_of_values('d2', TestDiffObjectBuilder.SKIP_VALUE,
+                                    {DiffObjectBuilder.AttributedDict([('value', 'A')]): 1,
+                                     DiffObjectBuilder.AttributedDict([('value', 'B')]): 2})
+        self._test_series_of_values('d3', TestNestedObjectBuild.SKIP_VALUE,
+                                    {DiffObjectBuilder.AttributedDict([('A', 1), ('B', 2)]): 3})
+
 
 
 class TestGraph(TestDiffObjectBuilder):

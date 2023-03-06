@@ -193,7 +193,8 @@ class Archive(object):
                     k.stub_name,
                     k.kind.name,
                     id(v.key),
-                    str(v.rtype.__name__),
+                    str(v.rtype.__name__) if not isinstance(v.rtype, Tuple) else ", ".join(
+                        [str(t.__name__) for t in v.rtype]),
                     represent(v.value),
                     v.expression,
                     v.line_no,
