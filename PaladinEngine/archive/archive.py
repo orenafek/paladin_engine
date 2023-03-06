@@ -13,6 +13,7 @@ from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, 
 
 import pandas as pd
 
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from ast_common.ast_common import ast2str
 from common.common import ISP, IS_ITERABLE
 
@@ -160,7 +161,7 @@ class Archive(object):
         self._time += 1
         return self._time
 
-    def store(self, record_key: Record.RecordKey, record_value: Record.RecordValue):
+    def store(self, record_key: Record.RecordKey, record_value: Record.RecordValue, time: Time = -1):
         if not self.should_record:
             return self
 
@@ -168,7 +169,8 @@ class Archive(object):
             self.records[record_key] = []
 
         # Set time.
-        record_value.time = self.time
+        if time == -1:
+            record_value.time = self.time
 
         # Add to records.
         self.records[record_key].append(record_value)
@@ -247,7 +249,7 @@ class Archive(object):
             def value(_self, rtype: type, value: object, expression: str, line_no: int, time: int = -1,
                       extra: str = '') -> 'Archive.Record.RecordValue':
                 _self._value = Archive.Record.RecordValue(_self._key, rtype, value, expression, line_no, time, extra)
-                self.store(_self._key, _self._value)
+                self.store(_self._key, _self._value, time)
                 return _self._value
 
         return Builder_Key()

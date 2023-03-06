@@ -232,27 +232,24 @@ def __store(container_id, field, line_no, target, value, locals, globals,
 
         if len(v) == 0 and v is not None:
             # Empty collection.
-            irv = archive.store_new \
+            archive.store_new \
                 .key(id(v), '', __AS__.__name__, Archive.Record.StoreKind.kind_by_type(type(v))) \
-                .value(NoneType, EMPTY_COLLECTION, '', line_no)
-            irv.time = rv.time
+                .value(NoneType, EMPTY_COLLECTION, '', line_no, time=rv.time)
             return
 
         for index, item in enumerate(v):
-            irv = archive.store_new \
+            archive.store_new \
                 .key(id(v), index, __AS__.__name__, Archive.Record.StoreKind.kind_by_type(type(v))) \
-                .value(type(item), POID(item), f'{type(v)}[{index}]', line_no)
+                .value(type(item), POID(item), f'{type(v)}[{index}]', line_no, time=rv.time)
 
-            irv.time = rv.time
             _store_inner(item)
 
     def _store_dicts(d_id: int, d: Dict):
         for k, v in d.items():
-            irv = archive.store_new \
+            archive.store_new \
                 .key(d_id, POID(k), __AS__.__name__, Archive.Record.StoreKind.DICT_ITEM) \
-                .value((type(k), type(v)), POID(v), f'{id(d)}[{POID(k)}] = {POID(v)}', line_no)
+                .value((type(k), type(v)), POID(v), f'{id(d)}[{POID(k)}] = {POID(v)}', line_no, time=rv.time)
 
-            irv.time = rv.time
             _store_inner(k)
             _store_inner(v)
 
