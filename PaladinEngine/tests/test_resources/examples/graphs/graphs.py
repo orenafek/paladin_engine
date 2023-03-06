@@ -1,12 +1,11 @@
-from dataclasses import dataclass, field
 from functools import reduce
 from math import inf
 from typing import Optional, Set, Tuple, Iterable, Union, Dict, List
 
 
-@dataclass
 class Vertex(object):
-    value: object
+    def __init__(self, value):
+        self.value: object = value
 
     def __eq__(self, other):
         return isinstance(other, Vertex) and self.value == other.value
@@ -15,14 +14,15 @@ class Vertex(object):
         return hash(self.value)
 
     def __repr__(self):
-        return str(self.value)
+        return f'"{str(self.value)}"'
 
 
-@dataclass
 class DirectedEdge(object):
-    v_from: Vertex
-    v_to: Vertex
-    weight: Optional[int] = field(default=-1)
+
+    def __init__(self, v_from, v_to, weight: int = -1):
+        self.v_from: Vertex = v_from
+        self.v_to: Vertex = v_to
+        self.weight: int = weight
 
     def __eq__(self, other):
         return isinstance(other, DirectedEdge) and self.v_from == other.v_from and self.v_to == other.v_to
@@ -34,7 +34,6 @@ class DirectedEdge(object):
         return f'{self.v_from} -[{self.weight}]-> {self.v_to}'
 
 
-@dataclass
 class DirectedGraph(object):
 
     def __init__(self):
@@ -76,12 +75,7 @@ class DirectedGraph(object):
         self.vertices.add(v_from)
         self.vertices.add(v_to)
 
-        e = self._find_edge((v_from, v_to))
-
-        if e:
-            e.weight = weight
-        else:
-            self.edges.add(DirectedEdge(v_from, v_to, weight))
+        self.edges.add(DirectedEdge(v_from, v_to, weight))
 
     def _find_edge(self, key: Tuple[Vertex, Vertex]) -> Optional[DirectedEdge]:
         for e in self.edges:
@@ -137,7 +131,8 @@ class DirectedGraph(object):
             unvisited.remove(current)
             neighbors = self._find_connected(current)
             for neighbor in neighbors.union(unvisited):
-                d = distances[current] + self._find_edge((current, neighbor)).weight
+                e = self._find_edge((current, neighbor))
+                d = distances[current] + e.weight
                 if d < distances[neighbor]:
                     distances[neighbor] = d
                     prev[neighbor] = current
@@ -174,7 +169,8 @@ def main():
     g1.add_edge('D', 'G', 6)
     g1.add_edge('C', 'G', 4)
     g1.add_edge('A', 'C', 2)
-    print(f'Shortest Distance A->G: {g.shortest_path("A", "G")}')
+    print(g1.edges)
+    print(f'Shortest Distance A->G: {g1.shortest_path("A", "G")}')
 
 
 if __name__ == '__main__':

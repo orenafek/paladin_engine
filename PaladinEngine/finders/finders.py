@@ -495,7 +495,7 @@ class AssignmentFinder(GenericFinder):
         super().__init__()
 
     def types_to_find(self):
-        return ast.Assign
+        return [ast.Assign, ast.AnnAssign]
 
     def _add_to_assign(self, name, attr=None):
         if attr is not None:
@@ -505,13 +505,10 @@ class AssignmentFinder(GenericFinder):
 
         return target_string
 
-    def visit_Call(self, node: ast.Call):
-        return ast2str(node)
-
-    def visit_Assign(self, node):
+    def _visit_assign_type(self, node: Union[ast.Assign, ast.AnnAssign], targets: Iterable[ast.AST]):
         extras = []
 
-        for target in node.targets:
+        for target in targets:
             if type(target) is ast.Tuple:
                 extras.extend(self.visit_Tuple(target))
             else:
@@ -519,6 +516,15 @@ class AssignmentFinder(GenericFinder):
 
         # return extras
         return self._generic_visit_with_extras(node, extras)
+
+    def visit_Call(self, node: ast.Call):
+        return ast2str(node)
+
+    def visit_Assign(self, node: ast.Assign):
+        return self._visit_assign_type(node, node.targets)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> Any:
+        return self._visit_assign_type(node, [node.target])
 
     def visit_Name(self, node):
         return self._add_to_assign(node.id)

@@ -168,7 +168,7 @@ class EvalResult(List[EvalResultEntry]):
         return reduce(lambda s, keys: s.union(keys), map(lambda e: set(e.keys), self))
 
     def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
-        return {k: e[k] if e[k] else None for k in self.all_keys()}
+        return {k: e[k] if e[k] is not None else None for k in self.all_keys()}
 
     def group(self) -> Dict:
         if len(self) == 0:
