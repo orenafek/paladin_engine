@@ -1,5 +1,5 @@
 from math import floor
-from typing import Iterable, Optional, Dict, List, Tuple, Union, Collection
+from typing import Iterable, Optional, Dict, List, Tuple, Collection
 
 from archive.archive import Rk, Rv, Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
@@ -12,6 +12,7 @@ from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.time_operator import TimeOperator
 from archive.archive_evaluator.paladin_dsl_semantics.var_selector import VarSelectorByTimeAndLines, VarSelector
 from archive.archive_evaluator.paladin_dsl_semantics.where import Where
+from archive.archive_evaluator.paladin_dsl_semantics.union import Union
 from archive.object_builder.object_builder import ObjectBuilder
 
 

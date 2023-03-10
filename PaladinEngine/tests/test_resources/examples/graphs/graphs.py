@@ -130,24 +130,27 @@ class DirectedGraph(object):
                 break
             unvisited.remove(current)
             neighbors = self._find_connected(current)
-            for neighbor in neighbors.union(unvisited):
+            for neighbor in neighbors.intersection(unvisited):
                 e = self._find_edge((current, neighbor))
                 d = distances[current] + e.weight
                 if d < distances[neighbor]:
                     distances[neighbor] = d
                     prev[neighbor] = current
+            del distances[current]
 
         if current != v_to:
             return []
 
-        rev_path: List[Vertex] = []
+        path: List[Vertex] = []
         current = v_to
-        while prev:
-            rev_path.append(current)
+        while current != v_from:
+            path.append(current)
             current = prev[current]
-            prev.pop(current)
 
-        return reversed(rev_path)
+        path = [v_from] + list(reversed(path))
+        dist = sum([self._find_edge((f, t)).weight for f, t in zip(path, path[1::])])
+
+        return path, dist
 
 
 def main():
@@ -170,7 +173,8 @@ def main():
     g1.add_edge('C', 'G', 4)
     g1.add_edge('A', 'C', 2)
     print(g1.edges)
-    print(f'Shortest Distance A->G: {g1.shortest_path("A", "G")}')
+    a_g_path, a_g_dist = g1.shortest_path("A", "G")
+    print(f'Shortest Path of A->G: {a_g_path}, dist: {a_g_dist}')
 
 
 if __name__ == '__main__':

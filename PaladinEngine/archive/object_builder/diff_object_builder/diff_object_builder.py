@@ -36,7 +36,8 @@ class DiffObjectBuilder(ObjectBuilder):
             return hash(hash(self.field_type) + hash(self.field) + hash(self.value_type) + hash(self.value))
 
     def __init__(self, archive: Archive):
-        self.archive: Archive = archive
+        ObjectBuilder.__init__(self, archive)
+        self.archive = archive
         self._data: Dict[ObjectId, RangeDict] = {}
         self._last_range: Dict[ObjectId, Range] = {}
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
@@ -270,6 +271,3 @@ class DiffObjectBuilder(ObjectBuilder):
     def get_edge_times(rd: RangeDict) -> Tuple[Time, Time]:
         all_ranges = reduce(lambda rr, r: rr + r, rd.ranges())
         return min(all_ranges).start, max(all_ranges).end
-
-    def find_events(self, line_no):
-        return self.archive.find_events(line_no)
