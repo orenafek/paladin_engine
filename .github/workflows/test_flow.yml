@@ -1,0 +1,39 @@
+name: test_flow
+run-name: Run Unit Tests
+on: [push]
+env:
+  PYTHON_VERSION: "3.10"
+  POETRY_VERSION: "1.2.0"
+  POETRY_URL: https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Cache poetry cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-cache-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ env.POETRY_VERSION }}
+      - name: Cache Packages
+        uses: actions/cache@v3
+        with:
+            path: ~/.local
+            key: poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-${{ hashFiles('.github/workflows/*.yml') }}
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install Poetry
+        run: |
+          curl -sSL ${{ env.POETRY_URL }} | python - --version ${{ env.POETRY_VERSION }} 
+          echo $HOME/.local/bin >> $GITHUB_PATH
+      - name: Config Poetry
+        run: poetry config virtualenvs.in-project true
+      - name: Install packages
+        run: poetry install
+      - name: Run Unittests
+        run:  |
+         make test
+        working-directory: ${{ github.workspace }}
