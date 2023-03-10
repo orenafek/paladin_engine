@@ -240,7 +240,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def __add_to_named_objects(self, rv: Archive.Record.RecordValue, object_data: RangeDict):
         named_collection, value_to_store = (self._named_primitives, object_data) \
-            if ISP(rv.rtype) else (self._named_objects, rv.value)
+            if ISP(rv.rtype) and rv.rtype != NoneType else (self._named_objects, rv.value)
 
         if rv.expression not in named_collection:
             named_collection[rv.expression] = {}

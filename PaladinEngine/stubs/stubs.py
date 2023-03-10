@@ -186,9 +186,6 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
                                                                                                                  globals)
     value = container if is_container_value else container.__getattribute__(
         field) if field in container.__dict__ else None
-    if value is None:
-        # TODO: handle?
-        return
 
     __store(container_id, field, line_no, target, value, locals, globals, __AS__,
             kind=Archive.Record.StoreKind.VAR if is_container_id_frame else Archive.Record.StoreKind.OBJ_ITEM)
