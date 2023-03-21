@@ -1,84 +1,31 @@
-import csv
 import unittest
 from abc import abstractmethod, ABC
-from io import StringIO
 from pathlib import Path
 from typing import *
 
-from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, LineNo
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, LineNo, Time
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
-from engine.engine import PaLaDiNEngine
+from tests.test_common.test_common import TestCommon, SKIP_VALUE
 
 
-class TestDiffObjectBuilder(unittest.TestCase, ABC):
-    SKIP_VALUE = 'SKIP!'
-    TEST_RESOURCES_PATH = Path(__file__).parents[4].joinpath('test_resources')
-    EXAMPLES_PATH = TEST_RESOURCES_PATH.joinpath('examples')
-
-    @classmethod
-    def _run_program(cls) -> Archive:
-        with open(cls.program_path()) as f:
-            original_code = f.read()
-            paladinized_code = PaLaDiNEngine.transform(original_code)
-            TestDiffObjectBuilder.__write_paladinized_code(cls.program_path(), paladinized_code)
-            result, archive, thrown_exception = PaLaDiNEngine.execute_with_paladin(original_code,
-                                                                                   paladinized_code,
-                                                                                   str(cls.program_path()),
-                                                                                   -1,
-                                                                                   StringIO())
-
-            TestDiffObjectBuilder.__dump_to_csv(archive, cls.program_path())
-            return archive
-
-    @staticmethod
-    def __write_paladinized_code(original_program_path: Path, paladinized_code: str):
-        with open(str(original_program_path.with_suffix('')) + "_output.py", 'w+') as fo:
-            fo.write(PaLaDiNEngine.import_line('stubs.stubs'))
-            fo.writelines('\n' * 3)
-            fo.write(paladinized_code)
-
-    @staticmethod
-    def __dump_to_csv(archive: Archive, original_program_path: Path) -> None:
-        with open(str(original_program_path.with_suffix('.csv')), 'w+') as fo:
-            writer = csv.writer(fo)
-            header, rows = archive.to_table()
-            writer.writerow(header)
-            writer.writerows(rows)
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.archive = cls._run_program()
-
+class TestDiffObjectBuilder(TestCommon, ABC):
     def setUp(self) -> None:
         self.diff_object_builder = DiffObjectBuilder(self.archive)
 
-    def _test_series(self, obj: Union[str, ObjectId], actual_value_generator: Callable[Any, Any], line_no: LineNo,
-                     *expected: Any):
-        last_value = None
-        expected_index = 0
-        time = 0
-        try:
-            for time, value in self.diff_object_builder._build_iterator(obj, line_no):
-                if value != last_value and expected_index + 1 < len(expected):
-                    expected_index += 1
-                last_value = value
+    def value_generator(self, obj, line_no) -> Optional[Iterator[Tuple[Time, Any]]]:
+        return self.diff_object_builder._build_iterator(obj, line_no)
 
-                if expected[expected_index] == TestNestedObjectBuild.SKIP_VALUE:
-                    continue
-
-                self.assertEqual(expected[expected_index], actual_value_generator(value),
-                                 msg=f'time={time}, expected_index={expected_index}')
-
-            self.assertEqual(len(expected) - 1, expected_index)
-        except BaseException as e:
-            print(f'Exception on time {time}:')
-            raise e
+    @staticmethod
+    def _separate_line_no(obj: Union[str, ObjectId]):
+        if isinstance(obj, str) and SCOPE_SIGN in obj:
+            split = obj.split(SCOPE_SIGN)
+            return split[0], int(split[1])
+        else:
+            return obj, -1
 
     def _test_series_of_values(self, obj: Union[str, ObjectId], *expected: Any):
-        return self._test_series(obj, lambda value: value, -1, *expected)
-
-    def _test_series_of_values_with_line_no(self, obj: Union[str, ObjectId], line_no: LineNo = -1, *expected: Any):
+        obj, line_no = self._separate_line_no(obj)
         return self._test_series(obj, lambda value: value, line_no, *expected)
 
     @classmethod
@@ -113,8 +60,8 @@ class TestNestedObjectBuild(TestDiffObjectBuilder):
         self._test_series('r0',
                           lambda value: eval('r0.rt', {'r0': value}),
                           -1,
-                          TestNestedObjectBuild.SKIP_VALUE,
-                          TestNestedObjectBuild.SKIP_VALUE,
+                          SKIP_VALUE,
+                          SKIP_VALUE,
                           {'_x': 3, '_y': 4},
                           {'_x': -1, '_y': -2},
                           {'_x': 0, '_y': 1},
@@ -143,12 +90,11 @@ class TestBuiltinCollections(TestDiffObjectBuilder):
 
     def test_dicts(self):
         self._test_series_of_values('d1', None, {1: 'a', 2: 'b', 3: 'c'})
-        self._test_series_of_values('d2', TestDiffObjectBuilder.SKIP_VALUE,
+        self._test_series_of_values('d2', SKIP_VALUE,
                                     {DiffObjectBuilder.AttributedDict([('value', 'A')]): 1,
                                      DiffObjectBuilder.AttributedDict([('value', 'B')]): 2})
-        self._test_series_of_values('d3', TestNestedObjectBuild.SKIP_VALUE,
+        self._test_series_of_values('d3', SKIP_VALUE,
                                     {DiffObjectBuilder.AttributedDict([('A', 1), ('B', 2)]): 3})
-
 
 
 class TestGraph(TestDiffObjectBuilder):
@@ -163,19 +109,30 @@ class TestGraph(TestDiffObjectBuilder):
         graph = lambda v, e: DiffObjectBuilder.AttributedDict({'vertices': v, 'edges': e})
 
         self._test_series_of_values('g',
-                                    TestNestedObjectBuild.SKIP_VALUE,
-                                    TestNestedObjectBuild.SKIP_VALUE,
+                                    SKIP_VALUE,
+                                    SKIP_VALUE,
                                     graph(set(), set()),
                                     graph({vertex('A')}, set()),
-                                    TestDiffObjectBuilder.SKIP_VALUE,
+                                    SKIP_VALUE,
                                     graph({vertex('A'), vertex('B')}, {edge('A', 'B', 1)}),
-                                    TestDiffObjectBuilder.SKIP_VALUE,
+                                    SKIP_VALUE,
                                     graph({vertex('A'), vertex('B'), vertex('C')},
                                           {edge('A', 'B', 1), edge('B', 'C', 2)}),
-                                    TestDiffObjectBuilder.SKIP_VALUE,
+                                    SKIP_VALUE,
                                     graph({vertex('A'), vertex('B'), vertex('C'), vertex('D')},
                                           {edge('A', 'B', 1), edge('B', 'C', 2), edge('C', 'D', 3)})
                                     )
+
+
+class TestBasic4(TestDiffObjectBuilder):
+
+    @classmethod
+    def program_path(cls) -> Path:
+        return cls.example('basic4')
+
+    def test_same_name_multiple_line_no(self):
+        self._test_series_of_values('i@2', SKIP_VALUE, *range(5), None)
+        self._test_series_of_values('i@7', SKIP_VALUE, *range(5, 11), None)
 
 
 class TestCaterpillar(TestDiffObjectBuilder):
@@ -183,8 +140,9 @@ class TestCaterpillar(TestDiffObjectBuilder):
     def program_path(cls) -> Path:
         return cls.example('caterpillar')
 
-    def test_names_with_line_no(self):
-        self._test_series_of_values_with_line_no('total_slices', 12, None, *range(0, 12), None)
+    def test_same_names_multiple_line_no(self):
+        self._test_series_of_values('i@13', None, *range(0, 5), None)
+        self._test_series_of_values('total_slices@12', None, *range(0, 12), None)
 
 
 if __name__ == '__main__':

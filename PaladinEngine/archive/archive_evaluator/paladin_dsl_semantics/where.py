@@ -20,7 +20,7 @@ class Where(BiLateralOperator):
         first_results = self.first.eval(builder)
 
         return EvalResult(
-            [first_results[time] if time in self.first.times else EvalResultEntry.empty(time)
+            [first_results[time] if time in self.first.times else EvalResultEntry.empty_with_keys(time, first_results[time].keys)
              for time in self.times
              ]
         )

@@ -2,7 +2,6 @@ import traceback
 from dataclasses import dataclass, field
 from functools import reduce
 from typing import *
-from typing import Union
 
 import frozendict
 
@@ -41,7 +40,8 @@ class EvalResultPair(object):
 
 class EvalResultEntry(dict):
 
-    def __init__(self, time: Time, results: List[EvalResultPair], replacements: Optional[List[Replacement]]) -> None:
+    def __init__(self, time: Time, results: List[EvalResultPair],
+                 replacements: Optional[List[Replacement]] = None) -> None:
         self.time = time
         self.evaled_results = results
         self.replacements = replacements
@@ -80,6 +80,10 @@ class EvalResultEntry(dict):
     def empty(cls, t: Time = -1) -> 'EvalResultEntry':
         return EvalResultEntry(t, [], [])
 
+    @classmethod
+    def empty_with_keys(cls, t: Time = -1, keys: Optional[Iterable[str]] = None):
+        return EvalResultEntry(t, [EvalResultPair(k, None) for k in keys])
+
     @staticmethod
     def join(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> 'EvalResultEntry':
         if e1.time != e2.time:
@@ -92,11 +96,7 @@ class EvalResultEntry(dict):
         if not filtered:
             return None
 
-        return filtered[0].value
-
-    def __getattr__(self, item):
-        # TODO: fix.
-        pass
+        return filtered[0]
 
     def replace_key(self, key: str, new_key: str) -> 'EvalResultEntry':
         item = self[key]
@@ -106,9 +106,18 @@ class EvalResultEntry(dict):
         self.evaled_results.remove(item)
         self.evaled_results.append(EvalResultPair(new_key, item.value))
 
-        self.__delitem__(key)
-        self.__setitem__(new_key, item.value)
+        del self[key]
+        self[new_key] = item.value
+
+        # self.__delitem__(key)
+        # self.__setitem__(new_key, item.value)
+
+        delattr(self, key)
+        setattr(self, new_key, item.value)
         return self
+
+    def __iter__(self) -> Iterator[EvalResultPair]:
+        return super().__iter__()
 
 
 class EvalResult(List[EvalResultEntry]):
@@ -165,10 +174,10 @@ class EvalResult(List[EvalResultEntry]):
         return str((min(entries), max(entries)))
 
     def all_keys(self) -> Iterable[str]:
-        return reduce(lambda s, keys: s.union(keys), map(lambda e: set(e.keys), self))
+        return reduce(lambda s, keys: s.union(keys), map(lambda e: set(e.keys), self), set())
 
     def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
-        return {k: e[k] if e[k] is not None else None for k in self.all_keys()}
+        return {k: e[k].value if e[k] else None for k in self.all_keys()}
 
     def group(self) -> Dict:
         if len(self) == 0:
@@ -229,9 +238,9 @@ class EvalResult(List[EvalResultEntry]):
         return EvalResult(results)
 
     def __getitem__(self, t: Time):
-        matches_time = list(filter(lambda e: e.time == t, self))
+        matches_time = list(filter(lambda e: e and e.time == t, self))
         if not matches_time:
-            return EvalResultEntry.empty()
+            return EvalResultEntry.empty_with_keys(t, self.all_keys())
 
         return matches_time[0]
 
@@ -242,12 +251,14 @@ class EvalResult(List[EvalResultEntry]):
     def empty(cls, time_range: Iterable[Time]) -> 'EvalResult':
         return EvalResult([EvalResultEntry.empty(t) for t in time_range])
 
-    def rename_key(self, var_name: str, operator_original_name: str) -> 'EvalResult':
-        for e in self:
+    @staticmethod
+    def rename_key(result: 'EvalResult', operator_original_name: str, var_name: str) -> 'EvalResult':
+        for e in result:
             for k in e.keys:
                 if var_name in k:
                     e.replace_key(k, k.replace(var_name, operator_original_name))
-        return self
+
+        return result
 
     def by_key(self, key: str) -> 'EvalResult':
         if key not in self.all_keys():

@@ -164,7 +164,7 @@ class Stubber(ABC, ast.NodeTransformer):
                      original: AST,
                      container: AST,
                      attr_name: str,
-                     replace: Union[AST, list]) -> None:
+                     replace: Union[AST, List[AST]]) -> None:
             """
                 Constructor.
             :param original: (AST) The original AST node that will be replaced with a stub.

@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from typing import *
 
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
-    EvalResultPair, BAD_JSON_VALUES, EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time
-from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, BAD_JSON_VALUES, \
+    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time
+from archive.archive_evaluator.paladin_dsl_semantics import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
+from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
@@ -68,8 +69,6 @@ class PaladinNativeParser(object):
                 raise SyntaxError('The RHS of @ should be a positive integer.')
 
             # Set line no.
-            self.line_no = node.right.value
-
             node.left.lineno = node.right.value
 
             return node.left
@@ -89,7 +88,7 @@ class PaladinNativeParser(object):
 
             self._visited_root = True
             visit_result = super().visit(node)
-            if not self.operators:
+            if not self.operators or not isinstance(visit_result, ast.Name):
                 var_name = self.create_operator_lambda_var()
                 self._add_operator(var_name, ast2str(node), Raw(ast2str(node), node.lineno, self.times))
                 return ast.Name(id=var_name)
@@ -120,6 +119,23 @@ class PaladinNativeParser(object):
 
             return ast.Name(id=var_name, lineno=node.lineno)
 
+        def visit_Slice(self, node: ast.Slice) -> Any:
+            parts = []
+            for part in [node.lower, node.upper, node.step]:
+                if part is None:
+                    parts.append(part)
+                    continue
+                part_visit_result = self.visit(part)
+                if isinstance(part_visit_result, ast.Constant):
+                    parts.append(part_visit_result.value)
+                    continue
+
+                var_name = self.create_operator_lambda_var()
+                self._add_operator(var_name, ast2str(part), Raw(ast2str(part_visit_result), part.lineno, self.times))
+                parts.append(ast.Name(id=var_name, lineno=part.lineno))
+
+            return ast.Slice(lower=parts[0], upper=parts[1], step=parts[2])
+
         def _create_raw_op_from_arg(self, arg: ast.AST):
             return Raw(ast2str(arg), arg.lineno, self.times)
 
@@ -137,11 +153,6 @@ class PaladinNativeParser(object):
         def _add_operator(self, var_name: str, original_op: str, op: Operator):
             self.operators[var_name] = op, original_op
             self.root_vars.append(var_name)
-
-        def update_query_locals(self):
-            for operator in self.operators.values():
-                if isinstance(operator, Raw):
-                    operator.query_locals = self.operators
 
     class QueryVisitor(GenericFinder):
 
@@ -252,8 +263,8 @@ class PaladinNativeParser(object):
                     def visit_Dict(_self, node: ast.Dict) -> Any:
                         # noinspection PyTypeChecker
                         node.keys = [
-                            ast.Constant(value=ast2str(k)) if isinstance(k, ast.Tuple) or isinstance(k, ast.Dict) else k for k in
-                            node.keys
+                            ast.Constant(value=ast2str(k)) if isinstance(k, ast.Tuple) or isinstance(k, ast.Dict) else k
+                            for k in node.keys
                         ]
                         return _self.generic_visit(node)
 
@@ -265,7 +276,7 @@ class PaladinNativeParser(object):
 
         return PaladinNativeParser._remove_bad_json_values(json.dumps(obj, cls=_encoder))
 
-    def parse(self, query: str, start_time: int, end_time: int) -> str:
+    def parse(self, query: str, start_time: int, end_time: int, jsonify: bool = True) -> Union[str, EvalResult]:
         try:
             times = range(start_time, end_time + 1)
             query_ast = str2ast(query.strip().replace('\n', ' '))
@@ -285,20 +296,17 @@ class PaladinNativeParser(object):
             query_result = eval(ast2str(query_ast), operator_results)
 
             if isinstance(query_result, EvalResult):
-                query_result = PaladinNativeParser._restore_original_operator_keys(visitor, query_result)
+                results = PaladinNativeParser._restore_original_operator_keys(visitor, query_result)
 
             elif not query_result:
-                return self.json_dumps(EvalResult.empty(times))
-
-            results = [
-                EvalResultEntry(t,
-                                [EvalResultPair(k, v) for (k, v) in query_result[t].items()]
-                                if isinstance(query_result[t], Dict)
-                                else [EvalResultPair(query, query_result[t])], [])
-                for t in times
-            ]
+                if jsonify:
+                    return self.json_dumps(EvalResult.empty(times))
+                return EvalResult.empty(times)
 
             results = EvalResult(results)
+            if not jsonify:
+                return results
+
             grouped = results.group()
 
             # Add the keys in the first row.
@@ -309,7 +317,10 @@ class PaladinNativeParser(object):
 
         except BaseException as e:
             traceback.print_exc()
-            return json.dumps("")
+            if jsonify:
+                return json.dumps("")
+
+            raise e
 
     def _eval_operators(self, visitor):
         operator_results = {}
@@ -366,8 +377,8 @@ class PaladinNativeParser(object):
 
     @staticmethod
     def _restore_original_operator_keys(visitor: OperatorLambdaReplacer, result: EvalResult) -> EvalResult:
-        for var_name, (operator, operator_original_name) in visitor.operators.items():
-            result.rename_key(var_name, operator_original_name)
+        for var_name, (operator, operator_original_name) in reversed(visitor.operators.items()):
+            result = EvalResult.rename_key(result, operator_original_name, var_name)
 
         return result
 

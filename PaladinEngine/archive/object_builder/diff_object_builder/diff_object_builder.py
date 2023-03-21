@@ -122,25 +122,30 @@ class DiffObjectBuilder(ObjectBuilder):
     def _get_data_from_named(self, name: str, time: Time, line_no: Optional[int] = -1) -> Tuple[
         Type, Union[ObjectId, None], Union[RangeDict, Any, None]]:
 
+        not_found_ret_value = NoneType, None, None
+
         if name in self._named_primitives:
             named_collection: _NAMED_PRIMITIVES_DATA_TYPE = self._named_primitives
 
         elif name in self._named_objects:
             named_collection: _NAMED_OBJECTS_DATA_TYPE = self._named_objects
         else:
-            return NoneType, None, None
+            return not_found_ret_value
 
         if line_no > -1:
+            if line_no not in named_collection[name]:
+                return not_found_ret_value
             named_type, named_data = named_collection[name][line_no]
         else:
             named_type, named_data = list(named_collection[name].values())[0]
 
         if named_type == NoneType:
-            return NoneType, None, None
+            return not_found_ret_value
 
         if ISP(named_type):
             # Item is a primitive, return it.
-            return named_type, None, named_data[time][name, named_type] if time in named_data else None
+            return named_type, None, named_data[time][name, named_type] \
+                if time in named_data and (name, named_type) in named_data[time] else None
 
         return named_type, named_data, self._data[named_data]
 
