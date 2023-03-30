@@ -23,6 +23,8 @@ class PaladinNativeParser(object):
     SCOPE_SIGN_OPERATOR = ast.MatMult  # @
     OPERATORS: Dict[str, Union[Type[Operator], Type[Operator]]] = {op.name(): op for op in
                                                                    Operator.all()}
+    _FUNCTION_CALL_MAGIC = '$'
+    _FUNCTION_CALL_MAGIC_REPLACE_SYMBOL = '__FC_RET_VAL__'
 
     def __init__(self, archive: Archive):
         self.archive: Archive = archive
@@ -141,6 +143,15 @@ class PaladinNativeParser(object):
 
         def _create_const_op_from_arg(self, arg: ast.AST):
             return Const(ast2str(arg), self.times)
+
+        def visit_Name(self, node: ast.Name) -> Any:
+            if PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL in node.id:
+                function_name = node.id.replace(PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL, '')
+                var_name = self.create_operator_lambda_var()
+                self._add_operator(var_name, node.id, Raw(function_name, node.lineno, self.times))
+                return ast.Name(id=function_name, lineno=node.lineno)
+
+            return node
 
         @property
         def _seed(self):
@@ -279,6 +290,10 @@ class PaladinNativeParser(object):
     def parse(self, query: str, start_time: int, end_time: int, jsonify: bool = True) -> Union[str, EvalResult]:
         try:
             times = range(start_time, end_time + 1)
+
+            # Handle function call magic symbols.
+            query = PaladinNativeParser.__replace_function_call_magic(query)
+
             query_ast = str2ast(query.strip().replace('\n', ' '))
 
             # Propagate line numbers indicated by "@" scope.
@@ -388,3 +403,11 @@ class PaladinNativeParser(object):
             json_string = json_string.replace(str(bad_json_word), BAD_JSON_VALUES[str(bad_json_word)])
 
         return json_string
+
+    @staticmethod
+    def __replace_function_call_magic(query: str) -> str:
+        if PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL in query:
+            raise RuntimeError('Secret magic found in query :(')
+
+        return query.replace(PaladinNativeParser._FUNCTION_CALL_MAGIC,
+                             PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL)

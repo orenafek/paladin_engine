@@ -12,14 +12,25 @@ from archive.object_builder.object_builder import ObjectBuilder
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, Postpone, EMPTY, \
     EMPTY_COLLECTION
 from common.common import ISP
-from stubs.stubs import __AS__, __BMFCS__
+from stubs.stubs import __AS__, __BMFCS__, __FC__
 
 _NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[LineNo, Tuple[Type, RangeDict]]]
-_NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[LineNo, Tuple[Type, ObjectId]]]
+_NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[LineNo, RangeDict]]
 
 
 class DiffObjectBuilder(ObjectBuilder):
     ObjectEntry = Tuple[Type, Any]
+
+    @dataclass
+    class _FunctionCallFieldType(object):
+        _type: Type
+
+        def __eq__(self, other):
+            return isinstance(other, DiffObjectBuilder._FunctionCallFieldType) and self._type == other._type or \
+                   isinstance(other, type) and other == self._type
+
+        def __hash__(self):
+            return hash(self._type)
 
     class AttributedDict(Dict):
         def __hash__(self) -> int:
@@ -79,6 +90,10 @@ class DiffObjectBuilder(ObjectBuilder):
             if value == EMPTY_COLLECTION:
                 continue
 
+            if isinstance(field_type, DiffObjectBuilder._FunctionCallFieldType):
+                # Do not evaluate function calls as part of objects.
+                continue
+
             if ISP(field_type):
                 evaluated_object[field] = value
 
@@ -124,30 +139,37 @@ class DiffObjectBuilder(ObjectBuilder):
 
         not_found_ret_value = NoneType, None, None
 
-        if name in self._named_primitives:
-            named_collection: _NAMED_PRIMITIVES_DATA_TYPE = self._named_primitives
+        is_primitive = name in self._named_primitives
+        line_no_exist = line_no > -1
 
+        if is_primitive:
+            named_collection: _NAMED_PRIMITIVES_DATA_TYPE = self._named_primitives
         elif name in self._named_objects:
             named_collection: _NAMED_OBJECTS_DATA_TYPE = self._named_objects
         else:
             return not_found_ret_value
 
-        if line_no > -1:
-            if line_no not in named_collection[name]:
-                return not_found_ret_value
-            named_type, named_data = named_collection[name][line_no]
-        else:
-            named_type, named_data = list(named_collection[name].values())[0]
-
-        if named_type == NoneType:
+        if line_no_exist and line_no not in named_collection[name]:
             return not_found_ret_value
 
-        if ISP(named_type):
-            # Item is a primitive, return it.
-            return named_type, None, named_data[time][name, named_type] \
-                if time in named_data and (name, named_type) in named_data[time] else None
+        named_data_and_type = named_collection[name][line_no] if line_no_exist \
+            else list(named_collection[name].values())[0]
 
-        return named_type, named_data, self._data[named_data]
+        if is_primitive:
+            named_type, named_data = named_data_and_type
+            if ISP(named_type):
+                # Item is a primitive, return it.
+                return named_type, None, named_data[time][name, named_type] \
+                    if time in named_data and (name, named_type) in named_data[time] else None
+            else:
+                # TODO: Can this branch be reached?
+                return not_found_ret_value
+        else:
+            if time not in named_data_and_type:
+                named_type, object_id = named_data_and_type[DiffObjectBuilder.__get_last_time(named_data_and_type)]
+            else:
+                named_type, object_id = named_data_and_type[time]
+            return named_type, object_id, self._data[object_id]
 
     @staticmethod
     def __initial_range(t: Time):
@@ -155,11 +177,12 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def _construct(self):
         for rk, rv in sorted(
-                self.archive.flatten_and_filter([lambda vv: vv.key.stub_name in {__AS__.__name__, __BMFCS__.__name__},
-                                                 lambda vv: '__PALADIN_' not in vv.expression]),
+                self.archive.flatten_and_filter(
+                    [lambda vv: vv.key.stub_name in {__AS__.__name__, __BMFCS__.__name__, __FC__.__name__},
+                     lambda vv: '__PALADIN_' not in vv.expression]),
                 key=lambda t: t[1].time):
             object_data: RangeDict = self.__add_to_data(rk, rv)
-            if rk.kind == Archive.Record.StoreKind.VAR:
+            if rk.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.FUNCTION_CALL}:
                 self.__add_to_named_objects(rv, object_data)
 
     def __add_to_data(self, rk: Archive.Record.RecordKey, rv: Archive.Record.RecordValue) -> RangeDict:
@@ -201,6 +224,25 @@ class DiffObjectBuilder(ObjectBuilder):
 
         return object_id_data
 
+    @staticmethod
+    def __get_last_time(rd: RangeDict):
+        return sorted(reduce(lambda ll, l: ll + l, [[y.end for y in x] for x in rd.ranges()]), reverse=True)[0]
+
+    @staticmethod
+    def __add_to_range_dict(rd: RangeDict, t: Time, value: Any):
+
+        last_time = DiffObjectBuilder.__get_last_time(rd)
+        if rd[last_time] == value:
+            rng: Range = rd.getrange(last_time)
+            DiffObjectBuilder.__extend_range(rd, rd.getrange(last_time), t)
+        else:
+            # Extend last range.
+            DiffObjectBuilder.__extend_range(rd, rd.getrange(last_time), t - 1)
+            rng: Range = DiffObjectBuilder.__initial_range(t)
+            rd[rng] = value
+
+        return rng
+
     def __add_first_value(self, object_id: ObjectId, t: Time, field: str, value: Any, _type: Type,
                           kind: Archive.Record.StoreKind):
         self._last_range[object_id] = DiffObjectBuilder.__initial_range(t)
@@ -231,6 +273,8 @@ class DiffObjectBuilder(ObjectBuilder):
                 new_obj[
                     DiffObjectBuilder._DictKeyResolve(key_type, field, _type,
                                                       value), DiffObjectBuilder._DictKeyResolve] = None
+        elif kind == Archive.Record.StoreKind.FUNCTION_CALL:
+            new_obj[(field, DiffObjectBuilder._FunctionCallFieldType(_type))] = value
         else:
             new_obj[(field, _type)] = value
         return new_obj
@@ -244,13 +288,25 @@ class DiffObjectBuilder(ObjectBuilder):
         return updated_last_range
 
     def __add_to_named_objects(self, rv: Archive.Record.RecordValue, object_data: RangeDict):
-        named_collection, value_to_store = (self._named_primitives, object_data) \
-            if ISP(rv.rtype) and rv.rtype != NoneType else (self._named_objects, rv.value)
+        is_primitive = ISP(rv.rtype) and rv.rtype != NoneType
+        self.__init_named_collection_for_expression(self._named_primitives if is_primitive else self._named_objects, rv)
 
+        if is_primitive:
+            self._named_primitives[rv.expression][rv.line_no] = rv.rtype, object_data
+        else:
+            if rv.line_no not in self._named_objects[rv.expression]:
+                self._named_objects[rv.expression][rv.line_no] = RangeDict(
+                    [(self.__initial_range(rv.time), (rv.rtype, rv.value))])
+            else:
+                DiffObjectBuilder.__add_to_range_dict(self._named_objects[rv.expression][rv.line_no], rv.time,
+                                                      (rv.rtype, rv.value))
+
+    @staticmethod
+    def __init_named_collection_for_expression(
+            named_collection: Union[_NAMED_PRIMITIVES_DATA_TYPE, _NAMED_OBJECTS_DATA_TYPE],
+            rv: Archive.Record.RecordValue):
         if rv.expression not in named_collection:
             named_collection[rv.expression] = {}
-
-        named_collection[rv.expression][rv.line_no] = rv.rtype, value_to_store
 
     def _build_iterator(self, obj: Union[str, ObjectId], line_no: Optional[LineNo] = -1) -> \
             Optional[Iterator[Tuple[Time, Any]]]:

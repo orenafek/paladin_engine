@@ -1,8 +1,8 @@
 import unittest
 from abc import ABC
-from typing import Union, Any, Iterable, Optional, Iterator, Tuple
+from typing import Union, Any, Optional, Iterator, Tuple
 
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, Time, LineNo
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, Time
 from archive.archive_evaluator.paladin_dsl_semantics import Raw, Operator
 from tests.unit_tests.archive.object_builder.diff_object_builder.test_diff_object_builder import TestDiffObjectBuilder, \
     TestBasic4, TestCaterpillar

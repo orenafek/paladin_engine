@@ -291,7 +291,9 @@ def __FC__(expression: str, function,
 
     if archive.should_record:
         # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
-        __store(container_id, function.__name__, line_no, expression, ret_value, locals, globals, __FC__, extra=extra)
+        __store(container_id, function.__name__, line_no, function.__name__, ret_value, locals, globals, __FC__,
+                kind=Archive.Record.StoreKind.FUNCTION_CALL,
+                extra=extra)
 
     if ret_exc:
         raise ret_exc

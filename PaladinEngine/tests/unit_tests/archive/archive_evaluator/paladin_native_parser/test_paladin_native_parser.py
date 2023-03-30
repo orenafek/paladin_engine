@@ -5,8 +5,8 @@ from typing import Tuple, Any, Iterator, Optional
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
-from tests.test_common.test_common import TestCommon
-from tests.unit_tests.archive.object_builder.diff_object_builder.test_diff_object_builder import TestCaterpillar
+from tests.test_common.test_common import TestCommon, SKIP_VALUE
+from tests.unit_tests.archive.object_builder.diff_object_builder.test_diff_object_builder import TestBasic4
 
 
 class TestPaladinNativeParser(TestCommon, ABC):
@@ -15,7 +15,7 @@ class TestPaladinNativeParser(TestCommon, ABC):
         self.paladin_native_parser = PaladinNativeParser(self.archive)
 
     def _test_series_of_values(self, query: str, *expected):
-        self._test_series(query, lambda e: getattr(e, self.__remove_scope_from_key(query)), -1, *expected)
+        self._test_series(query, lambda e: getattr(e, self.__remove_symbols_from_key(query)), -1, *expected)
 
     def value_generator(self, obj, line_no) -> Optional[Iterator[Tuple[Time, Any]]]:
         results = self.paladin_native_parser.parse(obj, self._times().start, self._times().stop, jsonify=False)
@@ -23,12 +23,15 @@ class TestPaladinNativeParser(TestCommon, ABC):
             yield e.time, e
 
     @staticmethod
-    def __remove_scope_from_key(key: str):
-        return re.sub(r'(@\d+)', '', key)
+    def __remove_symbols_from_key(key: str):
+        return re.sub(r'(\$)', '', re.sub(r'(@\d+)', '', key))
 
 
 class TestCaterpillarParser(TestPaladinNativeParser):
-    program_path = TestCaterpillar.program_path
+
+    @classmethod
+    def program_path(cls):
+        return cls.example('caterpillar')
 
     def test_left_join(self):
         query = \
@@ -64,5 +67,16 @@ class TestCaterpillarParser(TestPaladinNativeParser):
             (None, set()))
 
 
+class TestBasic4Parser(TestPaladinNativeParser):
+
+    program_path = TestBasic4.program_path
+    def test_function_call_ret_value(self):
+        self._test_series_of_values(f'$square',
+                                    SKIP_VALUE,
+                                    SKIP_VALUE,
+                                    *[x * x for x in range(1, 11)],
+                                    None)
+
+
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(module='TestPaladinNativeParser')

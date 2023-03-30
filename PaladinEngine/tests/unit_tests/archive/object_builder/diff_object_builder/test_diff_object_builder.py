@@ -5,6 +5,7 @@ from typing import *
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, LineNo, Time
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
+from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
 
@@ -27,15 +28,6 @@ class TestDiffObjectBuilder(TestCommon, ABC):
     def _test_series_of_values(self, obj: Union[str, ObjectId], *expected: Any):
         obj, line_no = self._separate_line_no(obj)
         return self._test_series(obj, lambda value: value, line_no, *expected)
-
-    @classmethod
-    @abstractmethod
-    def program_path(cls) -> Path:
-        raise NotImplementedError()
-
-    @classmethod
-    def example(cls, example_test_name: str) -> Path:
-        return cls.EXAMPLES_PATH.joinpath(example_test_name, Path(example_test_name).with_suffix('.py'))
 
 
 class TestNestedObjectBuild(TestDiffObjectBuilder):
@@ -133,6 +125,12 @@ class TestBasic4(TestDiffObjectBuilder):
     def test_same_name_multiple_line_no(self):
         self._test_series_of_values('i@2', SKIP_VALUE, *range(5), None)
         self._test_series_of_values('i@7', SKIP_VALUE, *range(5, 11), None)
+
+    def test_function_call_ret_value(self):
+        self._test_series_of_values(f'square',
+                                    SKIP_VALUE,
+                                    *[x * x for x in range(1, 11)],
+                                    None)
 
 
 class TestCaterpillar(TestDiffObjectBuilder):

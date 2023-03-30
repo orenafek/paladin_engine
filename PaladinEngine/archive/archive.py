@@ -73,6 +73,7 @@ class Archive(object):
             VAR = 7, object
             UNAMED_OBJECT = 8, object
             EVENT = 9, object
+            FUNCTION_CALL = 10, object
 
             @property
             def value(self) -> int:
