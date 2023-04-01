@@ -91,6 +91,8 @@ class PaladinNativeParser(object):
             self._visited_root = True
             visit_result = super().visit(node)
             if not self.operators or not isinstance(visit_result, ast.Name):
+                if isinstance(node, ast.Expr) and node.lineno != node.value.lineno:
+                    node.lineno = node.value.lineno
                 var_name = self.create_operator_lambda_var()
                 self._add_operator(var_name, ast2str(node), Raw(ast2str(node), node.lineno, self.times))
                 return ast.Name(id=var_name)
