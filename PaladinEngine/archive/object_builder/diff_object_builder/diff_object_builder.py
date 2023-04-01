@@ -72,7 +72,7 @@ class DiffObjectBuilder(ObjectBuilder):
         if (object_id, time) in self._built_objects:
             return self._built_objects[object_id, time]
 
-        object_data = self.__get_latest_object_data(object_id, time, object_type)
+        object_data = self.__get_latest_object_data(obj_data, time, object_type)
         if not object_data:
             return None
 
@@ -166,9 +166,16 @@ class DiffObjectBuilder(ObjectBuilder):
                 return not_found_ret_value
         else:
             if time not in named_data_and_type:
+                if time < DiffObjectBuilder.__get_first_time(named_data_and_type):
+                    return not_found_ret_value
+
                 named_type, object_id = named_data_and_type[DiffObjectBuilder.__get_last_time(named_data_and_type)]
             else:
                 named_type, object_id = named_data_and_type[time]
+
+            if object_id is None:
+                return not_found_ret_value
+
             return named_type, object_id, self._data[object_id]
 
     @staticmethod
@@ -223,6 +230,10 @@ class DiffObjectBuilder(ObjectBuilder):
             self._last_range[object_id] = rng
 
         return object_id_data
+
+    @staticmethod
+    def __get_first_time(rd: RangeDict):
+        return sorted(reduce(lambda ll, l: ll + l, [[y.start for y in x] for x in rd.ranges()]))[0]
 
     @staticmethod
     def __get_last_time(rd: RangeDict):
@@ -315,16 +326,15 @@ class DiffObjectBuilder(ObjectBuilder):
 
         return None
 
-    def __get_latest_object_data(self, object_id: ObjectId, time: Time, _type: Type = Any) -> \
-            Optional[RangeDict]:
-
-        if time in self._data[object_id]:
-            return self._data[object_id][time]
+    @staticmethod
+    def __get_latest_object_data(obj_data: RangeDict, time: Time, _type: Type = Any) -> Optional[RangeDict]:
+        if time in obj_data:
+            return obj_data[time]
 
         try:
-            first, last = DiffObjectBuilder.get_edge_times(self._data[object_id])
+            first, last = DiffObjectBuilder.get_edge_times(obj_data)
             if time >= last:
-                return self._data[object_id][last]
+                return obj_data[last]
         except KeyError:
             return None
 

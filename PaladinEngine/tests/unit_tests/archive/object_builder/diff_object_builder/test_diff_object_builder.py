@@ -37,8 +37,7 @@ class TestNestedObjectBuild(TestDiffObjectBuilder):
 
     def test_object_name(self):
         self._test_series_of_values('r0',
-                                    None,
-                                    {'lb': {'_x': 1, '_y': 2}},
+                                    SKIP_VALUE,
                                     {'lb': {'_x': 1, '_y': 2}, 'rt': {'_x': 3, '_y': 4}},
                                     {'lb': {'_x': 1, '_y': 2}, 'rt': {'_x': -1, '_y': -2}},
                                     {'lb': {'_x': 1, '_y': 2}, 'rt': {'_x': 0, '_y': 1}},
@@ -50,9 +49,8 @@ class TestNestedObjectBuild(TestDiffObjectBuilder):
 
     def test_field_access(self):
         self._test_series('r0',
-                          lambda value: eval('r0.rt', {'r0': value}),
+                          lambda value: eval('r0.rt', {'r0': value}) if value is not None else None,
                           -1,
-                          SKIP_VALUE,
                           SKIP_VALUE,
                           {'_x': 3, '_y': 4},
                           {'_x': -1, '_y': -2},

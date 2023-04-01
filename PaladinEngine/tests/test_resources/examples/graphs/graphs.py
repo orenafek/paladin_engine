@@ -132,8 +132,7 @@ class DirectedGraph(object):
             neighbors = self._find_connected(current)
             for neighbor in neighbors.intersection(unvisited):
                 print(f'fe = {self._find_edge((current, neighbor))}')
-                e = self._find_edge((current, neighbor))
-                d = distances[current] + e.weight
+                d = distances[current] + self._find_edge((current, neighbor)).weight
                 if d < distances[neighbor]:
                     distances[neighbor] = d
                     prev[neighbor] = current
