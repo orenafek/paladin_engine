@@ -1,11 +1,13 @@
 import unittest
 from abc import ABC
+from pathlib import Path
 from typing import Union, Any, Optional, Iterator, Tuple
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, Time
 from archive.archive_evaluator.paladin_dsl_semantics import Raw, Operator
+from tests.test_common.test_common import SKIP_VALUE
 from tests.unit_tests.archive.object_builder.diff_object_builder.test_diff_object_builder import TestDiffObjectBuilder, \
-    TestBasic4, TestCaterpillar
+    TestCaterpillar
 
 
 class TestRaw(TestDiffObjectBuilder, ABC):
@@ -24,12 +26,25 @@ class TestRaw(TestDiffObjectBuilder, ABC):
             yield e.time, getattr(e, obj.query)
 
 
-class TestBasic4Raw(TestRaw, TestBasic4):
-    pass
+# noinspection DuplicatedCode
+class TestBasic4Raw(TestRaw):
+    @classmethod
+    def program_path(cls) -> Path:
+        return cls.example('basic4')
+
+    def test_same_name_multiple_line_no(self):
+        self._test_series_of_values('i@2', SKIP_VALUE, *range(5), None)
+        self._test_series_of_values('i@7', SKIP_VALUE, *range(5, 11), None)
+
+    def test_function_call_ret_value(self):
+        self._test_series_of_values(f'square',
+                                    SKIP_VALUE,
+                                    *[x * x for x in range(1, 11)],
+                                    None)
 
 
 class TestCaterpillarRaw(TestRaw, TestCaterpillar):
-    pass
+    program_path = TestCaterpillar.program_path
 
 
 if __name__ == '__main__':

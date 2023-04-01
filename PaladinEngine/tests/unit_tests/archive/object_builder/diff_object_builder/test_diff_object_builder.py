@@ -1,11 +1,10 @@
 import unittest
-from abc import abstractmethod, ABC
+from abc import ABC
 from pathlib import Path
 from typing import *
 
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, LineNo, Time
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, Time
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
-from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
 
@@ -99,7 +98,6 @@ class TestGraph(TestDiffObjectBuilder):
         graph = lambda v, e: DiffObjectBuilder.AttributedDict({'vertices': v, 'edges': e})
 
         self._test_series_of_values('g',
-                                    SKIP_VALUE,
                                     SKIP_VALUE,
                                     graph(set(), set()),
                                     graph({vertex('A')}, set()),
