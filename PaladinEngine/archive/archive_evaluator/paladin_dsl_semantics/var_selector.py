@@ -37,5 +37,5 @@ class VarSelectorByTimeAndLines(VarSelector):
         super().__init__(times, time)
         self.lines = lines
 
-    def _get_assignments(self, builder: Archive, time_range: range):
+    def _get_assignments(self, builder: ObjectBuilder, time_range: range):
         return builder.get_assignments(time_range=time_range, line_no_range=self.lines)

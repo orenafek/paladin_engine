@@ -164,11 +164,12 @@ class PaLaDiNEngine(object):
         try:
             def handler(signum, frame):
                 current_frame = frame
+                line_no = frame.f_lineno
                 while current_frame and 'PALADIN' not in str(current_frame):
+                    line_no = current_frame.f_lineno
                     current_frame = current_frame.f_back
-
-                raise PaladinTimeoutError(current_frame.f_lineno,
-                                          f'Program exceeded timeout, stopped on: {current_frame.f_lineno}')
+                raise PaladinTimeoutError(line_no,
+                                          f'Program exceeded timeout, stopped on: {line_no}')
 
             signal.signal(signal.SIGALRM, handler)
 

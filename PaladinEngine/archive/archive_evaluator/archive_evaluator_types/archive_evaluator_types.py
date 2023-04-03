@@ -1,5 +1,4 @@
-import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import reduce
 from typing import *
 
@@ -82,10 +81,16 @@ class EvalResultEntry(dict):
 
     @classmethod
     def empty_with_keys(cls, t: Time = -1, keys: Optional[Iterable[str]] = None):
-        return EvalResultEntry(t, [EvalResultPair(k, None) for k in keys])
+        return EvalResultEntry(t, [EvalResultPair(k, None) for k in keys], [])
 
     @staticmethod
     def join(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> 'EvalResultEntry':
+        if e1 and not e2:
+            return e1
+
+        if not e1 and e2:
+            return e2
+
         if e1.time != e2.time:
             return EvalResultEntry.empty()
 
@@ -108,9 +113,6 @@ class EvalResultEntry(dict):
 
         del self[key]
         self[new_key] = item.value
-
-        # self.__delitem__(key)
-        # self.__setitem__(new_key, item.value)
 
         delattr(self, key)
         setattr(self, new_key, item.value)

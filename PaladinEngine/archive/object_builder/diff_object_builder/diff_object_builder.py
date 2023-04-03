@@ -342,3 +342,5 @@ class DiffObjectBuilder(ObjectBuilder):
     def get_edge_times(rd: RangeDict) -> Tuple[Time, Time]:
         all_ranges = reduce(lambda rr, r: rr + r, rd.ranges())
         return min(all_ranges).start, max(all_ranges).end
+
+
