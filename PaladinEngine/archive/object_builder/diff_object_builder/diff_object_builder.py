@@ -4,10 +4,10 @@ from functools import reduce
 from types import NoneType
 from typing import *
 
-from ranges import Range, RangeDict
+from ranges import Range, RangeDict, RangeSet
 
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ObjectId, LineNo
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ObjectId, LineNo, Identifier
 from archive.object_builder.object_builder import ObjectBuilder
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, Postpone, EMPTY, \
     EMPTY_COLLECTION
@@ -56,7 +56,7 @@ class DiffObjectBuilder(ObjectBuilder):
         self._named_objects: _NAMED_OBJECTS_DATA_TYPE = {}
         self._construct()
 
-    def build(self, item: Union[str, ObjectId], time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
+    def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
         if isinstance(item, str):
             object_type, object_id, obj_data = self._get_data_from_named(item, time, line_no)
             if ISP(object_type) or object_type is NoneType:
@@ -134,11 +134,8 @@ class DiffObjectBuilder(ObjectBuilder):
                                                                            evaluated_arg).items()) + to_evaluate
         return evaluated_object, to_evaluate
 
-    def _get_data_from_named(self, name: str, time: Time, line_no: Optional[int] = -1) -> Tuple[
-        Type, Union[ObjectId, None], Union[RangeDict, Any, None]]:
-
-        not_found_ret_value = NoneType, None, None
-
+    def __get_named_inner_data(self, name: str, line_no: Optional[LineNo] = -1) -> Tuple[
+        Union[RangeDict, Tuple[type, RangeDict], None], bool]:
         is_primitive = name in self._named_primitives
         line_no_exist = line_no > -1
 
@@ -147,13 +144,23 @@ class DiffObjectBuilder(ObjectBuilder):
         elif name in self._named_objects:
             named_collection: _NAMED_OBJECTS_DATA_TYPE = self._named_objects
         else:
-            return not_found_ret_value
+            return None, False
 
         if line_no_exist and line_no not in named_collection[name]:
-            return not_found_ret_value
+            return None, False
 
-        named_data_and_type = named_collection[name][line_no] if line_no_exist \
-            else list(named_collection[name].values())[0]
+        return (named_collection[name][line_no] if line_no_exist else list(named_collection[name].values())[
+            0]), is_primitive
+
+    def _get_data_from_named(self, name: str, time: Time, line_no: Optional[LineNo] = -1) -> Tuple[
+        Type, Union[ObjectId, None], Union[RangeDict, Any, None]]:
+
+        not_found_ret_value = NoneType, None, None
+
+        named_data_and_type, is_primitive = self.__get_named_inner_data(name, line_no)
+
+        if named_data_and_type is None:
+            return not_found_ret_value
 
         if is_primitive:
             named_type, named_data = named_data_and_type
@@ -190,12 +197,12 @@ class DiffObjectBuilder(ObjectBuilder):
                 key=lambda t: t[1].time):
             object_data: RangeDict = self.__add_to_data(rk, rv)
             if rk.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.FUNCTION_CALL}:
-                self.__add_to_named_objects(rv, object_data)
+                self.__add_to_named(rv, object_data)
 
     def __add_to_data(self, rk: Archive.Record.RecordKey, rv: Archive.Record.RecordValue) -> RangeDict:
         t: Time = rv.time
         object_id: ObjectId = rk.container_id
-        field: Union[str, ObjectId] = rk.field
+        field: Identifier = rk.field
 
         if object_id not in self._data:
             return self.__add_first_value(object_id, t, field, rv.value, rv.rtype, rv.key.kind)
@@ -298,7 +305,7 @@ class DiffObjectBuilder(ObjectBuilder):
         object_id_data[updated_last_range] = object_id_data[last_range]
         return updated_last_range
 
-    def __add_to_named_objects(self, rv: Archive.Record.RecordValue, object_data: RangeDict):
+    def __add_to_named(self, rv: Archive.Record.RecordValue, object_data: RangeDict):
         is_primitive = ISP(rv.rtype) and rv.rtype != NoneType
         self.__init_named_collection_for_expression(self._named_primitives if is_primitive else self._named_objects, rv)
 
@@ -319,7 +326,7 @@ class DiffObjectBuilder(ObjectBuilder):
         if rv.expression not in named_collection:
             named_collection[rv.expression] = {}
 
-    def _build_iterator(self, obj: Union[str, ObjectId], line_no: Optional[LineNo] = -1) -> \
+    def _build_iterator(self, obj: Identifier, line_no: Optional[LineNo] = -1) -> \
             Optional[Iterator[Tuple[Time, Any]]]:
         for t in range(0, self.archive.last_time):
             yield t, self.build(obj, t, type(obj), line_no)
@@ -340,7 +347,9 @@ class DiffObjectBuilder(ObjectBuilder):
 
     @staticmethod
     def get_edge_times(rd: RangeDict) -> Tuple[Time, Time]:
-        all_ranges = reduce(lambda rr, r: rr + r, rd.ranges())
+        all_ranges = DiffObjectBuilder._get_all_time_ranges(rd)
         return min(all_ranges).start, max(all_ranges).end
 
-
+    @staticmethod
+    def _get_all_time_ranges(rd: RangeDict) -> RangeSet:
+        return reduce(lambda rr, r: rr + r, rd.ranges())

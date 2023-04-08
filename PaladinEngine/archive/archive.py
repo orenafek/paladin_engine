@@ -61,6 +61,25 @@ def represent(o: object):
 class Archive(object):
     GLOBAL_PALADIN_CONTAINER_ID = 1337
 
+    class _Filters(object):
+        AS_OR_BMFCS_FILTER = lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'}
+
+        @staticmethod
+        def TIME_RANGE_FILTER(time_range: range):
+            return lambda vv: vv.time in time_range if time_range else lambda vv: True
+
+        @staticmethod
+        def LINE_NO_FILTER(line_no: int):
+            return lambda vv: vv.line_no == line_no
+
+        @staticmethod
+        def LINE_NO_RANGE_FILTER(line_no_range: range):
+            return lambda vv: vv.line_no in line_no_range if line_no_range else lambda vv: True
+
+        @staticmethod
+        def VALUE_FILTER(value: Any):
+            return lambda vv: vv.value == value
+
     class Record(object):
 
         class StoreKind(Enum):
@@ -275,14 +294,12 @@ class Archive(object):
                 (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))]
 
     def get_by_line_no(self, line_no: int) -> Dict[Rk, List[Rv]]:
-        return self.filter(lambda vv: vv.line_no == line_no)
-
-    def get_assignments_by_line_no(self, line_no: int) -> Dict[Rk, List[Rv]]:
-        return self.filter([lambda vv: vv.line_no == line_no, lambda vv: vv.key.stub_name == '__AS__'])
+        return self.filter(Archive._Filters.LINE_NO_FILTER(line_no))
 
     def get_loop_iterations(self, loop_line_no: int) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(
-            lambda vv: vv.key.stub_name in {'__SOLI__', '__EOLI__'} and vv.value == loop_line_no)
+            [lambda vv: vv.key.stub_name in {'__SOLI__', '__EOLI__'},
+             Archive._Filters.VALUE_FILTER(loop_line_no)])
 
     def get_by_container_id(self, container_id: int):
         return self.filter([lambda vv: vv.key.container_id == container_id, lambda vv: vv.key.stub_name == '__AS__'])
@@ -332,9 +349,9 @@ class Archive(object):
     def get_assignments(self, time_range: range = None, line_no_range: range = None) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(
             [
-                lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'},
-                lambda vv: vv.time in time_range if time_range else lambda vv: True,
-                lambda vv: vv.line_no in line_no_range if line_no_range else lambda vv: True,
+                Archive._Filters.AS_OR_BMFCS_FILTER,
+                Archive._Filters.TIME_RANGE_FILTER,
+                Archive._Filters.LINE_NO_RANGE_FILTER,
                 lambda vv: vv.key.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.BUILTIN_MANIP}
             ])
 

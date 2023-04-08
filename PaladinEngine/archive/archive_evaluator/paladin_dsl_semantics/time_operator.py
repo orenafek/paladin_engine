@@ -28,7 +28,7 @@ class TimeOperator(Operator, ABC):
     @staticmethod
     def create_time_eval_result_entry(t: Time, res: bool,
                                       rep: Optional[List[Replacement]] = None) -> EvalResultEntry:
-        return EvalResultEntry(t, [EvalResultPair(TimeOperator.TIME_KEY, res)], rep if rep is not None else [])
+        return EvalResultEntry(t, [EvalResultPair(TimeOperator.TIME_KEY, res)], rep if rep else [])
 
 
 class BiTimeOperator(BiLateralOperator, TimeOperator, ABC):

@@ -3,8 +3,7 @@ from abc import ABC
 from pathlib import Path
 from typing import *
 
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, Time
-from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
 
@@ -16,15 +15,7 @@ class TestDiffObjectBuilder(TestCommon, ABC):
     def value_generator(self, obj, line_no) -> Optional[Iterator[Tuple[Time, Any]]]:
         return self.diff_object_builder._build_iterator(obj, line_no)
 
-    @staticmethod
-    def _separate_line_no(obj: Union[str, ObjectId]):
-        if isinstance(obj, str) and SCOPE_SIGN in obj:
-            split = obj.split(SCOPE_SIGN)
-            return split[0], int(split[1])
-        else:
-            return obj, -1
-
-    def _test_series_of_values(self, obj: Union[str, ObjectId], *expected: Any):
+    def _test_series_of_values(self, obj: Identifier, *expected: Any):
         obj, line_no = self._separate_line_no(obj)
         return self._test_series(obj, lambda value: value, line_no, *expected)
 
