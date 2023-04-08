@@ -21,3 +21,7 @@ class ObjectBuilder(ABC):
 
     def get_assignments(self, time_range: range, line_no_range: range):
         return self.archive.get_assignments(time_range, line_no_range)
+
+    @abstractmethod
+    def get_change_times(self, name: str, line_no: LineNo = -1):
+        raise NotImplementedError()

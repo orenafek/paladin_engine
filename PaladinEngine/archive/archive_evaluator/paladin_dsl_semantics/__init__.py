@@ -3,6 +3,7 @@ from .time_operator import TimeOperator, BiTimeOperator, Whenever
 from .align import Align
 from .basic_logical_ops import Not
 from .bounded import Bounded
+from .changed import Changed
 from .const import Const
 from .const_time import ConstTime
 from .diff import Diff

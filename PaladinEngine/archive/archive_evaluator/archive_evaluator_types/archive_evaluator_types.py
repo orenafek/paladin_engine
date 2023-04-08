@@ -18,6 +18,7 @@ class Replacement(NamedTuple):
 Time = int
 ObjectId = int
 LineNo = int
+ContainerId = int
 
 Identifier = Union[str, ObjectId]
 
