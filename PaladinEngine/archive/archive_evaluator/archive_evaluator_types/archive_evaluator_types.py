@@ -19,6 +19,8 @@ Time = int
 ObjectId = int
 LineNo = int
 
+Identifier = Union[str, ObjectId]
+
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
 EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict}

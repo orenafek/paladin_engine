@@ -3,10 +3,11 @@ import unittest
 from abc import ABC, abstractmethod
 from io import StringIO
 from pathlib import Path
-from typing import Iterable, Any, Callable, Tuple, Iterator, Optional
+from typing import Iterable, Any, Callable, Tuple, Iterator, Optional, Union
 
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, LineNo
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, LineNo, ObjectId, Identifier
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 from engine.engine import PaLaDiNEngine
 
 SKIP_VALUE = 'SKIP!'
@@ -91,3 +92,16 @@ class TestCommon(unittest.TestCase, ABC):
         except BaseException as e:
             print(f'Exception on time {time}:')
             raise e
+
+    @staticmethod
+    def _separate_line_no(obj: Identifier) -> Tuple[Identifier, LineNo]:
+        if isinstance(obj, str) and SCOPE_SIGN in obj:
+            split = obj.split(SCOPE_SIGN)
+            return split[0], int(split[1])
+        else:
+            return obj, -1
+
+    @classmethod
+    def times(cls):
+        # noinspection PyUnresolvedReferences
+        return range(cls.archive.last_time + 1)
