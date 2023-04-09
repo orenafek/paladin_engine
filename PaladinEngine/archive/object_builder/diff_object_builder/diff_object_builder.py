@@ -7,15 +7,16 @@ from typing import *
 from ranges import Range, RangeDict, RangeSet
 
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ObjectId, LineNo, Identifier
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ObjectId, LineNo, \
+    Identifier, ContainerId
 from archive.object_builder.object_builder import ObjectBuilder
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, Postpone, EMPTY, \
     EMPTY_COLLECTION
 from common.common import ISP
 from stubs.stubs import __AS__, __BMFCS__, __FC__
 
-_NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[LineNo, Tuple[Type, RangeDict]]]
-_NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[LineNo, RangeDict]]
+_NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[Tuple[LineNo, ContainerId], Tuple[Type, RangeDict]]]
+_NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[Tuple[LineNo, ContainerId], RangeDict]]
 
 
 class DiffObjectBuilder(ObjectBuilder):
@@ -165,11 +166,11 @@ class DiffObjectBuilder(ObjectBuilder):
         else:
             return None, False
 
-        if line_no_exist and line_no not in named_collection[name]:
-            return None, False
+        if line_no_exist:
+            return list(map(lambda k: named_collection[name][k],
+                            filter(lambda k: k[0] == line_no, named_collection[name])))[0], is_primitive
 
-        return (named_collection[name][line_no] if line_no_exist else list(named_collection[name].values())[
-            0]), is_primitive
+        return list(named_collection[name].values())[0], is_primitive
 
     def _get_data_from_named(self, name: str, time: Time, line_no: Optional[LineNo] = -1) -> Tuple[
         Type, Union[ObjectId, None], Union[RangeDict, Any, None]]:
@@ -337,16 +338,19 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def __add_to_named(self, rv: Archive.Record.RecordValue, object_data: RangeDict):
         is_primitive = ISP(rv.rtype) and rv.rtype != NoneType
-        self.__init_named_collection_for_expression(self._named_primitives if is_primitive else self._named_objects, rv)
+        collection = self._named_primitives if is_primitive else self._named_objects
+        self.__init_named_collection_for_expression(collection, rv)
+
+        scope: Tuple[LineNo, ContainerId] = DiffObjectBuilder.__get_scope(collection, rv)
 
         if is_primitive:
-            self._named_primitives[rv.expression][rv.line_no] = rv.rtype, object_data
+            self._named_primitives[rv.expression][scope] = rv.rtype, object_data
         else:
-            if rv.line_no not in self._named_objects[rv.expression]:
-                self._named_objects[rv.expression][rv.line_no] = RangeDict(
+            if scope not in self._named_objects[rv.expression]:
+                self._named_objects[rv.expression][scope] = RangeDict(
                     [(self.__initial_range(rv.time), (rv.rtype, rv.value))])
             else:
-                DiffObjectBuilder.__add_to_range_dict(self._named_objects[rv.expression][rv.line_no], rv.time,
+                DiffObjectBuilder.__add_to_range_dict(self._named_objects[rv.expression][scope], rv.time,
                                                       (rv.rtype, rv.value))
 
     @staticmethod
@@ -434,3 +438,15 @@ class DiffObjectBuilder(ObjectBuilder):
         for f, v in evaluated_object.items():
             if isinstance(f, str):
                 setattr(evaluated_object, f, v)
+
+    @staticmethod
+    def __get_scope(collection: Union[_NAMED_PRIMITIVES_DATA_TYPE, _NAMED_OBJECTS_DATA_TYPE],
+                    rv: Archive.Record.RecordValue) -> Tuple[LineNo, ContainerId]:
+
+        scopes = list(filter(lambda k: k[1] == rv.key.container_id, collection[rv.expression].keys()))
+        if not scopes:
+            return rv.line_no, rv.key.container_id
+
+        assert len(scopes) == 1
+
+        return scopes[0]

@@ -6,7 +6,7 @@ from contextlib import redirect_stdout
 from dataclasses import dataclass
 from io import StringIO
 from types import NoneType
-from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Callable
+from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Callable, Any
 
 from archive.archive import Archive
 from ast_common.ast_common import str2ast, ast2str
@@ -194,7 +194,7 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
 def __store(container_id, field, line_no, target, value, locals, globals,
             stub: Callable = __AS__,
             _time: Optional[int] = None, kind: Archive.Record.StoreKind = Archive.Record.StoreKind.VAR,
-            extra: object = None):
+            extra: Any = None):
     stored_objects = set()
 
     value_to_store = POID(value)
