@@ -9,5 +9,5 @@ build-ui:
 .PHONY: all build-%
 
 test:
-	pushd $(TESTS_DIR) && find . -name 'test*.py' -exec sh -c "PYTHONPATH=$(ROOT_PYTHON_DIR) PYTHONDONTWRITEBYTECODE=1 pytest -p no:cacheprovider {}" ";"  && popd
+	cd $(TESTS_DIR) && PYTHONPATH=$(ROOT_PYTHON_DIR) pytest
 

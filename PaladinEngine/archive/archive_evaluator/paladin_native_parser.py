@@ -395,7 +395,11 @@ class PaladinNativeParser(object):
     @staticmethod
     def _restore_original_operator_keys(visitor: OperatorLambdaReplacer, result: EvalResult) -> EvalResult:
         for var_name, (operator, operator_original_name) in reversed(visitor.operators.items()):
-            result = EvalResult.rename_key(result, operator_original_name, var_name)
+            if {var_name} == result.all_keys():
+                # If the result is in the form of "lambda_var: EvalResult(...)", remove the lambda var.
+                result = EvalResult([e[var_name].value if e[var_name] else e for e in result])
+            else:
+                result = EvalResult.rename_key(result, operator_original_name, var_name)
 
         return result
 
