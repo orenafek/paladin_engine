@@ -192,9 +192,12 @@ class PaladinServer(FlaskView):
             PaladinServer._present_archive_entries(
                 ARCHIVE.get_assignments(from_time, to).items()))
 
-    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>')
-    def query(self, select_query: str, start_time: int, end_time: int):
-        return PaladinServer.create_response(PARSER.parse(select_query, start_time, end_time))
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/', defaults={'customizer': ''})
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<string:customizer>')
+    def query(self, select_query: str, start_time: int, end_time: int, customizer: str):
+        return PaladinServer.create_response(
+            PARSER.parse(select_query.replace('<br>', '\n'), start_time, end_time,
+                         customizer=customizer.replace('<br>', '\n')))
 
     @route('/debug_info/docs')
     def docs(self):

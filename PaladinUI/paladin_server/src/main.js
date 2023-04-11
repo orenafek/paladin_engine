@@ -5,7 +5,7 @@ import "codemirror/theme/darcula.css";
 import "codemirror/addon/scroll/simplescrollbars";
 import "codemirror/addon/scroll/simplescrollbars.css";
 import Codemirror from "codemirror-editor-vue3";
-import { Splitpanes, Pane } from 'splitpanes';
+import {Splitpanes, Pane} from 'splitpanes';
 import 'splitpanes/dist/splitpanes.css';
 
 import {request_debug_info} from "./request"
@@ -14,7 +14,7 @@ import Vue3Highlightjs from "./vue3-highlight";
 import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
 import ArchiveTable from "./components/archive_entries_table.vue";
 import tabular from "./components/tabular.vue";
-import { persistField, LocalStore } from "./infra/store";
+import {persistField, LocalStore} from "./infra/store";
 import Slider from "@vueform/slider";
 
 import LoadingSpinner from "./components/loading_spinner.vue";
@@ -56,6 +56,16 @@ const mainComponent = {
                 select: "",
                 startTime: 0,
                 endTime: 10000,
+                customizer:
+                    `def customizer(d: Dict[str, Any]) -> Dict[str, Any]:
+                        """
+                         Customize a row of results.
+                         @type d: Dict[str, Any]
+                         @param d: A dict in which the keys are the columns and the values are the row's 
+                                   result in that column, i.e. {column: row[column]} 
+                        """ 
+                        return d
+                    `
             },
             queryInProgress: false,
             queryResult: {},
@@ -72,7 +82,16 @@ const mainComponent = {
                 foldGutter: true,
                 styleActiveLine: true,
                 query_dsl_words: async () => (await request_debug_info("query_dsl_words")).join(", ")
-            }
+            },
+            codemirror_options_customizer: {
+                mode: "text/x-python",
+                theme: "darcula",
+                lineNumbers: true,
+                lineSeparator: '\n',
+                smartIndent: true,
+                indentUnit: 2
+            },
+            shouldCustomizeQuery: false
         }
     },
     created: async function () {
@@ -91,6 +110,7 @@ const mainComponent = {
     mounted() {
         persistField(this.query, 'select', new LocalStore('app:querySelect'));
         persistField(this.layout, 'panes', new LocalStore('app:layout.panes'));
+        persistField(this.query, 'customizer', new LocalStore('app:queryCustomizer'));
     },
     compilerOptions: {
         delimiters: ['$$[', ']$$']
@@ -146,9 +166,9 @@ const mainComponent = {
             this.queryInProgress = true;
             try {
                 this.queryResult = await request_debug_info("query",
-                    ...[this.query.select, this.query.startTime, this.query.endTime]);
-            }
-            finally {
+                    ...[this.query.select, this.query.startTime, this.query.endTime,
+                        this.shouldCustomizeQuery ? this.query.customizer : ""]);
+            } finally {
                 this.queryInProgress = false;
             }
             return true;
@@ -161,6 +181,12 @@ const mainComponent = {
         sliderChange(sliderValue) {
             this.query.startTime = sliderValue[0];
             this.query.endTime = sliderValue[1];
+        },
+
+        shouldCustomizeChange(_) {
+            const isShouldCustomizeChecked = document.getElementById('shouldCustomize').checked;
+            document.getElementById('customizeCollapsable').hidden = !isShouldCustomizeChecked;
+            this.shouldCustomizeQuery = isShouldCustomizeChecked;
         }
     }
 

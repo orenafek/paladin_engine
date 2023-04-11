@@ -39,15 +39,34 @@
                     <div>
                         <h3> Run Query: </h3>
                         <div>
-                            <Codemirror placeholder="Selection" :options="codemirror_options" :height="auto" :width="600"
+                            <Codemirror placeholder="Selection" :options="codemirror_options" :height="auto"
+                                        :width="600"
                                         style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
                         </div>
                         <loading-spinner :is-loading="queryInProgress"
                                          @loading-button-click="run_query">Run
                         </loading-spinner>
+                        <br />
+                        <label>
+                            <input type="checkbox" id="shouldCustomize" @change="shouldCustomizeChange"/>
+                            Customize
+                        </label>
+                        <div id="customizeCollapsable" hidden="hidden">
+                            <h3> Add a customized display: </h3>
+                            <p>
+                                Complete this customizer function to change the appearance of your results.
+                            </p>
+                            <div>
+                                <Codemirror placeholder="Selection" :options="codemirror_options_customizer"
+                                            :height="auto" :width="600"
+                                            style="font-size: 14pt;"
+                                            v-model:value="query.customizer"></Codemirror>
+                            </div>
+                        </div>
                         <div class="range-spec">
                             <span>Time range: </span>
-                            <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow" @change="sliderChange" />
+                            <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"
+                                    @change="sliderChange"/>
                         </div>
                         <br/>
                         <tabular :value="queryResult"></tabular>

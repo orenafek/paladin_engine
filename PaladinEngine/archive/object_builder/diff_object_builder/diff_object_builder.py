@@ -400,10 +400,9 @@ class DiffObjectBuilder(ObjectBuilder):
     def get_change_times(self, item: Identifier, line_no: LineNo = -1) -> Iterable[Time]:
         named_inner_data, is_primitive = self.__get_named_inner_data(item, line_no)
 
-        if is_primitive:
-            rd: RangeDict = named_inner_data[1]
-
         rd: RangeDict = named_inner_data[1] if is_primitive else named_inner_data
+        if rd is None:
+            return []
 
         change_times = []
         for range_set, value in rd.items():

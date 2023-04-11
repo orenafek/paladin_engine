@@ -4,11 +4,11 @@ import json
 import traceback
 from _ast import BinOp, AST
 from dataclasses import dataclass
-from typing import *
+from typing import * # DO NOT REMOVE!!!!
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, BAD_JSON_VALUES, \
-    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time
+    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, ParseResults
 from archive.archive_evaluator.paladin_dsl_semantics import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
@@ -20,6 +20,7 @@ from stubbers.stubbers import Stubber
 
 
 class PaladinNativeParser(object):
+    Customizer: Type = Callable[Dict, Dict]
     SCOPE_SIGN_OPERATOR = ast.MatMult  # @
     OPERATORS: Dict[str, Union[Type[Operator], Type[Operator]]] = {op.name(): op for op in
                                                                    Operator.all()}
@@ -289,7 +290,8 @@ class PaladinNativeParser(object):
 
         return PaladinNativeParser._remove_bad_json_values(json.dumps(obj, cls=_encoder))
 
-    def parse(self, query: str, start_time: int, end_time: int, jsonify: bool = True) -> Union[str, EvalResult]:
+    def parse(self, query: str, start_time: int, end_time: int, jsonify: bool = True, customizer: str = '') -> \
+            Union[str, EvalResult]:
         try:
             times = range(start_time, end_time + 1)
 
@@ -313,7 +315,7 @@ class PaladinNativeParser(object):
             query_result = eval(ast2str(query_ast), operator_results)
 
             if isinstance(query_result, EvalResult):
-                results = PaladinNativeParser._restore_original_operator_keys(visitor, query_result)
+                query, results = PaladinNativeParser._restore_original_operator_keys(query_ast, visitor, query_result)
 
             elif not query_result:
                 if jsonify:
@@ -326,7 +328,11 @@ class PaladinNativeParser(object):
 
             grouped = results.group()
 
+            if customizer != '':
+                grouped = PaladinNativeParser.customize(customizer, grouped)
+
             # Add the keys in the first row.
+            # noinspection PyTypeChecker
             grouped['keys'] = list(results.all_keys())
 
             # Remove bad JSON values.
@@ -393,7 +399,8 @@ class PaladinNativeParser(object):
         self._line_no = value
 
     @staticmethod
-    def _restore_original_operator_keys(visitor: OperatorLambdaReplacer, result: EvalResult) -> EvalResult:
+    def _restore_original_operator_keys(query_ast: ast.AST, visitor: OperatorLambdaReplacer, result: EvalResult) -> \
+            Tuple[str, EvalResult]:
         for var_name, (operator, operator_original_name) in reversed(visitor.operators.items()):
             if {var_name} == result.all_keys():
                 # If the result is in the form of "lambda_var: EvalResult(...)", remove the lambda var.
@@ -401,7 +408,7 @@ class PaladinNativeParser(object):
             else:
                 result = EvalResult.rename_key(result, operator_original_name, var_name)
 
-        return result
+        return visitor.operators[ast2str(query_ast)][1], result
 
     @classmethod
     def _remove_bad_json_values(cls, json_string: str):
@@ -417,3 +424,13 @@ class PaladinNativeParser(object):
 
         return query.replace(PaladinNativeParser._FUNCTION_CALL_MAGIC,
                              PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL)
+
+    @staticmethod
+    def customize(customizer_str: str, results: ParseResults) -> ParseResults:
+        try:
+            exec(customizer_str)
+            customizer_func: PaladinNativeParser.Customizer = locals()['customizer'] if 'customizer' in locals() else None
+            # Customize.
+            return {k: customizer_func(v) for k, v in results.items()} if customizer_func else results
+        except BaseException as e:
+            traceback.print_exception(e)

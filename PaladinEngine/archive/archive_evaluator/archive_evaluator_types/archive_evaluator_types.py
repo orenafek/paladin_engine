@@ -20,7 +20,8 @@ ObjectId = int
 LineNo = int
 ContainerId = int
 
-Identifier = Union[str, ObjectId]
+Identifier: Type = Union[str, ObjectId]
+ParseResults: Type = Dict[str, Dict[str, Any]]
 
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
@@ -184,7 +185,7 @@ class EvalResult(List[EvalResultEntry]):
     def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
         return {k: e[k].value if e[k] else None for k in self.all_keys()}
 
-    def group(self) -> Dict:
+    def group(self) -> ParseResults:
         if len(self) == 0:
             return {}
 
