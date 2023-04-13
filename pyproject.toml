@@ -16,9 +16,10 @@ Flask-Cors = "^3.0.10"
 pandas = "^1.4.4"
 pyparsing = "^3.0.9"
 more-itertools = "^8.14.0"
-rangedict = "^0.1.7"
 python-ranges = "^1.2.2"
 PyHamcrest = "^2.0.4"
+Flask-Classful = "^0.14.2"
+pytest = "^7.3.0"
 
 
 [build-system]
