@@ -167,9 +167,13 @@ class DiffObjectBuilder(ObjectBuilder):
             return None, False
 
         if line_no_exist:
-            return list(map(lambda k: named_collection[name][k],
-                            filter(lambda k: k[0] == line_no, named_collection[name])))[0], is_primitive
+            values_in_line_no = list(
+                map(lambda k: named_collection[name][k], filter(lambda k: k[0] == line_no, named_collection[name])))
 
+            if not values_in_line_no:
+                return None, is_primitive
+
+            return values_in_line_no[0], is_primitive
         return list(named_collection[name].values())[0], is_primitive
 
     def _get_data_from_named(self, name: str, time: Time, line_no: Optional[LineNo] = -1) -> Tuple[
@@ -417,6 +421,18 @@ class DiffObjectBuilder(ObjectBuilder):
 
             change_times.extend([rng.start for rng in list(*range_set)])
         return change_times
+
+    def get_line_nos_from_name(self, name: str) -> List[LineNo]:
+        if name in self._named_primitives:
+            col = self._named_primitives
+
+        elif name in self._named_objects:
+            col = self._named_objects
+
+        else:
+            return []
+
+        return list(map(lambda scope: scope[0], col[name].keys()))
 
     @staticmethod
     def __clear_field_changes(obj: Dict, new_field: str):

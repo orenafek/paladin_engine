@@ -12,8 +12,8 @@ from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, PaladinLoopFinder, FunctionCallFinder, FunctionDefFinder, \
     AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder, BreakFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForLoopStubber, \
-    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber, BreakStubber
-from stubs.stubs import __FLI__, create_ast_stub, __POST_CONDITION__, __AS__, __FC__, __ARG__, __DEF__, \
+    FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber, BreakStubber, Stubber
+from stubs.stubs import __FLI__, __POST_CONDITION__, __AS__, __ARG__, __DEF__, \
     __UNDEF__, __AC__, __PIS__, __BREAK__
 
 
@@ -24,6 +24,7 @@ class ModuleTransformer(object):
 
     def __init__(self, module: ast.AST) -> None:
         self._module = module
+        self._store_original_line_no()
         self.__temp_var_counter = 0
 
     def transform_loop_invariants(self) -> 'ModuleTransformer':
@@ -34,7 +35,9 @@ class ModuleTransformer(object):
         # Iterate over the loops.
         for loop_stub_entry in loops:
             # Create a stub.
-            stub = create_ast_stub(__FLI__, locals='locals()', globals='globals()')
+            stub = Stubber.create_ast_stub(__FLI__,
+                                           locals='locals()', globals='globals()',
+                                           line_no=Stubber.get_original_line_no(loop_stub_entry.node))
 
             # Create a stubber.
             stubber = LoopStubber(self._module)
@@ -79,14 +82,15 @@ class ModuleTransformer(object):
 
                 # Create a stub.
                 for target in targets:
-                    ass_stub = create_ast_stub(__AS__,
-                                               wrap_str_param(
-                                                   ast2str(stub_entry.node).replace('"', '@').replace("'", "@")),
-                                               wrap_str_param(str(target)),
-                                               locals='locals()',
-                                               globals='globals()',
-                                               frame='__FRAME__()',
-                                               line_no=f'{stub_entry.line_no}')
+                    ass_stub = Stubber.create_ast_stub(__AS__,
+                                                       wrap_str_param(
+                                                           ast2str(stub_entry.node).replace('"', '@').replace("'",
+                                                                                                              "@")),
+                                                       wrap_str_param(str(target)),
+                                                       locals='locals()',
+                                                       globals='globals()',
+                                                       frame='__FRAME__()',
+                                                       line_no=f'{Stubber.get_original_line_no(stub_entry.node)}')
 
                     # Create a stubber.
                     ass_stubber = AssignmentStubber(self._module)
@@ -107,10 +111,11 @@ class ModuleTransformer(object):
         function_defs: List[StubEntry] = function_def_finder.find()
 
         for function_def in function_defs:
-            function_def_stub = create_ast_stub(__DEF__,
-                                                wrap_str_param(function_def.extra.function_name),
-                                                f'{function_def.node.lineno}',
-                                                frame='__FRAME__()')
+            original_line_no = Stubber.get_original_line_no(function_def.node)
+            function_def_stub = Stubber.create_ast_stub(__DEF__,
+                                                        wrap_str_param(function_def.extra.function_name),
+                                                        line_no=f'{original_line_no}',
+                                                        frame='__FRAME__()')
 
             # Create a stubber.
             function_def_stubber = FunctionDefStubber(self._module)
@@ -121,29 +126,29 @@ class ModuleTransformer(object):
                 # Add a __PIS__ stub.
                 # First param should be the object being initialized (usually "self").
                 first_arg = function_def.extra.args[0]
-                init_prefix_stub = create_ast_stub(__PIS__,
-                                                   first_arg,
-                                                   wrap_str_param(first_arg),
-                                                   f'{function_def.node.lineno}')
+                init_prefix_stub = Stubber.create_ast_stub(__PIS__,
+                                                           first_arg,
+                                                           wrap_str_param(first_arg),
+                                                           line_no=f'{original_line_no}')
                 prefix_stubs.append(init_prefix_stub)
             # Create args prefix_stubs.
 
             for arg in function_def.extra.args:
-                arg_stub = create_ast_stub(__ARG__,
-                                           wrap_str_param(function_def.extra.function_name),
-                                           wrap_str_param(arg),
-                                           arg,
-                                           locals='locals()',
-                                           globals='globals()',
-                                           frame='__FRAME__()',
-                                           line_no=f'{function_def.node.lineno}')
+                arg_stub = Stubber.create_ast_stub(__ARG__,
+                                                   wrap_str_param(function_def.extra.function_name),
+                                                   wrap_str_param(arg),
+                                                   arg,
+                                                   locals='locals()',
+                                                   globals='globals()',
+                                                   frame='__FRAME__()',
+                                                   line_no=f'{original_line_no}', )
                 prefix_stubs.append(arg_stub)
 
             # Create suffix stub.
-            suffix_stub = create_ast_stub(__UNDEF__,
-                                          wrap_str_param(function_def.extra.function_name),
-                                          line_no=f'{function_def.node.lineno}',
-                                          frame='__FRAME__()')
+            suffix_stub = Stubber.create_ast_stub(__UNDEF__,
+                                                  wrap_str_param(function_def.extra.function_name),
+                                                  line_no=f'{original_line_no}',
+                                                  frame='__FRAME__()')
 
             # Find all return statements.
             return_statement_finder = ReturnStatementsFinder()
@@ -165,9 +170,10 @@ class ModuleTransformer(object):
         paladin_post_conditions = paladin_post_condition_finder.find()
         for stub_entry in paladin_post_conditions:
             # Create a stub.
-            post_cond_stub = create_ast_stub(__POST_CONDITION__,
-                                             condition=f'{stub_entry.extra.name}({", ".join(stub_entry.extra.params)})',
-                                             locals='locals()', globals='globals()', frame='__FRAME__()')
+            post_cond_stub = Stubber.create_ast_stub(__POST_CONDITION__,
+                                                     condition=f'{stub_entry.extra.name}({", ".join(stub_entry.extra.params)})',
+                                                     locals='locals()', globals='globals()', frame='__FRAME__()',
+                                                     line_no=Stubber.get_original_line_no(stub_entry.node))
 
             # Create a stubber.
             method_stubber = MethodStubber(self._module)
@@ -225,13 +231,13 @@ class ModuleTransformer(object):
                     attribute_accesses = attribute_accesses[1::]
                     continue
                 else:
-                    attr_acc_stub = create_ast_stub(__AC__,
-                                                    ast2str(attr_acc.node.value),
-                                                    wrap_str_param(attr_acc.node.attr),
-                                                    wrap_str_param(ast2str(attr_acc.node)),
-                                                    locals='locals()',
-                                                    globals='globals()',
-                                                    line_no=attr_acc.line_no)
+                    attr_acc_stub = Stubber.create_ast_stub(__AC__,
+                                                            ast2str(attr_acc.node.value),
+                                                            wrap_str_param(attr_acc.node.attr),
+                                                            wrap_str_param(ast2str(attr_acc.node)),
+                                                            locals='locals()',
+                                                            globals='globals()',
+                                                            line_no=Stubber.get_original_line_no(attr_acc.node))
 
                     self.module = attribute_access_stubber.stub_attribute_access(
                         attr_acc.node,
@@ -281,9 +287,9 @@ class ModuleTransformer(object):
             breaks = breaks_finder.find()
             for stub_entry in breaks:
                 # Create a stub.
-                break_stub = create_ast_stub(__BREAK__,
-                                             frame='__FRAME__()',
-                                             line_no=f'{stub_entry.line_no}')
+                break_stub = Stubber.create_ast_stub(__BREAK__,
+                                                     frame='__FRAME__()',
+                                                     line_no=f'{Stubber.get_original_line_no(stub_entry.node)}')
                 # Create a stubber.
                 break_stuuber = BreakStubber(self.module)
                 self.module = break_stuuber.stub_breaks(stub_entry.node, stub_entry.container, stub_entry.attr_name,
@@ -306,3 +312,12 @@ class ModuleTransformer(object):
     @module.setter
     def module(self, value):
         self._module = value
+
+    def _store_original_line_no(self):
+        class _Transformer(ast.NodeTransformer):
+            def visit(self, node: ast.AST):
+                setattr(node, Stubber.ORIGINAL_LINE_NO_ATTR, node.lineno if hasattr(node, 'lineno') else -1)
+                setattr(node, Stubber.ORIGINAL_END_LINE_NO_ATTR, node.end_lineno if hasattr(node, 'end_lineno') else -1)
+                return super().visit(node)
+
+        self.module = _Transformer().visit(self.module)

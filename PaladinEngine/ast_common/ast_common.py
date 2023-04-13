@@ -93,3 +93,16 @@ def split_tuple(s: str) -> List[str]:
         return [ast2str(node)]
 
     return list(map(lambda e: ast2str(e), node.value.elts))
+
+
+def get_arg_from_func_call(func_call: str, func: Callable, arg_name: str) -> Optional[str]:
+    if func.__name__ not in func_call or arg_name not in func.__code__.co_varnames:
+        return None
+
+    arg_var_pos = func.__code__.co_varnames.index(arg_name)
+
+    try:
+        ast_call: ast.Call = str2ast(func_call.strip()).value
+        return ast2str(ast_call.args[arg_var_pos])
+    except AttributeError:
+        return None

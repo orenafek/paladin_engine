@@ -18,7 +18,8 @@ from types import CodeType
 from typing import Tuple, Any, Optional
 
 from archive.archive import Archive
-from ast_common.ast_common import ast2str
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo
+from ast_common.ast_common import ast2str, get_arg_from_func_call
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
 from module_transformer.module_transformator import ModuleTransformer
 from source_provider.source_provider import SourceProvider
@@ -74,17 +75,12 @@ class PaLaDiNEngine(object):
                     line_no = int(
                         re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
                 except BaseException as e:
-                    if __FC__.__name__ in paladinized_line:
-                        # TODO: This is a patch for __FC__ that can't add "line_no=" in it because it expects *args and **kwargs after it.
-                        # TODO: Currently assuming that __FC__(expression, func_name, locals, globals, frame, line_no, *args, **kwargs)
-                        start_of_line_no = paladinized_line.index(f'{__FRAME__.__name__}(), ') + len(
-                            f'{__FRAME__.__name__}(), ')
-                        line_no = int(
-                            re.compile(r'(?P<n>(\d+))[,)].*').match(paladinized_line[start_of_line_no::]).group('n'))
-                        # line_no = int(paladinized_line.split(',')[5].strip().strip(')'))
+                    for stub in {__FC__, __PRINT__}:
+                        if line_no := get_arg_from_func_call(paladinized_line, stub, 'line_no'):
+                            break
                     else:
                         raise e
-
+                line_no = int(line_no)
                 matched_line = (line_no, original_lines[line_no - 1])  # original_lines start from 0
             else:
                 matched_lines = [(no + 1, l) for no, l in enumerate(original_lines) if
@@ -109,6 +105,22 @@ class PaLaDiNEngine(object):
     __COMPILATION_MODE = 'exec'
 
     __SOURCE_PROVIDER = None
+
+    @staticmethod
+    def __get_line_no_from_paladinized_source(paladinized_line: str) -> LineNo:
+        try:
+            line_no = int(
+                re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
+        except BaseException as e:
+            for f in {__FC__, __PRINT__}:
+                if f.__name__ in paladinized_line:
+                    if 'line_no' not in f.__code__.co_varnames:
+                        raise e
+                    line_no_var_pos = f.__code__.co_varnames.index('line_no')
+                    start_of_line_no = paladinized_line.index()
+                    line_no = int(
+                        re.compile(r'(?P<n>(\d+))[,)].*').match(paladinized_line[start_of_line_no::]).group('n'))
+            raise e
 
     @staticmethod
     def get_source_provider():
@@ -202,22 +214,14 @@ class PaLaDiNEngine(object):
         """
 
         t = ModuleTransformer(module)
-        m = module
         try:
-            t = t.transform_aug_assigns()
-            m = t.module
-            t = t.transform_function_calls()
-            m = t.module
-            t = t.transform_loops()
-            m = t.module
-            t = t.transform_assignments()
-            m = t.module
-            t = t.transform_function_def()
-            m = t.module
-            t = t.transform_paladin_post_condition()
-            m = t.module
-            t = t.transform_breaks()
-            m = t.module
+            t.transform_aug_assigns() \
+                .transform_function_calls() \
+                .transform_loops() \
+                .transform_assignments() \
+                .transform_function_def() \
+                .transform_paladin_post_condition() \
+                .transform_breaks()
 
         except BaseException as e:
             print(e)

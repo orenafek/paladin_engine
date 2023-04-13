@@ -137,7 +137,7 @@ class PaladinNativeParser(object):
 
                 var_name = self.create_operator_lambda_var()
                 self._add_operator(var_name, ast2str(part), Raw(ast2str(part_visit_result), part.lineno, self.times))
-                parts.append(ast.Name(id=var_name, lineno=part.lineno))
+                parts.append(ast.Attribute(value=ast.Name(id=var_name), attr=ast2str(part)))
 
             return ast.Slice(lower=parts[0], upper=parts[1], step=parts[2])
 

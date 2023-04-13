@@ -25,3 +25,7 @@ class ObjectBuilder(ABC):
     @abstractmethod
     def get_change_times(self, name: str, line_no: LineNo = -1):
         raise NotImplementedError()
+
+    @abstractmethod
+    def get_line_nos_from_name(self, name: str) -> List[LineNo]:
+        raise NotImplementedError()

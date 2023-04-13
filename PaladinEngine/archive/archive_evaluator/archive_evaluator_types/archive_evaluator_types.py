@@ -125,6 +125,9 @@ class EvalResultEntry(dict):
     def __iter__(self) -> Iterator[EvalResultPair]:
         return super().__iter__()
 
+    def __repr__(self):
+        return super().__repr__() + ' {' + str(self.time) + '}'
+
 
 class EvalResult(List[EvalResultEntry]):
     EMPTY = []
@@ -148,32 +151,40 @@ class EvalResult(List[EvalResultEntry]):
             return EvalResultEntry.empty()
         return it[::-1][0]
 
-    def satisfaction_ranges(self) -> Collection[range]:
+    def satisfaction_ranges(self, all_times: Iterable[Time]) -> Collection[range]:
+        def create_range(times: List[Time]) -> range:
+            return range(times[::-1][0], times[0] + 1)
+
         ranges = []
-        first = last = None
-        for e in self.satisfies_iterator():
-
-            if first is None:
-                first = e.time
+        satisfaction_times = self.satisfaction_times()
+        rng = []
+        for t, res in [(t, t in satisfaction_times) for t in all_times]:
+            if not rng and not res:
                 continue
 
-            if last is None:
-                last = e.time
-                continue
+            elif not rng and res:
+                rng = [t]
 
-            if e.time - last == 1:
-                last = e.time
-                continue
+            elif res and t == rng[0] + 1:
+                # Extend range.
+                rng.insert(0, t)
 
-            ranges.append(range(first, last + 1))
-            first = last = None
+            elif res and t != rng[0] + 1:
+                # The range should be completed, start a new range with t
+                ranges.append(create_range(rng))
+                rng = [t]
 
-        if first is not None and last is not None:
-            ranges.append(range(first, last + 1))
-        return set(ranges)
+            else:  # not res and rng != [].
+                # The last range should be completed.
+                ranges.append(create_range(rng))
+                rng = []
+
+        if rng:
+            ranges.append(create_range(rng))
+        return ranges
 
     def satisfaction_times(self) -> Iterable[Time]:
-        return [t for rng in self.satisfaction_ranges() for t in rng]
+        return list(map(lambda e: e.time, self.satisfies_iterator()))
 
     @staticmethod
     def _create_key(entries: Iterable[int]):

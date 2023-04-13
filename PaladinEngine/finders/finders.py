@@ -1,5 +1,4 @@
 import ast
-from _ast import AST
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
@@ -7,7 +6,7 @@ from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
 from conf.engine_conf import *
-from stubs.stubs import StubArgumentType, all_stubs, SubscriptVisitResult
+from stubs.stubs import SubscriptVisitResult, __STUBS__
 
 
 @dataclass
@@ -577,6 +576,9 @@ class AssignmentFinder(GenericFinder):
 
         return extras
 
+    def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
+        return super()._should_visit(node, child_node) and not (isinstance(child_node, ast.Assign) and ast2str(child_node).startswith('____'))
+
 
 class PaladinPostConditionFinder(DecoratorFinder):
     """
@@ -611,15 +613,15 @@ class FunctionCallFinder(GenericFinder):
         # return extras
         return self._generic_visit_with_extras(node, True)
 
-    def visit_Name(self, node):
-        # Extract name.
-        name = node.id
-
-        # Make sure its not a PaLaDiNInnerCall.
-        if name in [stub.__name__ for stub in all_stubs]:
-            return None
-
-        return node.id
+    # def visit_Name(self, node):
+    #     # Extract name.
+    #     name = node.id
+    #
+    #     # Make sure it's not a PaLaDiNInnerCall.
+    #     if name in [stub.__name__ for stub in __STUBS__]:
+    #         return None
+    #
+    #     return node.id
 
     def visit_Attribute(self, node):
         try:
@@ -640,15 +642,14 @@ class FunctionCallFinder(GenericFinder):
 
         return tuple(extras)
 
-    # def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
-    #     # If the node has a field that can be extended (is a list).
-    #     can_node_be_extended = [f for f in node._fields if type(node.__getattribute__(f)) == list] != []
-    #
-    #     # If the node should be excluded because of its type.
-    #     should_node_be_excluded_by_type = type(node) in FunctionCallFinder.TYPES_TO_EXCLUDE
-    #
-    #     return super()._should_visit(node, child_node) \
-    #            and can_node_be_extended and not should_node_be_excluded_by_type
+    def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
+        if not isinstance(child_node, ast.Call):
+            return False
+
+        if not isinstance(child_node.func, ast.Name):
+            return True
+
+        return  child_node.func.id not in [s.__name__ for s in __STUBS__]
 
 
 class FunctionDefFinder(GenericFinder):
@@ -660,6 +661,7 @@ class FunctionDefFinder(GenericFinder):
     class FunctionDefExtra(object):
         function_name: str
         args: list[str]
+        line_no: int
 
         def __init__(self):
             self.args = []
@@ -668,6 +670,7 @@ class FunctionDefFinder(GenericFinder):
         extra = FunctionDefFinder.FunctionDefExtra()
         extra.function_name = node.name
         extra.args = [arg.arg for arg in node.args.args]
+        extra.line_no = node.lineno
         return self._generic_visit_with_extras(node, extra)
 
 

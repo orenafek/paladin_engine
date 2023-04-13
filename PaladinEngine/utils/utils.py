@@ -1,5 +1,3 @@
-
-
 def assert_not_raise(f, *args, **kwargs):
     try:
         if args == () and kwargs == {}:
