@@ -2,7 +2,7 @@ from math import floor
 from typing import Iterable, Optional, Dict, List, Tuple, Collection
 
 from archive.archive import Rk, Rv, Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, LineNo
 from archive.archive_evaluator.paladin_dsl_semantics.const import Const
 from archive.archive_evaluator.paladin_dsl_semantics.const_time import ConstTime
 from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOperator, Operator, UniLateralOperator
@@ -54,29 +54,10 @@ class LoopIteration(BiLateralOperator):
         if len(vars_selector_result) == 0:
             return EvalResult.empty(self.times)
 
-        changed_vars = list(vars_selector_result)[0][VarSelector.VARS_KEY].value
+        changed_vars: List[Tuple[str, LineNo]] = list(vars_selector_result)[0][VarSelector.VARS_KEY].value
         changed_vars_diffs = []
         for v in sorted(changed_vars):
-            ###
-            # FIXME: The var is not located using a specific scope in here (line_no=-1)
-            #  therefore other vars can get in the way...
-            #  For example:
-            #  ```
-            #   1: for i in range(1,4):
-            #      j = 1
-            #      ...
-            #   10: for i in range(5,8):
-            #     ...
-            #  ```
-            #  If We look for the first iter of the second loop (i == 5), with LoopIteration([[i]]@10, [[5]]),
-            #  the last value of the first iteration (i@1 == 4) will also be presented.
-            #  There is Currently a trouble to fix this, because i have a scope (i@10) but after the VarSelection,
-            #  j@10 is incorrect.
-            #
-            #  TODO: Maybe if a range of lines that compound the loop is used, a range of scopes can be used:
-            #   E.g.: LoopIteration([[i]], [[0]], 1, 10)
-            ###
-            selector = Raw(v, times=self.times)
+            selector = Raw(v[0], line_no=v[1], times=self.times)
             changed_vars_diffs.append(Where(self.times, selector, time_range_operator))
 
         return changed_vars_diffs

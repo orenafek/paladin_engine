@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from typing import *
 
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time, ObjectId, Identifier
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time, ObjectId, \
+    Identifier, ContainerId
 
 
 class ObjectBuilder(ABC):
@@ -24,4 +25,8 @@ class ObjectBuilder(ABC):
 
     @abstractmethod
     def get_change_times(self, name: str, line_no: LineNo = -1):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_line_no_by_name_and_container_id(self, name: str, container_id: ContainerId = -1) -> LineNo:
         raise NotImplementedError()

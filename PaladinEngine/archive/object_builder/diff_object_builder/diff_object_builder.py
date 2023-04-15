@@ -8,15 +8,15 @@ from ranges import Range, RangeDict, RangeSet
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ObjectId, LineNo, \
-    Identifier, ContainerId
+    Identifier, ContainerId, Scope
 from archive.object_builder.object_builder import ObjectBuilder
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, Postpone, EMPTY, \
     EMPTY_COLLECTION
 from common.common import ISP
 from stubs.stubs import __AS__, __BMFCS__, __FC__
 
-_NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[Tuple[LineNo, ContainerId], Tuple[Type, RangeDict]]]
-_NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[Tuple[LineNo, ContainerId], RangeDict]]
+_NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[Scope, Tuple[Type, RangeDict]]]
+_NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
 
 
 class DiffObjectBuilder(ObjectBuilder):
@@ -28,7 +28,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
         def __eq__(self, other):
             return isinstance(other, DiffObjectBuilder._FunctionCallFieldType) and self._type == other._type or \
-                   isinstance(other, type) and other == self._type
+                isinstance(other, type) and other == self._type
 
         def __hash__(self):
             return hash(self._type)
@@ -167,9 +167,13 @@ class DiffObjectBuilder(ObjectBuilder):
             return None, False
 
         if line_no_exist:
-            return list(map(lambda k: named_collection[name][k],
-                            filter(lambda k: k[0] == line_no, named_collection[name])))[0], is_primitive
+            values_in_line_no = list(
+                map(lambda k: named_collection[name][k], filter(lambda k: k[0] == line_no, named_collection[name])))
 
+            if not values_in_line_no:
+                return None, is_primitive
+
+            return values_in_line_no[0], is_primitive
         return list(named_collection[name].values())[0], is_primitive
 
     def _get_data_from_named(self, name: str, time: Time, line_no: Optional[LineNo] = -1) -> Tuple[
@@ -339,7 +343,7 @@ class DiffObjectBuilder(ObjectBuilder):
         collection = self._named_primitives if is_primitive else self._named_objects
         self.__init_named_collection_for_expression(collection, rv)
 
-        scope: Tuple[LineNo, ContainerId] = DiffObjectBuilder.__get_scope(collection, rv)
+        scope: Scope = DiffObjectBuilder.__get_scope(collection, rv)
 
         if is_primitive:
             self._named_primitives[rv.expression][scope] = rv.rtype, object_data
@@ -417,6 +421,32 @@ class DiffObjectBuilder(ObjectBuilder):
 
             change_times.extend([rng.start for rng in list(*range_set)])
         return change_times
+
+    def get_line_no_by_name_and_container_id(self, name: str, container_id: ContainerId = -1) -> LineNo:
+        if name in self._named_primitives:
+            col = self._named_primitives
+
+        elif name in self._named_objects:
+            col = self._named_objects
+        else:
+            return -1
+
+        scopes: List[Scope] = list(col[name].keys())
+        if not scopes:
+            return -1
+
+        if container_id != -1:
+            line_nos_of_container_id = list(map(lambda s: s[0], filter(lambda s: s[1] == container_id, scopes)))
+            if not line_nos_of_container_id:
+                return -1
+
+            # As each name in a block should be stored with a line no. suited for its definition (first assignment),
+            # there should be no more than one.
+            assert len(line_nos_of_container_id) == 1
+
+            return line_nos_of_container_id[0]
+
+        return next(map(lambda s: s[0], scopes))
 
     @staticmethod
     def __clear_field_changes(obj: Dict, new_field: str):
