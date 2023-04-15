@@ -31,12 +31,180 @@ class SubscriptVisitResult(object):
         return f'{self.collection}[{keys}]'
 
 
-def __FRAME__():
-    return sys._getframe(1)
+def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
+    # Access field (or method).
+    field = obj.__getattribute__(attr) if type(obj) is not type else obj.__getattribute__(obj, attr)
+
+    archive.store_new \
+        .key(id(obj), attr, __AC__.__name__) \
+        .value(type(field), POID(field), expr, line_no)
+
+    return field
+
+
+def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
+            line_no: int):
+    archive.store_new \
+        .key(id(frame), arg, __ARG__.__name__) \
+        .value(type(value), POID(value), arg, line_no)
+
+    if func_name == '__init__' and arg == 'self':
+        # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
+        # FIXME: Meaning that if __init__ is called with a firs arg which is not "self", this wouldn't work.
+        archive.store_new \
+            .key(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__) \
+            .value(type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION, line_no)
+
+
+def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
+    if not archive.should_record:
+        return
+
+    container_id, field, container, is_container_value, is_container_id_frame = _separate_to_container_and_field(target,
+                                                                                                                 frame,
+                                                                                                                 locals,
+                                                                                                                 globals)
+    value = container if is_container_value else container.__getattribute__(
+        field) if field in container.__dict__ else None
+
+    __store(container_id, field, line_no, target, value, locals, globals, __AS__,
+            kind=Archive.Record.StoreKind.VAR if is_container_id_frame else Archive.Record.StoreKind.OBJ_ITEM)
+
+
+# The first param "func_stub_wrapper" is not used but passed to this stub to be evaluated before entering here.
+# noinspection PyUnusedLocal
+def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, frame,
+              locals, globals, arg: Optional[object] = EMPTY):
+    if BuiltinCollectionsUtils.is_builtin_collection_method(caller):
+        rv = archive.store_new \
+            .key(id(caller), func_name, __BMFCS__.__name__, Archive.Record.StoreKind.BUILTIN_MANIP) \
+            .value(type(caller), (type(arg), (POID(arg) if arg != EMPTY else EMPTY)), caller_str, line_no)
+
+        # Store args that are temporary objects.
+        # E.g.: l.add(Animal(...))
+        if not ISP(type(arg)) and not id(arg) in [id(x) for x in {**locals, **globals}.values()] and arg != EMPTY:
+            __store(frame, '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
+                    Archive.Record.StoreKind.UNAMED_OBJECT)
+
+
+def __BREAK__(line_no: int, frame):
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), 'break', __BREAK__.__name__) \
+            .value(object, None, 'break', line_no)
+
+
+def __DEF__(func_name: str, line_no: int, frame):
+    archive.store_new \
+        .key(id(frame), func_name, __DEF__.__name__) \
+        .value(type(lambda _: _), func_name, func_name, line_no)
+
+
+def __EOLI__(frame, loop_start_line_no: int, loop_end_line_no: int):
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), '__end_of_loop_iteration', __EOLI__.__name__) \
+            .value(int, loop_start_line_no, '__end_of_loop_iteration', loop_end_line_no)
+
+
+def __FC__(expression: str, function,
+           locals: dict, globals: dict, frame, line_no: int,
+           *args: Optional[list[object]], **kwargs: Optional[dict[object]]):
+    """
+        Store function call stub.
+    :param function: The function that was called.
+    :param locals: Dictionary with the local variables of the calling context.
+    :param globals: Dictionary with the global variables of the calling context.
+    :param frame: The stack frame of the calling context
+    :param line_no: The line no of the function call.
+    :param args: The arguments passed to the function.
+    :param kwargs: The keyword arguments passed to the function.
+    :return: None.
+    """
+
+    # Call the function.
+    ret_exc = None
+    try:
+        ret_value = function(*args, **kwargs)
+    except BaseException as e:
+        ret_exc = e
+        ret_value = ret_exc
+
+    vars_dict = {**locals, **globals}
+
+    # Find container.
+    container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
+
+    # args_string = ', '.join([str(a) if function.__name__ != '__str__' else '@@@@ self @@@@' for a in args])
+    # kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
+
+    # Create an extra with the args and keywords.
+    # extra = f'args = {args_string}, kwargs = {kwargs_string}'
+    extra = ''
+
+    if archive.should_record:
+        # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
+        __store(container_id, function.__name__, line_no, function.__name__, ret_value, locals, globals, __FC__,
+                kind=Archive.Record.StoreKind.FUNCTION_CALL,
+                extra=extra)
+
+    if ret_exc:
+        raise ret_exc
+    # Return ret value.
+    return ret_value
 
 
 def __FLI__(locals, globals):
     raise NotImplementedError()
+
+
+def __FRAME__():
+    return sys._getframe(1)
+
+
+def __IS_STUBBED__(line: str) -> bool:
+    return any([stub.__name__ in line for stub in __STUBS__])
+
+
+def __PAUSE__():
+    archive.pause_record()
+
+
+def __PIS__(first_param: object, first_param_name: str, line_no: int):
+    # TODO: Should type(first_param) be int instead?
+    archive.store_new \
+        .key(Archive.GLOBAL_PALADIN_CONTAINER_ID, first_param_name, __PIS__.__name__) \
+        .value(type(first_param), id(first_param), first_param_name, line_no)
+
+
+def __PRINT__(line_no: int, frame, *print_args):
+    with StringIO() as capturer, redirect_stdout(capturer):
+        print(*print_args)
+        output = capturer.getvalue().strip('\n')
+
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), 'print', __PRINT__.__name__, Archive.Record.StoreKind.EVENT) \
+            .value(type(print), f'{output}', f'print({", ".join([str(arg) for arg in print_args])}', line_no)
+
+    print(output)
+
+
+def __RESUME__():
+    archive.resume_record()
+
+
+def __SOLI__(line_no: int, frame):
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), '__start_of_loop_iteration', __SOLI__.__name__) \
+            .value(int, line_no, '__start_of_loop_iteration', line_no)
+
+
+def __UNDEF__(func_name: str, line_no: int, frame):
+    archive.store_new \
+        .key(id(frame), func_name, __UNDEF__.__name__) \
+        .value(type(lambda _: _), func_name, func_name, line_no)
 
 
 def handle_broken_commitment(condition, frame, line_no):
@@ -143,52 +311,46 @@ def _separate_to_container_and_field(expression: str, frame, locals: dict, globa
     return id(container), field, container, False, False
 
 
-def __DEF__(func_name: str, line_no: int, frame):
-    archive.store_new \
-        .key(id(frame), func_name, __DEF__.__name__) \
-        .value(type(lambda _: _), func_name, func_name, line_no)
+class StubArgumentType(enumerate):
+    """
+        Types of arguments to stubs.
+    """
+
+    # Pass the argument "as is."
+    # e.g.: if a stub stubs the statement: print(x)
+    #       and the value of x should be passed to the stub,
+    #       the stub will be: __STUB_PRINT(x)
+    PLAIN = 0
+
+    # Pass the argument's name.
+    # e.g.: if a stub stubs the statement: print(x)
+    #       and the name of x should be passed to the stub,
+    #       the stub will be: __STUB_PRINT('x')
+    NAME = 1
+
+    # Pass the argument's id.
+    # e.g.: if a stub stubs the statement: print(x)
+    #       and the id of x should be passed to the stub,
+    #       the stub will be: __STUB_PRINT(id(x))
+    ID = 2
 
 
-def __PIS__(first_param: object, first_param_name: str, line_no: int):
-    # TODO: Should type(first_param) be int instead?
-    archive.store_new \
-        .key(Archive.GLOBAL_PALADIN_CONTAINER_ID, first_param_name, __PIS__.__name__) \
-        .value(type(first_param), id(first_param), first_param_name, line_no)
+_T = TypeVar("_T")
+
+__STUBS__ = [__AC__, __ARG__, __AS__, __BMFCS__, __BREAK__, __DEF__, __EOLI__, __FC__, __FLI__, __FRAME__,
+             __IS_STUBBED__, __PAUSE__, __PIS__, __PRINT__, __RESUME__, __SOLI__, __UNDEF__]
 
 
-def __UNDEF__(func_name: str, line_no: int, frame):
-    archive.store_new \
-        .key(id(frame), func_name, __UNDEF__.__name__) \
-        .value(type(lambda _: _), func_name, func_name, line_no)
+# noinspection PyPep8Naming
+class __PALADIN_LIST__(object):
+    def __init__(self, elements: [] = None):
+        if elements is None:
+            self._inner = []
+        else:
+            self._inner = elements
 
-
-def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
-            line_no: int):
-    archive.store_new \
-        .key(id(frame), arg, __ARG__.__name__) \
-        .value(type(value), POID(value), arg, line_no)
-
-    if func_name == '__init__' and arg == 'self':
-        # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
-        # FIXME: Meaning that if __init__ is called with a firs arg which is not "self", this wouldn't work.
-        archive.store_new \
-            .key(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__) \
-            .value(type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION, line_no)
-
-
-def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
-    if not archive.should_record:
-        return
-
-    container_id, field, container, is_container_value, is_container_id_frame = _separate_to_container_and_field(target,
-                                                                                                                 frame,
-                                                                                                                 locals,
-                                                                                                                 globals)
-    value = container if is_container_value else container.__getattribute__(
-        field) if field in container.__dict__ else None
-
-    __store(container_id, field, line_no, target, value, locals, globals, __AS__,
-            kind=Archive.Record.StoreKind.VAR if is_container_id_frame else Archive.Record.StoreKind.OBJ_ITEM)
+    def append(self, __object: _T) -> None:
+        self._inner = self._inner + [__object]
 
 
 def __store(container_id, field, line_no, target, value, locals, globals,
@@ -252,184 +414,3 @@ def __store(container_id, field, line_no, target, value, locals, globals,
 
     if not ISP(type(value)) and not id(value) in {id(x) for x in stored_objects}:
         _store_inner(value)
-
-
-def __FC__(expression: str, function,
-           locals: dict, globals: dict, frame, line_no: int,
-           *args: Optional[list[object]], **kwargs: Optional[dict[object]]):
-    """
-        Store function call stub.
-    :param function: The function that was called.
-    :param locals: Dictionary with the local variables of the calling context.
-    :param globals: Dictionary with the global variables of the calling context.
-    :param frame: The stack frame of the calling context
-    :param line_no: The line no of the function call.
-    :param args: The arguments passed to the function.
-    :param kwargs: The keyword arguments passed to the function.
-    :return: None.
-    """
-
-    # Call the function.
-    ret_exc = None
-    try:
-        ret_value = function(*args, **kwargs)
-    except BaseException as e:
-        ret_exc = e
-        ret_value = ret_exc
-
-    vars_dict = {**locals, **globals}
-
-    # Find container.
-    container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
-
-    # args_string = ', '.join([str(a) if function.__name__ != '__str__' else '@@@@ self @@@@' for a in args])
-    # kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
-
-    # Create an extra with the args and keywords.
-    # extra = f'args = {args_string}, kwargs = {kwargs_string}'
-    extra = ''
-
-    if archive.should_record:
-        # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
-        __store(container_id, function.__name__, line_no, function.__name__, ret_value, locals, globals, __FC__,
-                kind=Archive.Record.StoreKind.FUNCTION_CALL,
-                extra=extra)
-
-    if ret_exc:
-        raise ret_exc
-    # Return ret value.
-    return ret_value
-
-
-# The first param "func_stub_wrapper" is not used but passed to this stub to be evaluated before entering here.
-# noinspection PyUnusedLocal
-def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, frame,
-              locals, globals, arg: Optional[object] = EMPTY):
-    if BuiltinCollectionsUtils.is_builtin_collection_method(caller):
-        rv = archive.store_new \
-            .key(id(caller), func_name, __BMFCS__.__name__, Archive.Record.StoreKind.BUILTIN_MANIP) \
-            .value(type(caller), (type(arg), (POID(arg) if arg != EMPTY else EMPTY)), caller_str, line_no)
-
-        # Store args that are temporary objects.
-        # E.g.: l.add(Animal(...))
-        if not ISP(type(arg)) and not id(arg) in [id(x) for x in {**locals, **globals}.values()] and arg != EMPTY:
-            __store(frame, '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
-                    Archive.Record.StoreKind.UNAMED_OBJECT)
-
-
-def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
-    # Access field (or method).
-    field = obj.__getattribute__(attr) if type(obj) is not type else obj.__getattribute__(obj, attr)
-
-    archive.store_new \
-        .key(id(obj), attr, __AC__.__name__) \
-        .value(type(field), POID(field), expr, line_no)
-
-    return field
-
-
-def __SOLI__(line_no: int, frame):
-    if archive.should_record:
-        archive.store_new \
-            .key(id(frame), '__start_of_loop_iteration', __SOLI__.__name__) \
-            .value(int, line_no, '__start_of_loop_iteration', line_no)
-
-
-def __EOLI__(frame, loop_start_line_no: int, loop_end_line_no: int):
-    if archive.should_record:
-        archive.store_new \
-            .key(id(frame), '__end_of_loop_iteration', __EOLI__.__name__) \
-            .value(int, loop_start_line_no, '__end_of_loop_iteration', loop_end_line_no)
-
-
-def __BREAK__(line_no: int, frame):
-    if archive.should_record:
-        archive.store_new \
-            .key(id(frame), 'break', __BREAK__.__name__) \
-            .value(object, None, 'break', line_no)
-
-
-def create_ast_stub(stub, *args, **kwargs):
-    """
-        Create an AST node from a stub.
-    :param stub: (function) A stub
-    :return:
-    """
-    args_string = ', '.join(args)
-    kwargs_string = ', '.join([f'{i[0]}={i[1]}' for i in kwargs.items()])
-
-    arguments_string = args_string if kwargs_string == '' else \
-        kwargs_string if args_string == '' else f'{args_string}, {kwargs_string}'
-
-    # Create the call as a str.
-    return str2ast(f'{stub.__name__}({arguments_string})')
-
-
-all_stubs = [__FLI__, __AS__]
-
-
-class StubArgumentType(enumerate):
-    """
-        Types of arguments to stubs.
-    """
-
-    # Pass the argument "as is."
-    # e.g.: if a stub stubs the statement: print(x)
-    #       and the value of x should be passed to the stub,
-    #       the stub will be: __STUB_PRINT(x)
-    PLAIN = 0
-
-    # Pass the argument's name.
-    # e.g.: if a stub stubs the statement: print(x)
-    #       and the name of x should be passed to the stub,
-    #       the stub will be: __STUB_PRINT('x')
-    NAME = 1
-
-    # Pass the argument's id.
-    # e.g.: if a stub stubs the statement: print(x)
-    #       and the id of x should be passed to the stub,
-    #       the stub will be: __STUB_PRINT(id(x))
-    ID = 2
-
-
-def __PAUSE__():
-    archive.pause_record()
-
-
-def __RESUME__():
-    archive.resume_record()
-
-
-def __PRINT__(line_no: int, frame, *print_args):
-    with StringIO() as capturer, redirect_stdout(capturer):
-        print(*print_args)
-        output = capturer.getvalue().strip('\n')
-
-    if archive.should_record:
-        archive.store_new \
-            .key(id(frame), 'print', __PRINT__.__name__, Archive.Record.StoreKind.EVENT) \
-            .value(type(print), f'{output}', f'print({", ".join([str(arg) for arg in print_args])}', line_no)
-
-    print(output)
-
-
-_T = TypeVar("_T")
-
-__STUBS__ = [__AC__, __AS__, __RESUME__, __PAUSE__, __FRAME__, __ARG__,
-             __FLI__, __DEF__, __PIS__, __POST_CONDITION__, __UNDEF__]
-
-
-def __IS_STUBBED__(line: str) -> bool:
-    return any([stub.__name__ in line for stub in __STUBS__])
-
-
-# noinspection PyPep8Naming
-class __PALADIN_LIST__(object):
-    def __init__(self, elements: [] = None):
-        if elements is None:
-            self._inner = []
-        else:
-            self._inner = elements
-
-    def append(self, __object: _T) -> None:
-        self._inner = self._inner + [__object]
