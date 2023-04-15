@@ -11,13 +11,13 @@ class Where(BiLateralOperator):
     """
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        condition: EvalResult = self.second.eval(builder)
+        condition: EvalResult = self.second.eval(builder, query_locals)
 
         # Set times for selector with the results given by condition's eval.
-        self.first.update_times(condition.satisfaction_ranges())
+        self.first.update_times(condition.satisfaction_ranges(self.times))
 
         # Create a sparse results-list with the original time range.
-        first_results = self.first.eval(builder)
+        first_results = self.first.eval(builder, query_locals)
 
         return EvalResult(
             [first_results[time] if time in self.first.times else EvalResultEntry.empty_with_keys(time, first_results[time].keys)
