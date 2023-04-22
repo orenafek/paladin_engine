@@ -7,7 +7,7 @@ from typing import Union, List, cast
 from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param, str2ast
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils
 from finders.finders import StubEntry
-from stubs.stubs import __FRAME__, __EOLI__, __SOLI__, __BMFCS__, __PRINT__, __FC__
+from stubs.stubs import __FRAME__, __EOLI__, __SOLI__, __BMFCS__, __PRINT__, __FC__, __SOL__
 from utils.utils import assert_not_raise
 
 
@@ -373,14 +373,16 @@ class LoopStubber(Stubber):
         A stubber of loops.
     """
 
+    ITERATOR_NUMBER = -1
+
     def __init__(self, root_module) -> None:
         """
             Constructor
         :param root_module: (ast.module) The module that contains the loop.
-        :param loop_node: (ast.stmt) The code of the loop being stubbed.
         """
         # Call the super constructor.
         super().__init__(root_module)
+        LoopStubber.ITERATOR_NUMBER += 1
 
     def stub_loop_invariant(self, loop_node: Union[For, While], container: AST, attr_name: str, stub: AST) -> Module:
         """
@@ -400,17 +402,11 @@ class LoopStubber(Stubber):
         # Return the module.
         return self.root_module
 
+    def stub_loop(self, loop_node: Union[ast.For, ast.While], container: ast.AST, attr_name: str) -> ast.Module:
+        # Add a start of loop stub.
+        self.stub_start_of_loop(loop_node, container, attr_name)
 
-class ForLoopStubber(LoopStubber):
-    ITERATOR_NUMBER = -1
-
-    def __init__(self, root_module) -> None:
-        super().__init__(root_module)
-        ForLoopStubber.ITERATOR_NUMBER += 1
-
-    def stub_loop(self, loop_node: Union[ast.For, ast.While]) -> ast.Module:
-        # Create a loop iteraetion start stub.
-        # Create a loop iteration end stub.
+        # Create a loop iteration start stub.
         loop_iteration_start_stub = Stubber.copy_line_no(ast.Expr(ast.Call(func=lit2ast(__SOLI__.__name__),
                                                                            args=[lit2ast(
                                                                                Stubber.get_original_line_no(
@@ -422,8 +418,8 @@ class ForLoopStubber(LoopStubber):
 
         if isinstance(loop_node, ast.For):
             # Create a new target.
-            new_for_target = Stubber.copy_line_no(ast.Name(id=f'__iter_{ForLoopStubber.ITERATOR_NUMBER}'),
-                                                  loop_node)
+            new_for_target = Stubber.copy_line_no(cast(ast.AST, ast.Name(id=f'__iter_{LoopStubber.ITERATOR_NUMBER}')),
+                                                  cast(ast.AST, loop_node))
             # Create a target assignment.
             for_target_assignment = Stubber.copy_line_no(
                 ast.Assign(targets=[loop_node.target], ctx=ast.Store(), value=new_for_target), loop_node)
@@ -457,6 +453,15 @@ class ForLoopStubber(LoopStubber):
         ast.fix_missing_locations(loop_node)
 
         return self.root_module
+
+    def stub_start_of_loop(self, loop_node: Union[ast.For, ast.While], container: ast.AST, attr_name: str):
+        return self.stub(Stubber.BeforeStubRecord(loop_node, container, attr_name,
+                                                  cast(ast.AST, ast.Expr(value=ast.Call(func=lit2ast(__SOL__.__name__),
+                                                                                        args=[Stubber._FRAME_CALL,
+                                                                                              lit2ast(
+                                                                                                  Stubber.get_original_line_no(
+                                                                                                      loop_node))],
+                                                                                        keywords=[])))))
 
 
 class MethodStubber(Stubber):

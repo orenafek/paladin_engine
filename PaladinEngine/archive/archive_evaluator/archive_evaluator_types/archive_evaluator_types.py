@@ -285,6 +285,9 @@ class EvalResult(List[EvalResultEntry]):
 
         return EvalResult(results)
 
+    def __add__(self, other: 'EvalResult') -> 'EvalResult':
+        return EvalResult.join(self, other)
+
     def __getitem__(self, t: Time):
         matches_time = list(filter(lambda e: e and e.time == t, self))
         if not matches_time:

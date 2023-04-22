@@ -18,7 +18,8 @@ from types import CodeType
 from typing import Tuple, Any, Optional
 
 from archive.archive import Archive
-from ast_common.ast_common import ast2str
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo
+from ast_common.ast_common import ast2str, get_arg_from_func_call
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
 from module_transformer.module_transformator import ModuleTransformer
 from source_provider.source_provider import SourceProvider
@@ -26,7 +27,7 @@ from source_provider.source_provider import SourceProvider
 # noinspection PyUnresolvedReferences
 from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
     __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__, __BREAK__, __EOLI__, __SOLI__, __BMFCS__, \
-    __PRINT__
+    __PRINT__, __STUBS__
 
 
 class PaLaDiNEngine(object):
@@ -142,7 +143,7 @@ class PaLaDiNEngine(object):
         :return:
         """
         # Set the variables for the run.
-        variables = {f.__name__: f for f in PaLaDiNEngine.PALADIN_STUBS_LIST}
+        variables = {f.__name__: f for f in __STUBS__}
 
         # Make sure that the script runs as if was alone.
         variables['__name__'] = '__main__'
@@ -250,7 +251,7 @@ class PaLaDiNEngine(object):
 
     @staticmethod
     def import_line(import_path):
-        return f'from {import_path} import {", ".join([stub.__name__ for stub in PaLaDiNEngine.PALADIN_STUBS_LIST])}'
+        return f'from {import_path} import {", ".join([stub.__name__ for stub in __STUBS__])}'
 
 
 def main():

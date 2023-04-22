@@ -11,7 +11,7 @@ from ast_common.ast_common import ast2str, wrap_str_param
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, PaladinLoopFinder, FunctionCallFinder, FunctionDefFinder, \
     AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder, BreakFinder
-from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, ForLoopStubber, \
+from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, \
     FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber, BreakStubber, Stubber
 from stubs.stubs import __FLI__, __POST_CONDITION__, __AS__, __ARG__, __DEF__, \
     __UNDEF__, __AC__, __PIS__, __BREAK__
@@ -56,10 +56,10 @@ class ModuleTransformer(object):
             loop_entry = loop_entries.pop()
 
             # Create a stubber.
-            stubber = ForLoopStubber(self._module)
+            stubber = LoopStubber(self._module)
 
             # Stub.
-            self._module = stubber.stub_loop(loop_entry.node)
+            self._module = stubber.stub_loop(loop_entry.node, loop_entry.container, loop_entry.attr_name)
 
             plf.visit(self._module)
             loop_entries = plf.find()

@@ -20,6 +20,9 @@ class ObjectBuilder(ABC):
     def get_loop_iterations(self, line_no: LineNo):
         return self.archive.get_loop_iterations(line_no)
 
+    def get_loop_starts(self, line_no: LineNo):
+        return self.archive.get_loop_starts(line_no)
+
     def get_assignments(self, time_range: range, line_no_range: range):
         return self.archive.get_assignments(time_range, line_no_range)
 

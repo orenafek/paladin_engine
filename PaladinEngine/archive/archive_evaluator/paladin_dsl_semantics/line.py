@@ -6,13 +6,13 @@ from archive.archive_evaluator.paladin_dsl_semantics.const import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
 from archive.archive_evaluator.paladin_dsl_semantics.semantic_utils import Time
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
-from archive.archive_evaluator.paladin_dsl_semantics.var_selector import VarSelector
+from archive.archive_evaluator.paladin_dsl_semantics.var_selector import VarSelector, VarSelectorByLineNo
 from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Line(UniLateralOperator):
     """
-        Line(<number>): Returns values of all objects that existed when the program hit line numbered <number>
+        Line(<number>): Returns values of all values in the scope of <number> when the program hit line numbered <number>.
     """
 
     def __init__(self, times: Iterable[Time], line_no: int):
@@ -32,11 +32,11 @@ class Line(UniLateralOperator):
 
         for r in ranges:
             time_range = range(r[0], r[1] + 1)
-            vars = VarSelector(self.times, Const(True, times=time_range)).eval(builder)
-            if not vars:
+            vars = VarSelectorByLineNo(self.times, Const(True, times=time_range), line_no).eval(builder)
+            if not vars or not vars[r[1]].__getitem__(VarSelector.VARS_KEY).value:
                 continue
 
             for v in vars[r[1]].__getitem__(VarSelector.VARS_KEY).value:
-                results = results.join(results, Raw(v, None, time_range).eval(builder))
+                results = results.join(results, Raw(v[0], v[1], time_range).eval(builder))
 
         return results

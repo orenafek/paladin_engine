@@ -6,7 +6,7 @@ import pytest
 from pycallgraph import PyCallGraph, GlobbingFilter, Config
 from pycallgraph.output import GraphvizOutput
 from engine.engine import PaLaDiNEngine
-from stubs.stubs import archive
+from stubs.stubs import archive, __STUBS__
 
 
 class CallGraphCreator:
@@ -73,10 +73,10 @@ class TestEngine:
 
                 # Print the code.
                 if verbose:
-                    #print(str(paladinized_source_code))
+                    # print(str(paladinized_source_code))
                     with open(test_file_path.replace('.py', '_output.py'), 'w+') as f:
-                        f.write(f'from PaladinEngine.stubs import '
-                                     f'{", ".join([stub.__name__ for stub in PaLaDiNEngine.PALADIN_STUBS_LIST])}')
+                        f.write(
+                            f'from PaladinEngine.stubs import 'f'{", ".join([stub.__name__ for stub in __STUBS__])}')
                         f.write('\n')
                         f.write(paladinized_source_code)
 
@@ -105,7 +105,7 @@ class TestEngine:
                     writer.writerow(header)
                     writer.writerows(rows)
 
-    #@pytest.mark.skip(reason="")
+    # @pytest.mark.skip(reason="")
     def test_0(self):
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'test_module.py'
@@ -163,13 +163,13 @@ class TestEngine:
             '/tests/test_resources/examples/lab1/src/lambda_calc'
             '/syntax.py', verbose=True)
 
-    #@pytest.mark.skip(reason="")
+    # @pytest.mark.skip(reason="")
     def test_lib1_semantics(self):
         TestEngine.basic_test(
             '/tests/test_resources/examples/lab1/src/lambda_calc'
             '/semantics.py', verbose=True)
 
-    #@pytest.mark.skip(reason="")
+    # @pytest.mark.skip(reason="")
     def test_2(self):
         TestEngine.basic_test(TestEngine.create_test_source_absolute_path(
             r'basic2.py'

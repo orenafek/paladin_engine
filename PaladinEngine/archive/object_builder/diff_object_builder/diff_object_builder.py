@@ -66,6 +66,7 @@ class DiffObjectBuilder(ObjectBuilder):
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
         self._named_primitives: _NAMED_PRIMITIVES_DATA_TYPE = {}
         self._named_objects: _NAMED_OBJECTS_DATA_TYPE = {}
+        self._scopes: Dict[LineNo, ContainerId] = {}
         self._construct()
 
     def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
@@ -344,6 +345,7 @@ class DiffObjectBuilder(ObjectBuilder):
         self.__init_named_collection_for_expression(collection, rv)
 
         scope: Scope = DiffObjectBuilder.__get_scope(collection, rv)
+        self._scopes[rv.line_no] = rv.key.container_id
 
         if is_primitive:
             self._named_primitives[rv.expression][scope] = rv.rtype, object_data
@@ -493,3 +495,10 @@ class DiffObjectBuilder(ObjectBuilder):
         assert len(scopes) == 1
 
         return scopes[0]
+
+    def get_container_id_by_line_no(self, line_no: LineNo) -> Optional[ContainerId]:
+        return self._scopes[line_no] if line_no in self._scopes else None
+
+    def get_line_nos_by_container_id(self, container_id: ContainerId) -> Iterable[LineNo]:
+        return list(map(lambda t: t[0], filter(lambda t: t[1] == container_id, self._scopes.items())))
+

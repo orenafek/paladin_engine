@@ -101,10 +101,9 @@ def __DEF__(func_name: str, line_no: int, frame):
 
 
 def __EOLI__(frame, loop_start_line_no: int, loop_end_line_no: int):
-    if archive.should_record:
-        archive.store_new \
-            .key(id(frame), '__end_of_loop_iteration', __EOLI__.__name__) \
-            .value(int, loop_start_line_no, '__end_of_loop_iteration', loop_end_line_no)
+    archive.store_new \
+        .key(id(frame), '__end_of_loop_iteration', __EOLI__.__name__) \
+        .value(int, loop_start_line_no, '__end_of_loop_iteration', loop_end_line_no)
 
 
 def __FC__(expression: str, function,
@@ -192,6 +191,12 @@ def __PRINT__(line_no: int, frame, *print_args):
 
 def __RESUME__():
     archive.resume_record()
+
+
+def __SOL__(frame, loop_start_line_no: int):
+    archive.store_new \
+        .key(id(frame), '__start_of_loop', __SOL__.__name__) \
+        .value(int, loop_start_line_no, '__start_of_loop', loop_start_line_no)
 
 
 def __SOLI__(line_no: int, frame):
@@ -338,7 +343,7 @@ class StubArgumentType(enumerate):
 _T = TypeVar("_T")
 
 __STUBS__ = [__AC__, __ARG__, __AS__, __BMFCS__, __BREAK__, __DEF__, __EOLI__, __FC__, __FLI__, __FRAME__,
-             __IS_STUBBED__, __PAUSE__, __PIS__, __PRINT__, __RESUME__, __SOLI__, __UNDEF__]
+             __IS_STUBBED__, __PAUSE__, __PIS__, __PRINT__, __RESUME__, __SOL__, __SOLI__, __UNDEF__]
 
 
 # noinspection PyPep8Naming
