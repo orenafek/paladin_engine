@@ -1,3 +1,4 @@
+import copy
 from abc import ABC
 from dataclasses import dataclass
 from typing import Optional, Iterable, Dict, Collection, List, Type

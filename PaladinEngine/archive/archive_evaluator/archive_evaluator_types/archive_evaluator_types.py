@@ -174,7 +174,10 @@ class EvalResult(List[EvalResultEntry]):
         return filter(lambda e: e.satisfies(), self)
 
     def first_satisfaction(self) -> EvalResultEntry:
-        return next(self.satisfies_iterator())
+        try:
+            return next(self.satisfies_iterator())
+        except StopIteration:
+            return EvalResultEntry.empty(-1)
 
     def last_satisfaction(self) -> EvalResultEntry:
         it = list(self.satisfies_iterator())

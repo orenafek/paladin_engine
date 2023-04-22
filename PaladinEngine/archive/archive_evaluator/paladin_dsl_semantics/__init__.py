@@ -1,5 +1,6 @@
 from .operator import Operator
 from .time_operator import TimeOperator, BiTimeOperator, Whenever
+from .and_than import AndThan
 from .align import Align
 from .basic_logical_ops import Not
 from .bounded import Bounded
