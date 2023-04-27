@@ -94,8 +94,9 @@ def main():
                 except BaseException:
                     traceback.print_exc()
             if args.csv != '':
-                print('Creating CSV')
-                dump_to_csv(archive, args.csv)
+                if archive:
+                    print('Creating CSV')
+                    dump_to_csv(archive, args.csv)
 
 
 def dump_to_csv(archive: Archive, csv_file_path: str) -> None:

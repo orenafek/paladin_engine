@@ -1,3 +1,5 @@
+import string
+from collections import deque
 from typing import Any
 
 
@@ -10,6 +12,22 @@ def lists():
     print(l1)
     l1.clear()
     l1.extend([6, 7, 8, 9, 10])
+
+
+def deques():
+    dq = deque(list(string.ascii_lowercase[0:5]))
+    print(dq)
+    dq.append('f')
+    dq.appendleft('~')
+    dq.remove('c')
+    dq.reverse()
+    print(dq)
+    dq.clear()
+    dq.extend(list(string.ascii_lowercase[6:11]))
+    dq.extendleft(list(string.ascii_lowercase[0:3]))
+    print(dq)
+    dq.popleft()
+    print(dq)
 
 
 def sets():
@@ -68,8 +86,10 @@ def dicts():
     d3 = {HashableDict([('A', 1), ('B', 2)]): 3}
     print(d3)
 
+
 def main():
     lists()
+    deques()
     sets()
     tuples()
     dicts()

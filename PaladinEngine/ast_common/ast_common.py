@@ -102,7 +102,13 @@ def get_arg_from_func_call(func_call: str, func: Callable, arg_name: str) -> Opt
     arg_var_pos = func.__code__.co_varnames.index(arg_name)
 
     try:
-        ast_call: ast.Call = str2ast(func_call.strip()).value
+        node: ast.AST = str2ast(func_call.strip())
+        if isinstance(node, ast.Expr):
+            ast_call = cast(ast.Call, node.value)
+        elif isinstance(node, ast.Raise):
+            ast_call = cast(ast.Call, node.exc)
+        else:
+            raise RuntimeError()
         return ast2str(ast_call.args[arg_var_pos])
     except AttributeError:
         return None

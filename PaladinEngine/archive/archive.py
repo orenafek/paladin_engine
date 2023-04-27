@@ -7,6 +7,7 @@
 import dataclasses
 import json
 from ast import *
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type
@@ -35,7 +36,7 @@ def represent(o: object):
     if isinstance(o, tuple):
         return (represent(x) for x in o)
 
-    if isinstance(o, list):
+    if any([isinstance(o, t) for t in {list, deque}]):
         return [represent(x) for x in o]
 
     if isinstance(o, set):
@@ -93,6 +94,7 @@ class Archive(object):
             UNAMED_OBJECT = 8, object
             EVENT = 9, object
             FUNCTION_CALL = 10, object
+            DEQUE_ITEM = 11, deque
 
             @property
             def value(self) -> int:
@@ -116,6 +118,8 @@ class Archive(object):
                 if issubclass(t, dict):
                     return Archive.Record.StoreKind.DICT_ITEM
 
+                if issubclass(t, deque):
+                    return Archive.Record.StoreKind.DEQUE_ITEM
                 return Archive.Record.StoreKind.VAR
 
             @classmethod

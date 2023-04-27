@@ -3,6 +3,7 @@ import dataclasses
 import json
 import traceback
 from _ast import BinOp, AST
+from collections import deque
 from dataclasses import dataclass
 from typing import * # DO NOT REMOVE!!!!
 
@@ -260,11 +261,10 @@ class PaladinNativeParser(object):
                 _self.nan_str = 'NaN'
 
             def default(_self, o: Any) -> Any:
-                if isinstance(o, set):
+                if any([isinstance(o, t) for t in {set, deque}]):
                     return list(o)
-
-                if any([isinstance(o, t) for t in self.archive.created_data_types.values()]):
-                    return dataclasses.asdict(o)
+                # if any([isinstance(o, t) for t in self.archive.created_data_types.values()]):
+                #     return dataclasses.asdict(o)
 
                 if isinstance(o, float) and o in BUILTIN_SPECIAL_FLOATS.values():
                     return str(super().default(o))

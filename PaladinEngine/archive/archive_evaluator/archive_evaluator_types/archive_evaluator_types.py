@@ -1,3 +1,4 @@
+from collections import deque
 from dataclasses import dataclass
 from functools import reduce
 from typing import *
@@ -26,7 +27,7 @@ ParseResults: Type = Dict[str, Dict[str, Any]]
 
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
-EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict}
+EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict, deque.__name__: deque}
 BAD_JSON_VALUES = {'Infinity': '"∞"', 'NaN': '"NaN"'}
 
 

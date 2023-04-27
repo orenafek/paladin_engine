@@ -1,9 +1,10 @@
 import functools
+from collections import deque
 from copy import copy
 from dataclasses import dataclass
 from typing import Type, Any, Dict, Tuple
 
-__BUILTIN_COLLECTIONS__ = {list, set, tuple}
+__BUILTIN_COLLECTIONS__ = {list, set, tuple, deque}
 
 EMPTY = object()
 EMPTY_COLLECTION = object()
@@ -22,10 +23,12 @@ class Postpone(object):
 
 class BuiltinCollectionsUtils(object):
     _BUILTIN_COLLECTIONS_METHODS_MAPPING = {
-        list: [list.append, list.remove, list.extend, list.reverse, list.clear, list.__setitem__],
+        list: [list.append, list.remove, list.extend, list.reverse, list.clear, list.__setitem__, list.pop],
         set: [set.add, set.remove, set.clear, set.update, set.difference_update, set.discard,
               set.intersection_update, set.symmetric_difference_update],
-        dict: [dict.__setitem__, dict.clear, dict.update]
+        dict: [dict.__setitem__, dict.clear, dict.update],
+        deque: [deque.append, deque.appendleft, deque.remove, deque.extend, deque.extendleft, deque.reverse, deque.clear,
+                deque.pop, deque.popleft, deque.__setitem__]
     }
 
     _BUILTIN_COLLECTIONS_METHOD_NAMES = list(

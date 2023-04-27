@@ -4,6 +4,7 @@
     :author: Oren Afek
     :since: 05/04/19
 """
+import _ast
 import ast
 import dataclasses
 import inspect

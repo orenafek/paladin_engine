@@ -2,6 +2,7 @@ import abc
 import ast
 import re
 import sys
+from collections import deque
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from io import StringIO
@@ -86,6 +87,7 @@ def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str
             __store(frame, '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
                     Archive.Record.StoreKind.UNAMED_OBJECT)
 
+    return func_stub_wrapper
 
 def __BREAK__(line_no: int, frame):
     if archive.should_record:
@@ -381,8 +383,8 @@ def __store(container_id, field, line_no, target, value, locals, globals,
         if ISP(type(v)) or v is None or issubclass(type(v), type):
             return None
 
-        if type(v) in [list, tuple, set]:
-            return _store_lists_tuples_and_sets(v)
+        if type(v) in [list, tuple, set, deque]:
+            return _store_lists_tuples_deques_and_sets(v)
 
         if issubclass(type(v), dict):
             return _store_dicts(id(v), v)
@@ -392,7 +394,7 @@ def __store(container_id, field, line_no, target, value, locals, globals,
 
         return _store_dicts(id(v), v.__dict__)
 
-    def _store_lists_tuples_and_sets(v: Union[List, Tuple, Set]):
+    def _store_lists_tuples_deques_and_sets(v: Union[List, Tuple, Set]):
 
         if len(v) == 0 and v is not None:
             # Empty collection.

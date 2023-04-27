@@ -2,7 +2,7 @@ import unittest
 from abc import ABC
 from pathlib import Path
 from typing import *
-
+from collections import deque
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
@@ -60,6 +60,19 @@ class TestBuiltinCollections(TestDiffObjectBuilder):
     def test_lists(self):
         self._test_series_of_values('l1', None, [1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6], [1, 2, 4, 5, 6], [6, 5, 4, 2, 1],
                                     [], [6, 7, 8, 9, 10])
+
+    def tests_deques(self):
+        self._test_series_of_values('dq', None, *[deque(l) for l in
+                                                  [['a', 'b', 'c', 'd', 'e'],
+                                                    ['a', 'b', 'c', 'd', 'e', 'f'],
+                                                    ['~', 'a', 'b', 'c', 'd', 'e', 'f'],
+                                                   ['~', 'a', 'b', 'd', 'e', 'f'],
+                                                   ['f', 'e', 'd','b','a', '~'],
+                                                   [],
+                                                   ['g', 'h', 'i', 'j', 'k'],
+                                                   ['c', 'b','a', 'g', 'h', 'i', 'j', 'k'],
+                                                   [ 'b', 'a', 'g', 'h', 'i', 'j', 'k']
+                                                  ]])
 
     def test_sets(self):
         self._test_series_of_values('s1', None, {1, 2, 3}, {1, 2, 3, 4}, {2, 3, 4}, {2, 3, 4, 5}, {2, 3, 4}, {2, 4},

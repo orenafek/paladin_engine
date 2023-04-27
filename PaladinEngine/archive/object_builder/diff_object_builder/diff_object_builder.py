@@ -149,7 +149,7 @@ class DiffObjectBuilder(ObjectBuilder):
         col_type = value.builtin_type
         arg = value.arg_value
         arg_type = value.arg_type
-        evaluated_arg = self.build(arg, t, arg_type, line_no=line_no) if arg != EMPTY else arg
+        evaluated_arg = self.build(arg, t, arg_type, line_no=line_no) if arg != EMPTY and not ISP(arg_type) else arg
         to_evaluate = list(
             BuiltinCollectionsUtils.update_dict_object_with_builtin_method(evaluated_object, col_type, manip_name,
                                                                            evaluated_arg).items()) + to_evaluate
