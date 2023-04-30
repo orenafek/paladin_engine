@@ -63,6 +63,7 @@
                                             v-model:value="query.customizer"></Codemirror>
                             </div>
                         </div>
+                        <customized-presentation></customized-presentation>
                         <div class="range-spec">
                             <span>Time range: </span>
                             <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"

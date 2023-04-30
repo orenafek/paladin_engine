@@ -14,6 +14,7 @@ import Vue3Highlightjs from "./vue3-highlight";
 import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
 import ArchiveTable from "./components/archive_entries_table.vue";
 import tabular from "./components/tabular.vue";
+import CustomizedPresentation from "./components/customized_presentation_code_editor.vue"
 import {persistField, LocalStore} from "./infra/store";
 import Slider from "@vueform/slider";
 
@@ -29,6 +30,7 @@ const mainComponent = {
         Tree,
         loadingSpinner: LoadingSpinner,
         tabular,
+        customizedPresentation: CustomizedPresentation,
         Markdown,
         Slider,
         Splitpanes, Pane
