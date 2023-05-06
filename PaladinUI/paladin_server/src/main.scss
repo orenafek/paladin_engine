@@ -86,6 +86,34 @@ body {
     #query-pane {
         background: #282727;
         padding: 8px;
+
+        .range-spec {
+            #queryTimeSlider {
+                min-width: 10em;
+                --slider-bg: #777;
+                --slider-connect-bg: #a6a;
+                --slider-tooltip-bg: #757;
+                --slider-tooltip-line-height: 1;
+            }
+            label { display: block; margin-top: 6px; font-size: 80%; }
+        }
+
+        table.query-result {
+            border-collapse: collapse;
+            background: #3a3a3a;
+
+            thead: {
+                background: #543;
+            }
+
+            td {
+                padding: 2px 3px;
+            }
+
+            tr:hover {
+                background: #557;
+            }
+        }
     }
 }
 

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <head>
     <title>Paladin</title>
+    <!-- do we need any of these..?
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/agate.min.css"/>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
@@ -11,6 +12,7 @@
     <script src="//cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.8.0/dist/highlightjs-line-numbers.min.js"></script>
     <script>hljs.initLineNumbersOnLoad();</script>
     <script src="https://d3js.org/d3.v3.min.js"></script>
+    -->
     <script src="/static/index.js"></script>
 </head>
 <body>
@@ -39,7 +41,7 @@
                     <div>
                         <h3> Run Query: </h3>
                         <div>
-                            <Codemirror placeholder="Selection" :options="codemirror_options" :height="auto"
+                            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto"
                                         :width="600"
                                         style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
                         </div>
@@ -49,7 +51,7 @@
                         <br />
                         <label>
                             <input type="checkbox" id="shouldCustomize" @change="shouldCustomizeChange"/>
-                            Customize
+                            Custom display
                         </label>
                         <div id="customizeCollapsable" hidden="hidden">
                             <h3> Add a customized display: </h3>
@@ -58,18 +60,18 @@
                             </p>
                             <div>
                                 <Codemirror placeholder="Selection" :options="codemirror_options_customizer"
-                                            :height="auto" :width="600"
+                                            height="auto" :width="600"
                                             style="font-size: 14pt;"
                                             v-model:value="query.customizer"></Codemirror>
                             </div>
                         </div>
                         <div class="range-spec">
-                            <span>Time range: </span>
                             <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"
-                                    @change="sliderChange"/>
+                                    @change="sliderChange"></Slider>
+                            <label>Time range</label>
                         </div>
                         <br/>
-                        <tabular :value="queryResult"></tabular>
+                        <tabular class="query-result" :value="queryResult"></tabular>
                         <br/>
                         <div> PaLaDiN DSL Operators:</div>
                         <Markdown :source="dsl_docs" :breaks="true"/>

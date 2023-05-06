@@ -16,6 +16,7 @@ import ArchiveTable from "./components/archive_entries_table.vue";
 import tabular from "./components/tabular.vue";
 import {persistField, LocalStore} from "./infra/store";
 import Slider from "@vueform/slider";
+import "@vueform/slider/themes/default.scss";
 
 import LoadingSpinner from "./components/loading_spinner.vue";
 import './main.scss';
