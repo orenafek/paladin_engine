@@ -166,14 +166,26 @@ const mainComponent = {
         run_query: async function () {
             this.queryInProgress = true;
             try {
-                this.queryResult = await request_debug_info("query",
+                let resp = await request_debug_info("query",
                     ...[this.query.select, this.query.startTime, this.query.endTime,
                         this.shouldCustomizeQuery ? this.query.customizer : ""]);
+                this.queryResult = JSON.parse(resp);
             } finally {
                 this.queryInProgress = false;
             }
             return true;
         },
+
+        formatResults(queryResult) {
+            return {
+                columnHeaders: queryResult['keys'],
+                rowHeaders: Object.keys(queryResult).filter(k => k != 'keys')
+                    .map(key => ({key, display: this.formatTimeInterval(key)})),
+                rowData: queryResult
+            };
+        },
+
+        formatTimeInterval(s) { return s.replace(/\((\d+), (\d+)\)/, '$1–$2'); },
 
         store_layout_panes(ev) {
             this.layout.panes = ev.map(x => ({size: x.size}));

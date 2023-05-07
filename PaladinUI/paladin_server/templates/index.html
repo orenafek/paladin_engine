@@ -71,7 +71,7 @@
                             <label>Time range</label>
                         </div>
                         <br/>
-                        <tabular class="query-result" :value="queryResult"></tabular>
+                        <tabular class="query-result" :value="formatResults(queryResult)"></tabular>
                         <br/>
                         <div> PaLaDiN DSL Operators:</div>
                         <Markdown :source="dsl_docs" :breaks="true"/>

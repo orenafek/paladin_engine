@@ -1,12 +1,12 @@
 <template>
-  <table v-if="!isEmpty(sortedEntries)">
+  <table v-if="value?.columnHeaders">
     <thead>
-    <td> Time Range</td>
-    <td v-for="h in headline"> {{ h }}</td>
+    <td>Time</td>
+    <td v-for="h in value.columnHeaders"> {{ h }}</td>
     </thead>
-    <tr v-for="i in time_ranges.length">
-      <td> {{ time_ranges[i - 1] }}</td>
-      <td v-for="k in headline.length"> {{ result(i - 1, k - 1) }}</td>
+    <tr v-for="rowHead in value.rowHeaders">
+      <td> {{ rowHead.display }}</td>
+      <td v-for="colKey in value.columnHeaders"> {{ result(rowHead.key, colKey) }}</td>
     </tr>
   </table>
 </template>
@@ -17,33 +17,9 @@ export default {
   props: {
     value: Object,
   },
-  computed: {
-    sortedEntries() {
-      return this.isEmpty(this.value) ? {} : JSON.parse(this.value);
-    },
-
-    headlineIndex() {
-      return Object.keys(this.sortedEntries).indexOf('keys')
-    },
-
-    headline() {
-      return Object.values(this.sortedEntries)[this.headlineIndex];
-    },
-
-    time_ranges() {
-      const allKeys = Object.keys(this.sortedEntries);
-
-      /* Remove keys index. */
-      allKeys.splice(this.headlineIndex, 1);
-
-      return allKeys;
-    },
-
-  },
   methods: {
-    isEmpty: o => JSON.stringify(o) === "{}",
-    result(range_index, key_index) {
-      return Object.values(Object.values(this.sortedEntries)[range_index])[key_index];
+    result(rowKey, colKey) {
+      return this.value.rowData[rowKey]?.[colKey];
     }
   }
 }
