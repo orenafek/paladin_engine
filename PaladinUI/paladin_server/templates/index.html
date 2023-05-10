@@ -55,18 +55,14 @@
                             <label>Time range</label>
                         </div>
                         <label>
-                            <input type="checkbox" id="shouldCustomize" @change="shouldCustomizeChange"/>
+                            <input type="checkbox" id="shouldCustomize" v-model="shouldCustomizeQuery"/>
                             Custom display
                         </label>
-                        <div id="customizeCollapsable" hidden="hidden">
-                            <h3> Add a customized display: </h3>
-                            <p>
-                                Complete this customizer function to change the appearance of your results.
-                            </p>
+                        <div id="customizeCollapsable" v-if="shouldCustomizeQuery">
                             <div>
                                 <Codemirror placeholder="Selection" :options="codemirror_options_customizer"
                                             height="auto" :width="600"
-                                            style="font-size: 14pt;"
+                                            class="original-style"
                                             v-model:value="query.customizer"></Codemirror>
                             </div>
                         </div>

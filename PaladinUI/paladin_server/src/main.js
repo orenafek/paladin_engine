@@ -22,6 +22,18 @@ import LoadingSpinner from "./components/loading_spinner.vue";
 import './main.scss';
 import Markdown from "vue3-markdown-it";
 
+
+const DEFAULT_CUSTOMIZER = `def customizer(d: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Customize a row of results.
+    @type d: Dict[str, Any]
+    @param d: A dict in which the keys are the columns and the values are the row's 
+            result in that column, i.e. {column: row[column]} 
+    """ 
+    return d
+`;
+
+
 const mainComponent = {
     components: {
         highlighted: Highlighted,
@@ -57,16 +69,7 @@ const mainComponent = {
                 select: "",
                 startTime: 0,
                 endTime: 10000,
-                customizer:
-                    `def customizer(d: Dict[str, Any]) -> Dict[str, Any]:
-                        """
-                         Customize a row of results.
-                         @type d: Dict[str, Any]
-                         @param d: A dict in which the keys are the columns and the values are the row's 
-                                   result in that column, i.e. {column: row[column]} 
-                        """ 
-                        return d
-                    `
+                customizer: DEFAULT_CUSTOMIZER
             },
             queryInProgress: false,
             queryResult: {},
