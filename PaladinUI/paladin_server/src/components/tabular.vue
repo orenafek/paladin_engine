@@ -5,7 +5,7 @@
     <td v-for="h in value.columnHeaders"> {{ h }}</td>
     </thead>
     <tr v-for="rowHead in value.rowHeaders">
-      <td> {{ rowHead.display }}</td>
+      <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
       <td v-for="colKey in value.columnHeaders"> {{ result(rowHead.key, colKey) }}</td>
     </tr>
   </table>
@@ -20,6 +20,9 @@ export default {
   methods: {
     result(rowKey, colKey) {
       return this.value.rowData[rowKey]?.[colKey];
+    },
+    rowSelect($event, rowHead) {
+      this.$emit('row:select', {$event, rowHead});
     }
   }
 }

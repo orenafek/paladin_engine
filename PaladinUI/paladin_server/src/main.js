@@ -187,6 +187,14 @@ const mainComponent = {
 
         formatTimeInterval(s) { return s.replace(/\((\d+), (\d+)\)/, '$1–$2'); },
 
+        narrowTimeRange({rowHead}) {
+            console.log(rowHead);
+            let mo = rowHead.key.match(/\((\d+), (\d+)\)/);
+            if (mo) {
+                this.runTimeWindow = [parseInt(mo[1]), parseInt(mo[2])];
+            }
+        },
+
         store_layout_panes(ev) {
             this.layout.panes = ev.map(x => ({size: x.size}));
         },
