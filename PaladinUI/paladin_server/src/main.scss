@@ -46,8 +46,20 @@ body {
         background-color: #ccc;
         
         &::before, &::after {
-            background-color: #0005;
+            background-color: #0005; 
         }
+    }
+
+    h3.section {
+        border-top: 1px solid #666;
+        border-bottom: 1px solid #666;
+        padding: 2px;
+        background: #444;
+    }
+
+    pre.output {
+        background-color: #333;
+        padding: 1px;
     }
 
     #query-pane div.range-spec {

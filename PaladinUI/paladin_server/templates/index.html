@@ -35,11 +35,11 @@
                          style="color: red;">
                     </div>
                     <div>
-                        <h3> Output: </h3>
-                        <Markdown :source="run_output" :breaks="true" style="background-color: #333"/>
+                        <h3 class="section"> Output </h3>
+                        <pre class="output" v-text="run_output"></pre>
                     </div>
                     <div>
-                        <h3> Run Query: </h3>
+                        <h3 class="section"> Run Query </h3>
                         <div>
                             <Codemirror placeholder="Selection" :options="codemirror_options" height="auto"
                                         :width="600"
