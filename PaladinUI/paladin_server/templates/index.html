@@ -49,6 +49,11 @@
                                          @loading-button-click="run_query">Run
                         </loading-spinner>
                         <br />
+                        <div class="range-spec">
+                            <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"
+                                    @change="sliderChange"></Slider>
+                            <label>Time range</label>
+                        </div>
                         <label>
                             <input type="checkbox" id="shouldCustomize" @change="shouldCustomizeChange"/>
                             Custom display
@@ -64,11 +69,6 @@
                                             style="font-size: 14pt;"
                                             v-model:value="query.customizer"></Codemirror>
                             </div>
-                        </div>
-                        <div class="range-spec">
-                            <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"
-                                    @change="sliderChange"></Slider>
-                            <label>Time range</label>
                         </div>
                         <br/>
                         <tabular class="query-result" :value="formatResults(queryResult)"
