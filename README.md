@@ -37,6 +37,7 @@ TBD
 ### PaLaDiN Installations
 
 1. After installing third party tools, in the project's root directory run: `make all`
+2. Activate poetry's virtual env. by running `source .venv/bin/activate`
 
 ## PaLaDiN CLI && Debug server
 
