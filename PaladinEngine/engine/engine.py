@@ -76,23 +76,18 @@ class PaLaDiNEngine(object):
                     line_no = int(
                         re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
                 except BaseException as e:
-                    if __FC__.__name__ in paladinized_line:
-                        # TODO: This is a patch for __FC__ that can't add "line_no=" in it because it expects *args and **kwargs after it.
-                        # TODO: Currently assuming that __FC__(expression, func_name, locals, globals, frame, line_no, *args, **kwargs)
-                        start_of_line_no = paladinized_line.index(f'{__FRAME__.__name__}(), ') + len(
-                            f'{__FRAME__.__name__}(), ')
-                        line_no = int(
-                            re.compile(r'(?P<n>(\d+))[,)].*').match(paladinized_line[start_of_line_no::]).group('n'))
-                        # line_no = int(paladinized_line.split(',')[5].strip().strip(')'))
+                    for stub in {__FC__, __PRINT__}:
+                        if line_no := get_arg_from_func_call(paladinized_line, stub, 'line_no'):
+                            break
                     else:
                         raise e
-
+                line_no = int(line_no)
                 matched_line = (line_no, original_lines[line_no - 1])  # original_lines start from 0
             else:
                 matched_lines = [(no + 1, l) for no, l in enumerate(original_lines) if
                                  paladinized_lines[run_line_no - 1] == l]
                 # TODO: What to do if there are more (or less) than 1?
-                assert len(matched_lines) == 1
+                #assert len(matched_lines) == 1
 
                 matched_line = matched_lines[0]
             return PaLaDiNEngine.PaladinRunExceptionData(source_code_line_no=matched_line[0],
@@ -103,14 +98,26 @@ class PaLaDiNEngine(object):
 
     __INSTANCE = PaLaDiNEngine()
 
-    # List of stubs that can be added to the PaLaDiNized code
-    PALADIN_STUBS_LIST = [__FLI__, __POST_CONDITION__, __FC__, __AS__, __FRAME__, __ARG__, __DEF__, __UNDEF__, __AC__,
-                          __PIS__, __PALADIN_LIST__, __BREAK__, __SOLI__, __EOLI__, __BMFCS__, __PRINT__]
-
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
 
     __SOURCE_PROVIDER = None
+
+    @staticmethod
+    def __get_line_no_from_paladinized_source(paladinized_line: str) -> LineNo:
+        try:
+            line_no = int(
+                re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
+        except BaseException as e:
+            for f in {__FC__, __PRINT__}:
+                if f.__name__ in paladinized_line:
+                    if 'line_no' not in f.__code__.co_varnames:
+                        raise e
+                    line_no_var_pos = f.__code__.co_varnames.index('line_no')
+                    start_of_line_no = paladinized_line.index()
+                    line_no = int(
+                        re.compile(r'(?P<n>(\d+))[,)].*').match(paladinized_line[start_of_line_no::]).group('n'))
+            raise e
 
     @staticmethod
     def get_source_provider():
@@ -204,7 +211,6 @@ class PaLaDiNEngine(object):
         """
 
         t = ModuleTransformer(module)
-        m = module
         try:
             t = t.transform_aug_assigns()
             m = t.module

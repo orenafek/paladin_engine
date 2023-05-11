@@ -28,7 +28,7 @@ ParseResults: Type = Dict[str, Dict[str, Any]]
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
 EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict, deque.__name__: deque}
-BAD_JSON_VALUES = {'Infinity': '"∞"', 'NaN': '"NaN"'}
+BAD_JSON_VALUES = {'-Infinity': '"-∞"', 'Infinity': '"∞"', 'NaN': '"NaN"'}
 
 
 @dataclass
@@ -162,7 +162,6 @@ class EvalResultEntry(dict):
 
 
 class EvalResult(List[EvalResultEntry]):
-    EMPTY = []
 
     @classmethod
     def create_const_copy(cls, r: 'EvalResult', c: object):

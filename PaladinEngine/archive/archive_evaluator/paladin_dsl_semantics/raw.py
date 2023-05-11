@@ -78,11 +78,11 @@ class Raw(Operator):
         resolved = {name: resolved[name] for name in resolved if resolved[name] is not None}
 
         if query_locals:
-            resolved.update(
-                {name: sorted([e for e in query_locals[name] if e.time <= time], reverse=True, key=lambda e: e.time)[0]
-                 for name in names if
-                 name in query_locals})
-
+            for name in query_locals:
+                if query_locals[name]:
+                    vals_for_name = sorted([e for e in query_locals[name] if e.time <= time], reverse=True,
+                                           key=lambda e: e.time)
+                    resolved.update({name: (vals_for_name[0] if vals_for_name else EvalResultEntry.empty(time))})
         return resolved
 
     def _get_args(self) -> Collection['Operator']:

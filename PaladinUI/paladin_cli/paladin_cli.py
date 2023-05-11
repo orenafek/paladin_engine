@@ -78,7 +78,6 @@ def main():
                                                                                        args.input_file,
                                                                                        args.timeout,
                                                                                        output_capture)
-                print(result)
 
         except BaseException:  # Plot a graph.
             traceback.print_exc()
