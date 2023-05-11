@@ -5,7 +5,7 @@ import "codemirror/theme/darcula.css";
 import "codemirror/addon/scroll/simplescrollbars";
 import "codemirror/addon/scroll/simplescrollbars.css";
 import Codemirror from "codemirror-editor-vue3";
-import { Splitpanes, Pane } from 'splitpanes';
+import {Splitpanes, Pane} from 'splitpanes';
 import 'splitpanes/dist/splitpanes.css';
 
 import {request_debug_info} from "./request"
@@ -14,10 +14,24 @@ import Vue3Highlightjs from "./vue3-highlight";
 import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
 import ArchiveTable from "./components/archive_entries_table.vue";
 import tabular from "./components/tabular.vue";
-import { persistField, LocalStore } from "./infra/store";
+import {persistField, LocalStore} from "./infra/store";
+import Slider from "@vueform/slider";
+import "@vueform/slider/themes/default.scss";
 
 import LoadingSpinner from "./components/loading_spinner.vue";
 import './main.scss';
+import Markdown from "vue3-markdown-it";
+
+
+const DEFAULT_CUSTOMIZER = `def customizer(d: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Customize a row of results.
+    @type d: Dict[str, Any]
+    @param d: A dict in which the keys are the columns and the values are the row's 
+            result in that column, i.e. {column: row[column]} 
+    """ 
+    return d
+`;
 
 
 const mainComponent = {
@@ -28,6 +42,8 @@ const mainComponent = {
         Tree,
         loadingSpinner: LoadingSpinner,
         tabular,
+        Markdown,
+        Slider,
         Splitpanes, Pane
     },
     data: function () {
@@ -53,10 +69,14 @@ const mainComponent = {
                 select: "",
                 startTime: 0,
                 endTime: 10000,
-                lineNo: 0
+                customizer: DEFAULT_CUSTOMIZER
             },
             queryInProgress: false,
             queryResult: {},
+            dsl_docs: '',
+            run_output: '',
+            lastRunTime: 10000,
+            runTimeWindow: [0, 10000],
             codemirror_options: {
                 mode: "text/x-python",
                 theme: "darcula",
@@ -66,7 +86,16 @@ const mainComponent = {
                 foldGutter: true,
                 styleActiveLine: true,
                 query_dsl_words: async () => (await request_debug_info("query_dsl_words")).join(", ")
-            }
+            },
+            codemirror_options_customizer: {
+                mode: "text/x-python",
+                theme: "darcula",
+                lineNumbers: true,
+                lineSeparator: '\n',
+                smartIndent: true,
+                indentUnit: 2
+            },
+            shouldCustomizeQuery: false
         }
     },
     created: async function () {
@@ -76,10 +105,16 @@ const mainComponent = {
         this.exception_source_line = exception != null ? exception['exception_source_line'] : null;
         this.exception_msg = exception != null ? exception['exception_msg'] : null;
         this.exception_archive_time = exception != null ? exception['exception_archive_time'] : null;
+        this.dsl_docs = (await request_debug_info('docs')).toString().trim();
+        this.run_output = (await request_debug_info('run_output')).toString().trim();
+        this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
+        this.query.endTime = this.lastRunTime;
+        this.runTimeWindow = [0, this.lastRunTime];
     },
     mounted() {
-        persistField(this, 'query', new LocalStore('app:query'));
+        persistField(this.query, 'select', new LocalStore('app:querySelect'));
         persistField(this.layout, 'panes', new LocalStore('app:layout.panes'));
+        persistField(this.query, 'customizer', new LocalStore('app:queryCustomizer'));
     },
     compilerOptions: {
         delimiters: ['$$[', ']$$']
@@ -134,25 +169,58 @@ const mainComponent = {
         run_query: async function () {
             this.queryInProgress = true;
             try {
-                this.queryResult = await request_debug_info("query",
-                    ...[this.query.select,
-                        this.query.startTime, this.query.endTime, this.query.lineNo]);
-            }
-            finally {
+                let resp = await request_debug_info("query",
+                    ...[this.query.select, this.query.startTime, this.query.endTime,
+                        this.shouldCustomizeQuery ? this.query.customizer : ""]);
+                this.queryResult = JSON.parse(resp);
+            } finally {
                 this.queryInProgress = false;
             }
             return true;
         },
 
+        formatResults(queryResult) {
+            return {
+                columnHeaders: queryResult['keys'],
+                rowHeaders: Object.keys(queryResult).filter(k => k != 'keys')
+                    .map(key => ({key, display: this.formatTimeInterval(key)})),
+                rowData: queryResult
+            };
+        },
+
+        formatTimeInterval(s) { return s.replace(/\((\d+), (\d+)\)/, '$1–$2'); },
+
+        narrowTimeRange({rowHead}) {
+            console.log(rowHead);
+            let mo = rowHead.key.match(/\((\d+), (\d+)\)/);
+            if (mo) {
+                this.runTimeWindow = [parseInt(mo[1]), parseInt(mo[2])];
+                this.sliderChange(this.runTimeWindow);
+            }
+        },
+
         store_layout_panes(ev) {
             this.layout.panes = ev.map(x => ({size: x.size}));
+        },
+
+        sliderChange(sliderValue) {
+            this.query.startTime = sliderValue[0];
+            this.query.endTime = sliderValue[1];
+        },
+
+        shouldCustomizeChange(_) {
+            const isShouldCustomizeChecked = document.getElementById('shouldCustomize').checked;
+            document.getElementById('customizeCollapsable').hidden = !isShouldCustomizeChecked;
+            this.shouldCustomizeQuery = isShouldCustomizeChecked;
         }
     }
 
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const appProto = Vue.createApp(mainComponent).use(Vue3Highlightjs);
+    const appProto = Vue.createApp(mainComponent)
+        .use(Vue3Highlightjs)
+        .use(Markdown);
     window.app = appProto.mount('#app');
     escapeHTMLTags();
 });

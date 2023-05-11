@@ -1,12 +1,16 @@
 import abc
-import ast
 import re
 import sys
+from collections import deque
+from contextlib import redirect_stdout
 from dataclasses import dataclass
-from typing import Optional, Union, TypeVar, Tuple, List, Dict
+from io import StringIO
+from types import NoneType
+from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Callable, Any
 
 from archive.archive import Archive
-from ast_common.ast_common import str2ast, ast2str
+from ast_common.ast_common import separate_to_container_and_field
+from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, EMPTY, EMPTY_COLLECTION
 from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
 
 archive = Archive()
@@ -27,36 +31,185 @@ class SubscriptVisitResult(object):
         return f'{self.collection}[{keys}]'
 
 
+def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
+    # Access field (or method).
+    field = obj.__getattribute__(attr) if type(obj) is not type else obj.__getattribute__(obj, attr)
+
+    archive.store_new \
+        .key(id(obj), attr, __AC__.__name__) \
+        .value(type(field), POID(field), expr, line_no)
+
+    return field
+
+
+def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
+            line_no: int):
+    archive.store_new \
+        .key(id(frame), arg, __AS__.__name__) \
+        .value(type(value), POID(value), arg, line_no)
+
+    if func_name == '__init__' and arg == 'self':
+        # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
+        # FIXME: Meaning that if __init__ is called with a firs arg which is not "self", this wouldn't work.
+        archive.store_new \
+            .key(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__) \
+            .value(type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION, line_no)
+
+
+def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
+    if not archive.should_record:
+        return
+
+    container_id, field, container, is_container_value, is_container_id_frame = separate_to_container_and_field(target,
+                                                                                                                frame,
+                                                                                                                locals,
+                                                                                                                globals)
+    value = container if is_container_value else getattr(container, field) if field in container.__dict__ else None
+
+    __store(container_id, field, line_no, target, value, locals, globals, __AS__,
+            kind=Archive.Record.StoreKind.VAR if is_container_id_frame else Archive.Record.StoreKind.OBJ_ITEM)
+
+
+# The first param "func_stub_wrapper" is not used but passed to this stub to be evaluated before entering here.
+# noinspection PyUnusedLocal
+def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str, line_no: int, frame,
+              locals, globals, arg: Optional[object] = EMPTY):
+    if BuiltinCollectionsUtils.is_builtin_collection_method(caller):
+        rv = archive.store_new \
+            .key(id(caller), func_name, __BMFCS__.__name__, Archive.Record.StoreKind.BUILTIN_MANIP) \
+            .value(type(caller), (type(arg), (POID(arg) if arg != EMPTY else EMPTY)), caller_str, line_no)
+
+        # Store args that are temporary objects.
+        # E.g.: l.add(Animal(...))
+        if not ISP(type(arg)) and not id(arg) in [id(x) for x in {**locals, **globals}.values()] and arg != EMPTY:
+            __store(frame, '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
+                    Archive.Record.StoreKind.UNAMED_OBJECT)
+
+    return func_stub_wrapper
+
+def __BREAK__(line_no: int, frame):
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), 'break', __BREAK__.__name__) \
+            .value(object, None, 'break', line_no)
+
+
+def __DEF__(func_name: str, line_no: int, frame):
+    archive.store_new \
+        .key(id(frame), func_name, __DEF__.__name__) \
+        .value(type(lambda _: _), func_name, func_name, line_no)
+
+
+def __EOLI__(frame, loop_start_line_no: int, loop_end_line_no: int):
+    archive.store_new \
+        .key(id(frame), '__end_of_loop_iteration', __EOLI__.__name__) \
+        .value(int, loop_start_line_no, '__end_of_loop_iteration', loop_end_line_no)
+
+
+def __FC__(expression: str, function,
+           locals: dict, globals: dict, frame, line_no: int,
+           *args: Optional[list[object]], **kwargs: Optional[dict[object]]):
+    """
+        Store function call stub.
+    :param function: The function that was called.
+    :param locals: Dictionary with the local variables of the calling context.
+    :param globals: Dictionary with the global variables of the calling context.
+    :param frame: The stack frame of the calling context
+    :param line_no: The line no of the function call.
+    :param args: The arguments passed to the function.
+    :param kwargs: The keyword arguments passed to the function.
+    :return: None.
+    """
+
+    # Call the function.
+    ret_exc = None
+    try:
+        ret_value = function(*args, **kwargs)
+    except BaseException as e:
+        ret_exc = e
+        ret_value = ret_exc
+
+    vars_dict = {**locals, **globals}
+
+    # Find container.
+    container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
+
+    # args_string = ', '.join([str(a) if function.__name__ != '__str__' else '@@@@ self @@@@' for a in args])
+    # kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
+
+    # Create an extra with the args and keywords.
+    # extra = f'args = {args_string}, kwargs = {kwargs_string}'
+    extra = ''
+
+    if archive.should_record:
+        # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
+        __store(container_id, function.__name__, line_no, function.__name__, ret_value, locals, globals, __FC__,
+                kind=Archive.Record.StoreKind.FUNCTION_CALL,
+                extra=extra)
+
+    if ret_exc:
+        raise ret_exc
+    # Return ret value.
+    return ret_value
+
+
+def __FLI__(locals, globals):
+    raise NotImplementedError()
+
+
 def __FRAME__():
     return sys._getframe(1)
 
 
-def __FLI__(locals, globals):
-    """
-        A stub for a for loop.
-    :param locals: The local names accessible from the loop.
-    :param globals: The global names accessible from the loop.
-    :return:
-    """
-    all_vars = {**locals, **globals}
+def __IS_STUBBED__(line: str) -> bool:
+    return any([stub.__name__ in line for stub in __STUBS__])
 
-    n = all_vars['n']
 
-    result = all_vars['result']
-    error_line = '''
-        if |n| >= 1:
-            result >= pre(result)
-        else:
-            result < pre(result)'''
-    try:
-        values = [rv.value for rv in archive.search('result').values]
+def __PAUSE__():
+    archive.pause_record()
 
-        if abs(n) >= 1:
-            assert result >= all(values)
-        else:
-            assert result < all(values)
-    except BaseException:
-        pass
+
+def __PIS__(first_param: object, first_param_name: str, line_no: int):
+    # TODO: Should type(first_param) be int instead?
+    archive.store_new \
+        .key(Archive.GLOBAL_PALADIN_CONTAINER_ID, first_param_name, __PIS__.__name__) \
+        .value(type(first_param), id(first_param), first_param_name, line_no)
+
+
+def __PRINT__(line_no: int, frame, *print_args):
+    with StringIO() as capturer, redirect_stdout(capturer):
+        print(*print_args)
+        output = capturer.getvalue().strip('\n')
+
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), 'print', __PRINT__.__name__, Archive.Record.StoreKind.EVENT) \
+            .value(type(print), f'{output}', f'print({", ".join([str(arg) for arg in print_args])}', line_no)
+
+    print(output)
+
+
+def __RESUME__():
+    archive.resume_record()
+
+
+def __SOL__(frame, loop_start_line_no: int):
+    archive.store_new \
+        .key(id(frame), '__start_of_loop', __SOL__.__name__) \
+        .value(int, loop_start_line_no, '__start_of_loop', loop_start_line_no)
+
+
+def __SOLI__(line_no: int, frame):
+    if archive.should_record:
+        archive.store_new \
+            .key(id(frame), '__start_of_loop_iteration', __SOLI__.__name__) \
+            .value(int, line_no, '__start_of_loop_iteration', line_no)
+
+
+def __UNDEF__(func_name: str, frame, line_no: int):
+    archive.store_new \
+        .key(id(frame), func_name, __UNDEF__.__name__) \
+        .value(type(lambda _: _), func_name, func_name, line_no)
 
 
 def handle_broken_commitment(condition, frame, line_no):
@@ -140,209 +293,6 @@ def _separate_to_container_and_func(function, expression: str, frame, vars_dict:
     # return _separate_to_container_and_field_inner(expression, frame, vars_dict, _extract_identifier)
 
 
-def _separate_to_container_and_field(expression: str, frame, locals: dict, globals: dict) -> tuple[
-    int, str, object, bool]:
-    expression_ast = str2ast(expression).value
-    if isinstance(expression_ast, ast.Subscript):
-        getitem_arg = f'''{slice.__name__}(start={ast2str(expression_ast.slice.lower)},
-                                           stop={ast2str(expression_ast.slice.upper)},
-                                           step={ast2str(expression_ast.slice.step)})
-                       ''' if isinstance(expression_ast.slice, ast.Slice) else eval(ast2str(expression_ast.slice),
-                                                                                    globals, locals)
-        subscript_value = eval(ast2str(expression_ast.value), globals, locals)
-        return id(subscript_value), getitem_arg, eval(expression, globals, locals), True
-
-    if not isinstance(expression_ast, ast.Attribute):
-        # There is only an object.
-        value = eval(expression, globals, locals)
-        return id(frame), expression, value, True
-
-    container = eval(ast2str(expression_ast.value), globals, locals)
-    field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
-
-    return id(container), field, container, False
-
-
-def __DEF__(func_name: str, line_no: int, frame):
-    archive.store_new \
-        .key(id(frame), func_name, __DEF__.__name__) \
-        .value(type(lambda _: _), func_name, func_name, line_no)
-
-
-def __PIS__(first_param: object, first_param_name: str, line_no: int):
-    # TODO: Should type(first_param) be int instead?
-    archive.store_new \
-        .key(Archive.GLOBAL_PALADIN_CONTAINER_ID, first_param_name, __PIS__.__name__) \
-        .value(type(first_param), id(first_param), first_param_name, line_no)
-
-
-def __UNDEF__(func_name: str, line_no: int, frame):
-    archive.store_new \
-        .key(id(frame), func_name, __UNDEF__.__name__) \
-        .value(type(lambda _: _), func_name, func_name, line_no)
-
-
-def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
-            line_no: int):
-    archive.store_new \
-        .key(id(frame), arg, __ARG__.__name__) \
-        .value(type(value), value, arg, line_no)
-
-    if func_name == '__init__' and arg == 'self':
-        # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
-        # FIXME: Meaning that if __init__ is called with a firs arg which is not "self", this wouldn't work.
-        archive.store_new \
-            .key(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__) \
-            .value(type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION, line_no)
-
-
-def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
-    if not archive._should_record:
-        return
-
-    # Create variable dict.
-    vars_dict = {**locals, **globals}
-
-    container_id, field, container, is_container_value = _separate_to_container_and_field(target, frame, locals,
-                                                                                          globals)
-
-    # value = _search_in_vars_dict(field, vars_dict)
-    if is_container_value:
-        value = container
-    else:
-        value = container.__getattribute__(field) if field in container.__dict__ else None
-
-    if value is None:
-        # TODO: handle?
-        return
-
-    value_to_store = POID(value)
-    rv = archive.store_new \
-        .key(container_id, field, __AS__.__name__) \
-        .value(type(value), value_to_store, expression, line_no)
-
-    def _store_inner(v: object) -> None:
-        if type(v) in [list, tuple]:
-            return _store_lists_and_tuples(v)
-
-        if type(v) is dict:
-            return _store_dicts(v)
-
-        return None
-
-    def _store_lists_and_tuples(v: Union[List, Tuple]):
-        for index, item in enumerate(v):
-            irv = archive.store_new \
-                .key(id(v), index, __AS__.__name__) \
-                .value(type(item), POID(item), f'{type(v)}[{index}]', line_no)
-
-            irv.time = rv.time
-            _store_inner(item)
-
-    def _store_dicts(d: Dict):
-        for k, v in d.items():
-            irv = archive.store_new \
-                .key(id(d), POID(k), __AS__.__name__) \
-                .value(type(v), v, f'{id(d)}[{POID(k)}] = {POID(v)}')
-
-            irv.time = rv.time
-            _store_inner(k)
-            _store_inner(v)
-
-    _store_inner(value)
-
-
-def __FC__(expression: str, function,
-           locals: dict, globals: dict, frame, line_no: int,
-           *args: Optional[list[object]], **kwargs: Optional[dict[object]]):
-    """
-        Store function call stub.
-    :param function: The function that was called.
-    :param locals: Dictionary with the local variables of the calling context.
-    :param globals: Dictionary with the global variables of the calling context.
-    :param frame: The stack frame of the calling context
-    :param line_no: The line no of the function call.
-    :param args: The arguments passed to the function.
-    :param kwargs: The keyword arguments passed to the function.
-    :return: None.
-    """
-
-    vars_dict = {**locals, **globals}
-
-    # Function type.
-    func_type = type(lambda _: _)
-
-    # Find container.
-    container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
-
-    args_string = ', '.join([str(a) if function.__name__ != '__str__' else '@@@@ self @@@@' for a in args])
-    kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
-
-    # Create an extra with the args and keywords.
-    extra = f'args = {args_string}, kwargs = {kwargs_string}'
-
-    # Create a Record key.
-    record_key = Archive.Record.RecordKey(container_id, function.__name__, __FC__.__name__)
-
-    # Create Record value.
-    # First put a null value and update it after the function has been called with the value / exception.
-    record_value = Archive.Record.RecordValue(record_key, func_type, None, expression, line_no, extra=extra)
-
-    # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
-    if archive._should_record:
-        archive.store(record_key, record_value)
-
-    # Call the function.
-    ret_exc = None
-    try:
-        ret_value = function(*args, **kwargs)
-    except BaseException as e:
-        ret_exc = e
-        ret_value = ret_exc
-
-    ret_value_to_store = POID(ret_value) if ret_exc is not None else ret_exc
-    if archive._should_record:
-        # Update the value of the called function (or exception).
-        # record_value.value = ret_value
-        record_value.value = ret_value_to_store
-
-    if ret_exc:
-        raise ret_exc
-    # Return ret value.
-    return ret_value
-
-
-def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_no: int):
-    # Access field (or method).
-    field = obj.__getattribute__(attr) if type(obj) is not type else obj.__getattribute__(obj, attr)
-
-    if archive._should_record:
-        archive.store_new \
-            .key(id(obj), attr, __AC__.__name__) \
-            .value(type(field), POID(field), expr, line_no)
-
-    return field
-
-
-def create_ast_stub(stub, *args, **kwargs):
-    """
-        Create an AST node from a stub.
-    :param stub: (function) A stub
-    :return:
-    """
-    args_string = ', '.join(args)
-    kwargs_string = ', '.join([f'{i[0]}={i[1]}' for i in kwargs.items()])
-
-    arguments_string = args_string if kwargs_string == '' else \
-        kwargs_string if args_string == '' else f'{args_string}, {kwargs_string}'
-
-    # Create the call as a str.
-    return str2ast(f'{stub.__name__}({arguments_string})')
-
-
-all_stubs = [__FLI__, __AS__]
-
-
 class StubArgumentType(enumerate):
     """
         Types of arguments to stubs.
@@ -367,22 +317,10 @@ class StubArgumentType(enumerate):
     ID = 2
 
 
-def __PAUSE__():
-    archive.pause_record()
-
-
-def __RESUME__():
-    archive.resume_record()
-
-
 _T = TypeVar("_T")
 
-__STUBS__ = [__AC__, __AS__, __RESUME__, __PAUSE__, __FRAME__, __ARG__,
-             __FLI__, __DEF__, __PIS__, __POST_CONDITION__, __UNDEF__]
-
-
-def __IS_STUBBED__(line: str) -> bool:
-    return any([stub.__name__ in line for stub in __STUBS__])
+__STUBS__ = [__AC__, __ARG__, __AS__, __BMFCS__, __BREAK__, __DEF__, __EOLI__, __FC__, __FLI__, __FRAME__,
+             __IS_STUBBED__, __PAUSE__, __PIS__, __PRINT__, __RESUME__, __SOL__, __SOLI__, __UNDEF__]
 
 
 # noinspection PyPep8Naming
@@ -395,3 +333,66 @@ class __PALADIN_LIST__(object):
 
     def append(self, __object: _T) -> None:
         self._inner = self._inner + [__object]
+
+
+def __store(container_id, field, line_no, target, value, locals, globals,
+            stub: Callable = __AS__,
+            _time: Optional[int] = None, kind: Archive.Record.StoreKind = Archive.Record.StoreKind.VAR,
+            extra: Any = None):
+    stored_objects = set()
+
+    value_to_store = POID(value)
+    rv = archive.store_new \
+        .key(container_id, field, stub.__name__, kind) \
+        .value(type(value), value_to_store, str(target), line_no, extra=extra)
+
+    if _time:
+        rv.time = _time
+
+    def _store_inner(v: object) -> None:
+        if id(v) in stored_objects:
+            return None
+
+        stored_objects.add(id(v))
+
+        if ISP(type(v)) or v is None or issubclass(type(v), type):
+            return None
+
+        if type(v) in [list, tuple, set, deque]:
+            return _store_lists_tuples_deques_and_sets(v)
+
+        if issubclass(type(v), dict):
+            return _store_dicts(id(v), v)
+
+        if not hasattr(v, '__dict__'):
+            return None
+
+        return _store_dicts(id(v), v.__dict__)
+
+    def _store_lists_tuples_deques_and_sets(v: Union[List, Tuple, Set]):
+
+        if len(v) == 0 and v is not None:
+            # Empty collection.
+            archive.store_new \
+                .key(id(v), '', __AS__.__name__, Archive.Record.StoreKind.kind_by_type(type(v))) \
+                .value(NoneType, EMPTY_COLLECTION, '', line_no, time=rv.time)
+            return
+
+        for index, item in enumerate(v):
+            archive.store_new \
+                .key(id(v), index, __AS__.__name__, Archive.Record.StoreKind.kind_by_type(type(v))) \
+                .value(type(item), POID(item), f'{type(v)}[{index}]', line_no, time=rv.time)
+
+            _store_inner(item)
+
+    def _store_dicts(d_id: int, d: Dict):
+        for k, v in d.items():
+            archive.store_new \
+                .key(d_id, POID(k), __AS__.__name__, Archive.Record.StoreKind.DICT_ITEM) \
+                .value((type(k), type(v)), POID(v), f'{id(d)}[{POID(k)}] = {POID(v)}', line_no, time=rv.time)
+
+            _store_inner(k)
+            _store_inner(v)
+
+    if not ISP(type(value)) and not id(value) in {id(x) for x in stored_objects}:
+        _store_inner(value)

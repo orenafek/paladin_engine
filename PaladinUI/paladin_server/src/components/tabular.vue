@@ -1,12 +1,12 @@
 <template>
-  <table v-if="!isEmpty(sortedEntries)">
+  <table v-if="value?.columnHeaders">
     <thead>
-    <td> Time Range</td>
-    <td v-for="h in headline"> {{ h }}</td>
+    <td>Time</td>
+    <td v-for="h in value.columnHeaders"> {{ h }}</td>
     </thead>
-    <tr v-for="entry in Object.entries(sortedEntries)">
-      <td> {{ entry[0] }}</td>
-      <td v-for="result in entry[1][0]"> {{ result }}</td>
+    <tr v-for="rowHead in value.rowHeaders">
+      <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
+      <td v-for="colKey in value.columnHeaders"> {{ result(rowHead.key, colKey) }}</td>
     </tr>
   </table>
 </template>
@@ -17,24 +17,13 @@ export default {
   props: {
     value: Object,
   },
-  computed: {
-    sortedEntries() {
-      return this.isEmpty(this.value) ? {} : JSON.parse(this.value);
-    },
-    headline() {
-      if (this.isEmpty(this.sortedEntries)) {
-        return [];
-      }
-
-      /* Each result is in the format:
-           (from, to): [{<result(null/real)>, <replacements>}, <result(null/real)>, replacement>,...}]
-      */
-      const firstResultValue = Object.entries(this.sortedEntries)[0][1][0];
-      return Object.keys(firstResultValue);
-    }
-  },
   methods: {
-    isEmpty: o => JSON.stringify(o) === "{}",
+    result(rowKey, colKey) {
+      return this.value.rowData[rowKey]?.[colKey];
+    },
+    rowSelect($event, rowHead) {
+      this.$emit('row:select', {$event, rowHead});
+    }
   }
 }
 

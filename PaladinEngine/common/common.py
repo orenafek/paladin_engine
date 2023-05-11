@@ -1,6 +1,7 @@
-from typing import Any, Union, Iterable
+from types import NoneType
+from typing import Any, Union, Iterable, Callable
 
-__PRIMITIVES = [int, float, str, bool, complex]
+__PRIMITIVES = [int, float, str, bool, complex, NoneType]
 
 
 def ISP(t: type) -> bool:
@@ -17,6 +18,10 @@ def IS_ITERABLE(i: Union[Iterable, object]):
         return True
     except TypeError:
         return False
+
+
+def ISFOM(t: type) -> bool:
+    return issubclass(t, Callable)
 
 
 PALADIN_OBJECT_COLLECTION_FIELD = '__PALADIN_INIT_COLLECT__'

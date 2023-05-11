@@ -46,18 +46,29 @@ body {
         background-color: #ccc;
         
         &::before, &::after {
-            background-color: #0005;
+            background-color: #0005; 
         }
+    }
+
+    h3.section {
+        border-top: 1px solid #666;
+        border-bottom: 1px solid #666;
+        padding: 2px;
+        background: #444;
+    }
+
+    pre.output {
+        background-color: #333;
+        padding: 1px;
     }
 
     #query-pane div.range-spec {
         float: right;
         margin-left: 5em;
         margin-right: 5em;
-
-        span { color: #fff8; font-style: italic; }
+        //span { color: #fff8; font-style: italic; }
         input {
-            width: 5em;
+            width: 20em;
         }
     }
 
@@ -87,6 +98,34 @@ body {
     #query-pane {
         background: #282727;
         padding: 8px;
+
+        .range-spec {
+            #queryTimeSlider {
+                min-width: 10em;
+                --slider-bg: #777;
+                --slider-connect-bg: #a6a;
+                --slider-tooltip-bg: #757;
+                --slider-tooltip-line-height: 1;
+            }
+            label { display: block; margin-top: 6px; font-size: 80%; }
+        }
+
+        table.query-result {
+            border-collapse: collapse;
+            background: #3a3a3a;
+
+            thead: {
+                background: #543;
+            }
+
+            td {
+                padding: 2px 3px;
+            }
+
+            tr:hover {
+                background: #557;
+            }
+        }
     }
 }
 

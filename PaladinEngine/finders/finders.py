@@ -1,12 +1,12 @@
 import ast
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional, List, Type, Any, NamedTuple
+from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
 
 from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
 from conf.engine_conf import *
-from stubs.stubs import StubArgumentType, all_stubs, SubscriptVisitResult
+from stubs.stubs import SubscriptVisitResult, __STUBS__
 
 
 @dataclass
@@ -50,7 +50,7 @@ class GenericFinder(ABC, ast.NodeVisitor):
         super().__init__()
 
         # Initialize the found entries.
-        self.__entries = []
+        self._entries: List[StubEntry] = []
 
         # A list for keeping track of the nodes being visited by this visitor.
         self.__visited_notes = []
@@ -86,13 +86,13 @@ class GenericFinder(ABC, ast.NodeVisitor):
             self._containers.insert(0, node)
 
             # Search in direct children nodes.
-            for attr_name, child_node in GenericFinder.__iter_child_nodes(node):
+            for attr_name, child_node in GenericFinder._iter_child_nodes(node):
 
                 # Check if this node should be visited.
                 if self._should_visit(node, child_node):
                     # Visit and keep the extra information created by the visit in this node.
                     extra = super().visit(child_node)
-                    # If there is an extra information, this child node should be stored for later reference.
+                    # If there is extra information, this child node should be stored for later reference.
                     if self._should_store_entry(extra):
                         self._store_entry(StubEntry(child_node, attr_name, child_node.lineno, node, extra))
                     else:
@@ -119,16 +119,11 @@ class GenericFinder(ABC, ast.NodeVisitor):
         # Get the types that this visitor is searching for.
         types_to_find = self.types_to_find()
 
-        # If the types to find is a list of types.
-        if type(types_to_find) is list:
-            # Search in the list.
-            return type(child_node) in types_to_find
-
-        # The type is singular, check if the child_node's type matches it.
-        return types_to_find is type(child_node)
+        return any([isinstance(child_node, t) for t in types_to_find]) \
+            if isinstance(types_to_find, Iterable) else isinstance(child_node, types_to_find)
 
     @staticmethod
-    def __iter_child_nodes(node):
+    def _iter_child_nodes(node) -> Tuple[str, ast.AST]:
         """
         Yield all direct child nodes of *node*, that is, all fields that are nodes
         and all items of fields that are lists of nodes.
@@ -151,7 +146,7 @@ class GenericFinder(ABC, ast.NodeVisitor):
                     if isinstance(item, ast.AST) and item is child_node:
                         return name
 
-    def find(self) -> list:
+    def find(self) -> List[StubEntry]:
         """
             Returns the results of the find.
         :return:
@@ -159,7 +154,7 @@ class GenericFinder(ABC, ast.NodeVisitor):
         if not self.__visited_notes:
             raise NotVisitedException()
 
-        return self.__entries
+        return self._entries
 
     @abstractmethod
     def types_to_find(self) -> Union:
@@ -176,7 +171,19 @@ class GenericFinder(ABC, ast.NodeVisitor):
         :param: entry: A StubEntry.
         :return: None
         """
-        self.__entries.append(entry)
+        self._entries.append(entry)
+
+    def _get_visited_node_extra(self, node) -> Optional[object]:
+        """
+            Get an extra object of a visited node, if such exist.
+        @param node: A (most likely previously visited) node.
+        @return: The extra object if one could have been found.
+        """
+        for e in self._entries:
+            if e.node == node:
+                return e.extra
+
+        return None
 
     def _extract_extra(self, node: ast.AST):
         """
@@ -212,6 +219,26 @@ class GenericFinder(ABC, ast.NodeVisitor):
             return None
 
         return self.visit(node)
+
+
+class ContainerFinder(GenericFinder):
+
+    def __init__(self, child_node: ast.AST):
+        super().__init__()
+        self.target_child_node = child_node
+        self.container = None
+        self.attr_name = None
+
+    def visit(self, node) -> Optional[Tuple[ast.AST, str]]:
+        for attr_name, child_node in GenericFinder._iter_child_nodes(node):
+            if id(child_node) == id(self.target_child_node):
+                self.container = node
+                self.attr_name = attr_name
+
+        return self.generic_visit(node)
+
+    def types_to_find(self) -> Union:
+        return ast.AST
 
 
 class FinderByString(GenericFinder):
@@ -334,38 +361,24 @@ class DecoratorFinder(GenericFinder):
             return self._params
 
 
-class PaladinForLoopFinder(GenericFinder):
+class PaladinLoopFinder(GenericFinder):
     """
-    A finder for While & For loops invariants.
+    A finder for While & For loops.
     """
 
-    def __init__(self) -> None:
-        """
-            Constructor.
-        """
-        # Call the super's constructor.
-        super().__init__()
-
-        # Initialize a dict of loops and their inline definitions.
-        self.for_loops = []
-
-    def visit_For(self, node) -> None:
+    def visit_For(self, node) -> Any:
         """
             A visitor for For Loops.
         :param node: (ast.AST) An AST node.
         :return: None.
         """
-        self.for_loops.append(node)
         return True
 
-    def _extract_extra(self, node: ast.AST):
-        if node in self.for_loops:
-            return self.for_loops[node]
-
-        return None
+    def visit_While(self, node: ast.While) -> Any:
+        return True
 
     def types_to_find(self) -> Union:
-        return [ast.For]
+        return [ast.For, ast.While]
 
 
 class PaladinForLoopInvariantsFinder(GenericFinder):
@@ -481,7 +494,7 @@ class AssignmentFinder(GenericFinder):
         super().__init__()
 
     def types_to_find(self):
-        return ast.Assign
+        return [ast.Assign, ast.AnnAssign]
 
     def _add_to_assign(self, name, attr=None):
         if attr is not None:
@@ -491,13 +504,10 @@ class AssignmentFinder(GenericFinder):
 
         return target_string
 
-    def visit_Call(self, node: ast.Call):
-        return ast2str(node)
-
-    def visit_Assign(self, node):
+    def _visit_assign_type(self, node: Union[ast.Assign, ast.AnnAssign], targets: Iterable[ast.AST]):
         extras = []
 
-        for target in node.targets:
+        for target in targets:
             if type(target) is ast.Tuple:
                 extras.extend(self.visit_Tuple(target))
             else:
@@ -505,6 +515,15 @@ class AssignmentFinder(GenericFinder):
 
         # return extras
         return self._generic_visit_with_extras(node, extras)
+
+    def visit_Call(self, node: ast.Call):
+        return ast2str(node)
+
+    def visit_Assign(self, node: ast.Assign):
+        return self._visit_assign_type(node, node.targets)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> Any:
+        return self._visit_assign_type(node, [node.target])
 
     def visit_Name(self, node):
         return self._add_to_assign(node.id)
@@ -524,7 +543,8 @@ class AssignmentFinder(GenericFinder):
                 return node.value
 
             def visit_Tuple(self, node):
-                return ", ".join([str(self.visit(elem)) for elem in node.elts])
+                visited_elts = [self.visit(e) for e in node.elts]
+                return ", ".join(["'%s'" % ve if isinstance(ve, str) else str(ve) for ve in visited_elts])
 
             def visit_Name(self, node):
                 return node.id
@@ -555,6 +575,9 @@ class AssignmentFinder(GenericFinder):
             extras.append(super(GenericFinder, self).visit(tuple_target))
 
         return extras
+
+    def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
+        return super()._should_visit(node, child_node) and not (isinstance(child_node, ast.Assign) and ast2str(child_node).startswith('____'))
 
 
 class PaladinPostConditionFinder(DecoratorFinder):
@@ -590,16 +613,6 @@ class FunctionCallFinder(GenericFinder):
         # return extras
         return self._generic_visit_with_extras(node, True)
 
-    def visit_Name(self, node):
-        # Extract name.
-        name = node.id
-
-        # Make sure its not a PaLaDiNInnerCall.
-        if name in [stub.__name__ for stub in all_stubs]:
-            return None
-
-        return node.id
-
     def visit_Attribute(self, node):
         try:
             # Extract Name.
@@ -619,15 +632,14 @@ class FunctionCallFinder(GenericFinder):
 
         return tuple(extras)
 
-    # def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
-    #     # If the node has a field that can be extended (is a list).
-    #     can_node_be_extended = [f for f in node._fields if type(node.__getattribute__(f)) == list] != []
-    #
-    #     # If the node should be excluded because of its type.
-    #     should_node_be_excluded_by_type = type(node) in FunctionCallFinder.TYPES_TO_EXCLUDE
-    #
-    #     return super()._should_visit(node, child_node) \
-    #            and can_node_be_extended and not should_node_be_excluded_by_type
+    def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
+        if not isinstance(child_node, ast.Call):
+            return False
+
+        if not isinstance(child_node.func, ast.Name):
+            return True
+
+        return  child_node.func.id not in [s.__name__ for s in __STUBS__]
 
 
 class FunctionDefFinder(GenericFinder):
@@ -639,6 +651,7 @@ class FunctionDefFinder(GenericFinder):
     class FunctionDefExtra(object):
         function_name: str
         args: list[str]
+        line_no: int
 
         def __init__(self):
             self.args = []
@@ -647,6 +660,7 @@ class FunctionDefFinder(GenericFinder):
         extra = FunctionDefFinder.FunctionDefExtra()
         extra.function_name = node.name
         extra.args = [arg.arg for arg in node.args.args]
+        extra.line_no = node.lineno
         return self._generic_visit_with_extras(node, extra)
 
 
@@ -733,4 +747,12 @@ class ReturnStatementsFinder(GenericFinder):
         return ast.Return
 
     def visit_Return(self, node: ast.Return) -> Any:
+        return self._generic_visit_with_extras(node, object())
+
+
+class BreakFinder(GenericFinder):
+    def types_to_find(self) -> Union:
+        return ast.Break
+
+    def visit_Break(self, node: ast.Break) -> Any:
         return self._generic_visit_with_extras(node, object())

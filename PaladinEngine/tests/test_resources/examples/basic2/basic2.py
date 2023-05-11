@@ -33,6 +33,8 @@ class Rectangle(object):
         self.lb = Point(left, bottom)
         self.rt = Point(right, top)
 
+    def __repr__(self):
+        return f'(lb: {self.lb}, rt: {self.rt})'
 
 def main():
     p0 = Point()
@@ -40,16 +42,16 @@ def main():
     p0.setY(2)
 
     r0 = Rectangle(1, 2, 3, 4)
-    print(r0.rt.getX())
-    print(r0.rt._x)
-
+    print(r0)
     r0.rt = Point(-1, -2)
-
-    for i in range(10):
+    print(r0)
+    for i in range(4):
         r0.rt = Point(i, i + 1)
+        print(r0)
 
     r0.rt.setX(4)
-    print(p0)
+
+    print(r0)
 
 
 if __name__ == '__main__':

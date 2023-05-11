@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <head>
     <title>Paladin</title>
+    <!-- do we need any of these..?
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/agate.min.css"/>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
@@ -11,136 +12,114 @@
     <script src="//cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.8.0/dist/highlightjs-line-numbers.min.js"></script>
     <script>hljs.initLineNumbersOnLoad();</script>
     <script src="https://d3js.org/d3.v3.min.js"></script>
+    -->
     <script src="/static/index.js"></script>
 </head>
 <body>
 
 <div id="app">
-<div id="header">
-    <h1 style="position: center">PaLaDiN: Time-travel Debugger</h1>
-</div>
-<div id="main">
-<splitpanes class="default-theme" ref="mainSplit" @resize="store_layout_panes">
-<pane :size="layout.panes[0].size">
-    <Codemirror id="source-editor" ref="sourceEditor" class="original-style"
-                :value="source_code.join('\n')"
-                :options="{mode: 'python', theme: 'darcula', scrollbarStyle: 'overlay'}"></Codemirror>
-</pane>
-<pane id="query-pane">
-<div class="flex-container">
-    <div v-if="exception_line_no != null"
-         v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, archive time: ${exception_archive_time}`"
-         style="color: red;">
+    <div id="header">
+        <h1 style="position: center">PaLaDiN - Time-travel Debugging with Semantic Queries</h1>
     </div>
-    <div>
-        <h3> Run Query: </h3>
-        <div>
-            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto" :width="600"
-                        style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
-        </div>
-        <loading-spinner :is-loading="queryInProgress"
-                         @loading-button-click="run_query">Run</loading-spinner>
-        <div class="range-spec">
-            <span>Time range: </span>
-            <input v-model="query.startTime" type="number" placeholder="start"/>
-            <input v-model="query.endTime" type="number" placeholder="end"/>
-            <input v-model="query.lineNo" type="number" placeholder="line number"/>
-        </div>
-        <br/>
-        <textarea placeholder="Your results will appear in here"
-                  :value="queryResult ? JSON.stringify(queryResult) : ''"
-                  style="height: auto; max-height: 200px; width: auto"></textarea>
-        <tabular :value="queryResult"></tabular>
-    </div>
-    <div>
-        <h3>Create a time window:</h3>
-        <br/>
-        <input type="number" id="time_window_from" placeholder="Start Time">
-        <input type="number" id="time_window_to" placeholder="End Time"/>
-        <button @click="create_time_window()">
-            Create time window
-        </button>
-        <div id="time_window_archive_table" style="visibility: hidden;" class="collapsible_archive_table_div">
-            <table>
-                <thead>
-                    <td v-if="time_window.length > 0"
-                        v-for="k in Object.keys(time_window[0])"
-                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
-                </thead>
-                <tbody>
-                <tr v-for="entry in time_window">
-                    <td v-for="value, key in entry">
-                        <highlighted :code="value"/>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <div id="span_line_debug" style="visibility: hidden">
-        <table>
-            <thead>
-            <td>
-                <highlighted v-if="line_to_debug != null" :code="line_no_to_debug"/>
-            </td>
-            <td>
-                <highlighted v-if="line_to_debug != null" :code="line_to_debug"/>
-            </td>
-            </thead>
-        </table>
-        <h3>Archive entries for line:</h3>
-        <div class="collapsible_archive_table_div">
-            <archive-Table :entries="archive_entries"></archive-Table>
-            <!--            <table>-->
-            <!--                <thead>-->
-            <!--                    <td v-if="archive_entries.length > 0"-->
-            <!--                        v-for="k in Object.keys(archive_entries[0])"-->
-            <!--                        v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>-->
-            <!--                </thead>-->
-            <!--                <tbody>-->
-            <!--                <tr v-for="entry in archive_entries">-->
-            <!--                    <td v-for="value, key in entry">-->
-            <!--                        <highlighted :code="value"/>-->
-            <!--                    </td>-->
-            <!--                </tr>-->
-            <!--                </tbody>-->
-            <!--            </table>-->
-        </div>
-        </table>
-    </div>
-    <div>
-        <table>
-
-        </table>
-        <!--        <table>-->
-        <!--            <tr>-->
-        <!--                <td> Select a var to follow:</td>-->
-        <!--                <td>-->
-        <!--                    <table>-->
-        <!--                        <thead>-->
-        <!--                        <td v-if="vars_to_follow.length > 0" v-for="k in Object.keys(vars_to_follow[0])"-->
-        <!--                            v-html="capitalize(k)"/>-->
-
-        <!--                        </thead>-->
-        <!--                        <tr v-for="(target, target_index) in vars_to_follow">-->
-        <!--                            <td v-for="(value, key, index) in target" :id="key + '_' + target_index">-->
-        <!--                                <highlighted :code="value"/>-->
-        <!--                            </td>-->
-        <!--                            <td>-->
-        <!--                                <button @click="objectLifetime(target['container_id'])">follow container</button>-->
-        <!--                                <button @click="objectLifetime(target['value'])">follow value</button>-->
-        <!--                            </td>-->
-        <!--                        </tr>-->
-        <!--                    </table>-->
-        <!--                </td>-->
-        <!--            </tr>-->
-        <!--        </table>-->
-    </div>
-
-</div>
-</pane>
-</splitpanes>
-</div> <!-- #main -->
+    <div id="main">
+        <splitpanes class="default-theme" ref="mainSplit" @resize="store_layout_panes">
+            <pane :size="layout.panes[0].size">
+                <Codemirror id="source-editor" ref="sourceEditor" class="original-style"
+                            :value="source_code.join('\n')"
+                            :options="{mode: 'python', theme: 'darcula', scrollbarStyle: 'overlay'}"></Codemirror>
+            </pane>
+            <pane id="query-pane">
+                <div class="flex-container">
+                    <div v-if="exception_line_no != null"
+                         v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, time: ${exception_archive_time}`"
+                         style="color: red;">
+                    </div>
+                    <div>
+                        <h3 class="section"> Output </h3>
+                        <pre class="output" v-text="run_output"></pre>
+                    </div>
+                    <div>
+                        <h3 class="section"> Run Query </h3>
+                        <div>
+                            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto"
+                                        :width="600"
+                                        style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
+                        </div>
+                        <loading-spinner :is-loading="queryInProgress"
+                                         @loading-button-click="run_query">Run
+                        </loading-spinner>
+                        <br />
+                        <div class="range-spec">
+                            <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"
+                                    @change="sliderChange"></Slider>
+                            <label>Time range</label>
+                        </div>
+                        <label>
+                            <input type="checkbox" id="shouldCustomize" v-model="shouldCustomizeQuery"/>
+                            Custom display
+                        </label>
+                        <div id="customizeCollapsable" v-if="shouldCustomizeQuery">
+                            <div>
+                                <Codemirror placeholder="Selection" :options="codemirror_options_customizer"
+                                            height="auto" :width="600"
+                                            class="original-style"
+                                            v-model:value="query.customizer"></Codemirror>
+                            </div>
+                        </div>
+                        <br/>
+                        <tabular class="query-result" :value="formatResults(queryResult)"
+                            @row:select="narrowTimeRange"></tabular>
+                        <br/>
+                        <div> PaLaDiN DSL Operators:</div>
+                        <Markdown :source="dsl_docs" :breaks="true"/>
+                    </div>
+                    <div hidden="hidden">
+                        <h3>Create a time window:</h3>
+                        <br/>
+                        <input type="number" id="time_window_from" placeholder="Start Time">
+                        <input type="number" id="time_window_to" placeholder="End Time"/>
+                        <button @click="create_time_window()">
+                            Create time window
+                        </button>
+                        <div id="time_window_archive_table" style="visibility: hidden;"
+                             class="collapsible_archive_table_div">
+                            <table>
+                                <thead>
+                                <td v-if="time_window.length > 0"
+                                    v-for="k in Object.keys(time_window[0])"
+                                    v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
+                                </thead>
+                                <tbody>
+                                <tr v-for="entry in time_window">
+                                    <td v-for="value, key in entry">
+                                        <highlighted :code="value"/>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="span_line_debug" style="visibility: hidden" hidden="hidden">
+                        <table>
+                            <thead>
+                            <td>
+                                <highlighted v-if="line_to_debug != null" :code="line_no_to_debug"/>
+                            </td>
+                            <td>
+                                <highlighted v-if="line_to_debug != null" :code="line_to_debug"/>
+                            </td>
+                            </thead>
+                        </table>
+                        <h3>Archive entries for line:</h3>
+                        <div class="collapsible_archive_table_div">
+                            <archive-Table :entries="archive_entries"></archive-Table>
+                        </div>
+                        </table>
+                    </div>
+                </div>
+            </pane>
+        </splitpanes>
+    </div> <!-- #main -->
 </div> <!-- #app -->
 
 </body>

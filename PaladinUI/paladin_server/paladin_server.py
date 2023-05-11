@@ -11,9 +11,10 @@ from PaladinEngine.engine.engine import PaLaDiNEngine
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator, QUERY_DSL_WORDS
 from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
+from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from common.common import ISP
 
-NAME = 'PaLaDiN Debug Server'
+NAME = 'PaLaDiN - Time-travel Debugging with Semantic Queries'
 HERE = Path(__file__).parent
 TEMPLATE_FOLDER = HERE / 'templates'
 STATIC_FOLDER = HERE / 'static'
@@ -23,6 +24,8 @@ JSON_FILE_NAME = 'input_graph_tree.json'
 SOURCE_CODE: str = ''
 EVALUATOR: Optional[ArchiveEvaluator] = None
 ARCHIVE: Optional[Archive] = None
+RUN_OUTPUT: str = ''
+PARSER: Optional[PaladinNativeParser] = None
 
 # FIXME: Currently for debugging purposes.
 THROWN_EXCEPTION: Optional[PaLaDiNEngine.PaladinRunExceptionData] = None
@@ -51,13 +54,16 @@ class PaladinServer(FlaskView):
     @classmethod
     def create(cls, source_code: str,
                archive: Archive,
+               run_output: str,
                thrown_exception: Optional[Tuple[int, str]] = None) -> 'PaladinServer':
-        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE, EVALUATOR
+        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE, EVALUATOR, RUN_OUTPUT, PARSER
         server = PaladinServer()
+        RUN_OUTPUT = run_output
         SOURCE_CODE = source_code
         THROWN_EXCEPTION = thrown_exception
         ARCHIVE = archive
         EVALUATOR = ArchiveEvaluator(ARCHIVE)
+        PARSER = PaladinNativeParser(ARCHIVE)
         return server
 
     def run(self, port: int = 9999):
@@ -176,16 +182,30 @@ class PaladinServer(FlaskView):
 
         return PaladinServer.create_response(nodes)
 
+    @route('/debug_info/last_run_time')
+    def last_run_time(self):
+        return PaladinServer.create_response(ARCHIVE.last_time)
+
     @route('/debug_info/time_window/<int:from_time>/<int:to>')
     def time_window(self, from_time: int, to: int):
         return PaladinServer.create_response(
             PaladinServer._present_archive_entries(
-                ARCHIVE.get_all_assignments_in_time_range(from_time, to).items()))
+                ARCHIVE.get_assignments(from_time, to).items()))
 
-    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<int:line_no>')
-    def query(self, select_query: str, start_time: int, end_time: int, line_no: int):
-        pdslp = PaladinDSLParser.create(ARCHIVE, start_time, end_time, line_no)
-        return PaladinServer.create_response(pdslp.parse_and_summarize(select_query))
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/', defaults={'customizer': ''})
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<string:customizer>')
+    def query(self, select_query: str, start_time: int, end_time: int, customizer: str):
+        return PaladinServer.create_response(
+            PARSER.parse(select_query.replace('<br>', '\n'), start_time, end_time,
+                         customizer=customizer.replace('<br>', '\n')))
+
+    @route('/debug_info/docs')
+    def docs(self):
+        return PaladinServer.create_response(PaladinDSLParser.docs())
+
+    @route('/debug_info/run_output')
+    def run_output(self):
+        return PaladinServer.create_response(RUN_OUTPUT)
 
     @route('/debug_info/query_dsl_words')
     def query_dsl_words(self):
@@ -234,3 +254,7 @@ class PaladinServer(FlaskView):
                 value.time
             ) for (key, value_list) in archive_entries for value in value_list
         ], key=lambda aev: aev.time, reverse=True)
+
+    @staticmethod
+    def _run_time_window():
+        return {'TIME_WINDOW': (0, ARCHIVE.last_time)}
