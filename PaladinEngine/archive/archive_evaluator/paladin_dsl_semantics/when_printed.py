@@ -11,7 +11,7 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class WhenPrinted(UniLateralOperator, TimeOperator):
     """
-    WhenPrinted(<s>): TimeOperator to find the times in which a string <s> was printed.
+    WhenPrinted(s): Satisfied for each time in which the program has printed s to its standard output.
     """
 
     def __init__(self, times: Iterable[Time], output: Raw):

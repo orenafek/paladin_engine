@@ -11,9 +11,6 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class VarSelector(UniLateralOperator):
-    """
-        VarSelector(<time_range>): Selects all vars that were changed in a time range.
-    """
 
     VARS_KEY = 'vars'
 

@@ -10,6 +10,12 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class ChangedInto(BiLateralOperator, TimeOperator):
+    """
+    ChangedInto(e/e@ln, v): Satisfied for each time in which e has been changed into a value v.
+                            This operator is useful to focus the queries on times that events have happened,
+                            instead of when an expression had a value, i.e.,
+                            the first time it had that value rather on every time since.
+    """
     def __init__(self, times: Iterable[Time], target: Raw, value: typing.Union[Raw, typing.Any]):
         value = value.query if isinstance(value, Raw) else value
         BiLateralOperator.__init__(self, times, Raw(f'{target.query} == {value}', target.line_no, times),

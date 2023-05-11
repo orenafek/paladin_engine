@@ -11,7 +11,8 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class AndThan(BiLateralOperator, TimeOperator):
     """
-        AndThan(<time_op>, <op>): Return the first satisfactory of <op> after each satisfaction of <time_op>
+    AndThan(c, o): Satisfies on the first satisfaction of o after each satisfaction of c.
+                   This operator is useful to capture key events that have happened after a known event.
     """
 
     def __init__(self, times: Iterable[Time], time_op: TimeOperator, op: Operator):

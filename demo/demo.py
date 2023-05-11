@@ -1,10 +1,8 @@
 import random
 from abc import abstractmethod
 from enum import Enum
-from random import shuffle, choice, randbytes
+from random import shuffle, choice
 from typing import Optional
-
-Summary = str
 
 
 class Job(object):
@@ -14,10 +12,9 @@ class Job(object):
         AUDIO = 2
         VIDEO = 3
 
-    def __init__(self, job_id: int, _type: 'Job.Type', data: bytes):
-        self.job_id = job_id
+    def __init__(self, id: int, _type):
+        self.id = id
         self.type = _type._name_
-        self.data = data
 
 
 class Server(object):
@@ -27,10 +24,7 @@ class Server(object):
 
 
 class Worker(object):
-    _ID = 0
-
     def __init__(self, server: Server):
-        self.id = Worker._generate_id()
         self.server = server
         self.ongoing: Optional[Job] = None
 
@@ -40,11 +34,6 @@ class Worker(object):
         self.ongoing: Job = self.server.todo.pop()
         self.operate()
         self.ongoing = None
-
-    @classmethod
-    def _generate_id(cls):
-        Worker._ID += 1
-        return Worker._ID
 
     @abstractmethod
     def operate(self) -> None:
@@ -91,7 +80,7 @@ def main():
     random.seed(2023)
     server = Server()
     workers = [worker_type(server) for worker_type in Worker.__subclasses__()]
-    jobs = [Job(i, choice(list(Job.Type)), randbytes(5)) for i in range(20)]
+    jobs = [Job(i, choice(list(Job.Type))) for i in range(20)]
     shuffle(jobs)
     server.todo = jobs.copy()
 

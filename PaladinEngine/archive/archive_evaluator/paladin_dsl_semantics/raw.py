@@ -12,6 +12,11 @@ from ast_common.ast_common import str2ast, split_tuple
 
 
 class Raw(Operator):
+    """
+    Raw(expr): The basic operator to retrieve data and evaluate expressions with data from the log.
+               Can be used in an implied form, i.e., Raw(x) <==> x.
+
+    """
 
     def __init__(self, query: str, line_no: Optional[LineNo] = -1, times: Optional[Iterable[Time]] = None):
         Operator.__init__(self, times)

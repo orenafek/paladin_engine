@@ -20,8 +20,8 @@ from stubs.stubs import __SOLI__, __SOL__, __EOLI__
 
 class LoopIteration(BiLateralOperator):
     """
-    LoopIteration(<ln>, <i>): Shows changes that have taken place in a loop in row <ln> in its <i>'th index.
-                             ** i, v ** must be numbers.
+    LoopIteration(ln, i): Retrieve any events that have happened in the loop's code's line numbers in the i'th iteration
+                          of the loop that starts in line ln.
     """
 
     def __init__(self, times: Iterable[Time], line_no: int, index: int, short: bool = False):
@@ -72,8 +72,8 @@ class LoopIteration(BiLateralOperator):
 
 class LoopSummary(UniLateralOperator):
     """
-        LoopSummary(<line>): Creates a summary of a loop which header (for i in ...) is in <line>
-                             ** <line> should be a Raw Operator, i.e. [[<line>]]
+    LoopSummary(ln): Retrieve any events that have happened in the loop's code's line numbers of the loop that starts in
+                     line ln, i.e., runs LoopIteration for each iteration of the loop.
     """
 
     ITERATION_KEY = 'Iteration'

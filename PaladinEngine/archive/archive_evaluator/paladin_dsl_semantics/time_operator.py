@@ -53,7 +53,10 @@ class BiTimeOperator(BiLateralOperator, TimeOperator, ABC):
 
 
 class Whenever(VariadicLateralOperator, TimeOperator):
-
+    """
+    Whenever(o): Convert any operator into a TimeOperator, by generating a result with a single output
+                 of the satisfaction for each of o's entries.
+    """
     def __init__(self, times: Iterable[Time], *args: Operator):
         VariadicLateralOperator.__init__(self, times, *args)
         TimeOperator.__init__(self, times)

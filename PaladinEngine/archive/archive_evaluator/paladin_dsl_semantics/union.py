@@ -8,7 +8,8 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class Union(VariadicLateralOperator):
     """
-        Union(<c1>, <c2>, ..., <ck>): Selects <c>'s together.
+    Union(o1, ..., on): Joins any number of operators together.
+                        The operator returns the union of all time stamps and outer join of all os' columns.
     """
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):

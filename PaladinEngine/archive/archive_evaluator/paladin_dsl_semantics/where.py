@@ -7,7 +7,8 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class Where(BiLateralOperator):
     """
-        Where(<selector>, <condition>): Selects <selector> in all times the <condition> is met.
+    Where(s, c): Slice the time range of a query by running s operator only on the times in which c has been satisfied.
+                 This operator is useful to retrieve data for a certain time stamps.
     """
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):

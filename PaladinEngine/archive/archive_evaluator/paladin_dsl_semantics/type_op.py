@@ -8,6 +8,9 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Type(UniLateralOperator):
+    """
+    Type(var/var@ln): Retrieve the type of the variable(s) named var from the log.
+    """
     TYPE_KEY = "Type"
 
     def __init__(self, times: Iterable[Time], name: Operator, line_no: LineNo = -1):

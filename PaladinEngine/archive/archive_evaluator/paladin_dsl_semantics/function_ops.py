@@ -7,6 +7,9 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class InFunction(UniLateralOperator, TimeOperator):
+    """
+    InFunction(f/f@ln): Satisfied for each time in which the program has run the code of f.
+    """
     def __init__(self, times: Iterable[Time], func_name: str, line_no: Optional[LineNo] = -1):
         UniLateralOperator.__init__(self, times, Const(func_name, times))
         TimeOperator.__init__(self, times)

@@ -7,6 +7,9 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class XTime(BiLateralOperator, TimeOperator):
+    """
+        XTime(o, n): Satisfies for the nth time that o has been satisfied (eqv. to Next(Next(...(o))) for n times).
+    """
 
     def __init__(self, times: Iterable[Time], event: Operator, number: int):
         BiLateralOperator.__init__(self, times, event, Const(number, times))

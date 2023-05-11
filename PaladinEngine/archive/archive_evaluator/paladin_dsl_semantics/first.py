@@ -7,7 +7,7 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class First(UniLateralOperator):
     """
-        First(<c>): Selects <c> in the first time it exists.
+    First(o): Satisfies only for the first time of o.
     """
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):

@@ -1,21 +1,19 @@
 import ast
-import re
-from dataclasses import dataclass
-from typing import Optional, Dict, Iterable, Any, cast, List
+from typing import Optional, Dict, Iterable, Any, cast
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Time
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
-from archive.archive_evaluator.paladin_dsl_semantics.time_operator import TimeOperator
-from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
+from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
+from archive.archive_evaluator.paladin_dsl_semantics.time_operator import TimeOperator
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import str2ast
 
 
 class Changed(UniLateralOperator, TimeOperator):
     """
-        Changed(<n>): All times in which n has been changed, either assigned to (if it's a variable) or internally
-        (for a builtin collection (list, dict, set, tuple) or an object).
+    Changed(e/e@ln): Satisfied for each time in which e has been changed,
+                     either assigned to or internally (as for objects).
     """
 
     def __init__(self, times: Iterable[Time], first: Raw):
