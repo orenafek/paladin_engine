@@ -14,7 +14,7 @@ from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from common.common import ISP
 
-NAME = 'PaLaDiN Debug Server'
+NAME = 'PaLaDiN - Time-travel Debugging with Semantic Queries'
 HERE = Path(__file__).parent
 TEMPLATE_FOLDER = HERE / 'templates'
 STATIC_FOLDER = HERE / 'static'

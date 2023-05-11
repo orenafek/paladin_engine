@@ -19,7 +19,7 @@
 
 <div id="app">
     <div id="header">
-        <h1 style="position: center">PaLaDiN: Time-travel Debugger</h1>
+        <h1 style="position: center">PaLaDiN - Time-travel Debugging with Semantic Queries</h1>
     </div>
     <div id="main">
         <splitpanes class="default-theme" ref="mainSplit" @resize="store_layout_panes">
@@ -31,7 +31,7 @@
             <pane id="query-pane">
                 <div class="flex-container">
                     <div v-if="exception_line_no != null"
-                         v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, archive time: ${exception_archive_time}`"
+                         v-text="`The Program has stopped on line ${exception_line_no}: ${exception_source_line} with the message: ${exception_msg}, time: ${exception_archive_time}`"
                          style="color: red;">
                     </div>
                     <div>
