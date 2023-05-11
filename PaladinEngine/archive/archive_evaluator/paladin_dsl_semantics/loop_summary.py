@@ -40,8 +40,8 @@ class LoopIteration(BiLateralOperator):
         loop_iteration_start = loop_iteration_starts_and_ends[index * 2]
         loop_iteration_end = loop_iteration_starts_and_ends[index * 2 + 1]
         iterator_values_times = Range(self.times,
-                                      ConstTime(self.times, loop_iteration_start[1].time),
-                                      ConstTime(self.times, loop_iteration_end[1].time))
+                                      ConstTime(self.times, loop_iteration_start[1].time + 1),
+                                      ConstTime(self.times, loop_iteration_end[1].time - 1))
 
         return Union(self.times,
                      *self._create_iteration_operators(iterator_values_times, builder, query_locals,

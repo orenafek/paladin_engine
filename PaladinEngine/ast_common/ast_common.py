@@ -112,3 +112,26 @@ def get_arg_from_func_call(func_call: str, func: Callable, arg_name: str) -> Opt
         return ast2str(ast_call.args[arg_var_pos])
     except AttributeError:
         return None
+
+
+def separate_to_container_and_field(expression: str, frame, locals: dict, globals: dict) -> tuple[
+    int, str, object, bool, bool]:
+    expression_ast = str2ast(expression).value
+    if isinstance(expression_ast, ast.Subscript):
+        getitem_arg = f'''{slice.__name__}(start={ast2str(expression_ast.slice.lower)},
+                                           stop={ast2str(expression_ast.slice.upper)},
+                                           step={ast2str(expression_ast.slice.step)})
+                       ''' if isinstance(expression_ast.slice, ast.Slice) else eval(ast2str(expression_ast.slice),
+                                                                                    globals, locals)
+        subscript_value = eval(ast2str(expression_ast.value), globals, locals)
+        return id(subscript_value), getitem_arg, eval(expression, globals, locals), True, False
+
+    if not isinstance(expression_ast, ast.Attribute):
+        # There is only an object.
+        value = eval(expression, globals, locals)
+        return id(frame), expression, value, True, True
+
+    container = eval(ast2str(expression_ast.value), globals, locals)
+    field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
+
+    return id(container), field, container, False, False

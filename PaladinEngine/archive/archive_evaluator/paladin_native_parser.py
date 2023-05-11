@@ -5,11 +5,12 @@ import traceback
 from _ast import BinOp, AST
 from collections import deque
 from dataclasses import dataclass
-from typing import * # DO NOT REMOVE!!!!
+from typing import *  # DO NOT REMOVE!!!!
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, BAD_JSON_VALUES, \
-    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, ParseResults
+    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, ParseResults, Identifier, LineNo
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN, FUNCTION_CALL_MAGIC
 from archive.archive_evaluator.paladin_dsl_semantics import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
@@ -21,11 +22,11 @@ from stubbers.stubbers import Stubber
 
 
 class PaladinNativeParser(object):
-    Customizer: Type = Callable[Dict, Dict]
+    Customizer: Type = Callable[[Dict], Dict]
     SCOPE_SIGN_OPERATOR = ast.MatMult  # @
     OPERATORS: Dict[str, Union[Type[Operator], Type[Operator]]] = {op.name(): op for op in
                                                                    Operator.all()}
-    _FUNCTION_CALL_MAGIC = '$'
+    FUNCTION_CALL_MAGIC = '$'
     _FUNCTION_CALL_MAGIC_REPLACE_SYMBOL = '__FC_RET_VAL__'
 
     def __init__(self, archive: Archive):
@@ -157,6 +158,9 @@ class PaladinNativeParser(object):
 
             return node
 
+        def visit_Attribute(self, node: ast.Attribute) -> Any:
+            node.lineno = node.value.lineno
+            return node
         @property
         def _seed(self):
             self._lambda_var_seed += 1
@@ -263,8 +267,6 @@ class PaladinNativeParser(object):
             def default(_self, o: Any) -> Any:
                 if any([isinstance(o, t) for t in {set, deque}]):
                     return list(o)
-                # if any([isinstance(o, t) for t in self.archive.created_data_types.values()]):
-                #     return dataclasses.asdict(o)
 
                 if isinstance(o, float) and o in BUILTIN_SPECIAL_FLOATS.values():
                     return str(super().default(o))
@@ -422,14 +424,14 @@ class PaladinNativeParser(object):
         if PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL in query:
             raise RuntimeError('Secret magic found in query :(')
 
-        return query.replace(PaladinNativeParser._FUNCTION_CALL_MAGIC,
-                             PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL)
+        return query.replace(FUNCTION_CALL_MAGIC, PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL)
 
     @staticmethod
     def customize(customizer_str: str, results: ParseResults) -> ParseResults:
         try:
             exec(customizer_str)
-            customizer_func: PaladinNativeParser.Customizer = locals()['customizer'] if 'customizer' in locals() else None
+            customizer_func: PaladinNativeParser.Customizer = locals()[
+                'customizer'] if 'customizer' in locals() else None
             # Customize.
             return {k: customizer_func(v) for k, v in results.items()} if customizer_func else results
         except BaseException as e:

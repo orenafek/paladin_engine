@@ -64,6 +64,12 @@ class Archive(object):
 
     class _Filters(object):
         AS_OR_BMFCS_FILTER = lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'}
+        DEF_FILTER = lambda vv: vv.key.stub_name in {'__DEF__'}
+        UNDEF_FILTER = lambda vv: vv.key.stub_name in {'__UNDEF__'}
+
+        @classmethod
+        def OR(cls, *filters):
+            return lambda vv: any([f(vv) for f in filters])
 
         @staticmethod
         def TIME_RANGE_FILTER(time_range: range):
@@ -80,6 +86,10 @@ class Archive(object):
         @staticmethod
         def VALUE_FILTER(value: Any):
             return lambda vv: vv.value == value
+
+        @staticmethod
+        def TIME_EQUAL_OR_LATER_FILTER(time: int):
+            return lambda vv: vv.time >= time
 
     class Record(object):
 
@@ -364,8 +374,57 @@ class Archive(object):
                 lambda vv: vv.key.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.BUILTIN_MANIP}
             ])
 
+    def get_function_entries(self, func_name: str, line_no: Optional[int] = -1, entrances: bool = True,
+                             in_func: bool = True, exits: bool = True):
+
+        def_or_undef = Archive._Filters.OR(Archive._Filters.DEF_FILTER, Archive._Filters.UNDEF_FILTER)
+        filters = [Archive._Filters.VALUE_FILTER(func_name)]
+
+        if line_no is not None and line_no > 0:
+            filters.append(Archive._Filters.LINE_NO_FILTER(line_no))
+
+        if not in_func:
+            if entrances and not exits:
+                filters.append(Archive._Filters.DEF_FILTER)
+
+            if not entrances and exits:
+                filters.append(Archive._Filters.UNDEF_FILTER)
+
+            if entrances and exits:
+                filters.append(def_or_undef)
+
+            return self.flatten_and_filter(filters)
+
+        # in_func == True
+        filters.append(def_or_undef)
+        function_entrances_and_exits = sorted(self.flatten_and_filter(filters), key=lambda r: r[1].time)
+        if len(function_entrances_and_exits) % 2 == 1:
+            # noinspection PyTypeChecker
+            function_entrances_and_exits.append(None)
+
+        entries = function_entrances_and_exits
+        for func_entrance, func_exit in zip(function_entrances_and_exits, function_entrances_and_exits[1::]):
+            filters = [self._Filters.LINE_NOS_FILTER(range(func_entrance[1].line_no, func_exit[1].line_no + 1))]
+            if func_exit is not None:
+                filters.append(self._Filters.TIME_RANGE_FILTER(range(func_entrance[1].time + 1, func_exit[1].time)))
+            else:
+                filters.append(self._Filters.TIME_EQUAL_OR_LATER_FILTER(func_entrance[1].time))
+
+            entries.extend(self.flatten_and_filter(filters))
+
+        if not entrances:
+            entries = filter(lambda r: r[0].stub_name != '__DEF__', entries)
+
+        if not exits:
+            entries = filter(lambda r: r[0].stub_name != '__UNDEF__', entries)
+
+        return sorted(entries, key=lambda r: r[1].time)
+
     def find_events(self, line_no: int) -> List[Tuple[Rk, Rv]]:
-        return self.flatten_and_filter(lambda vv: vv.line_no == line_no)
+        return self.flatten_and_filter([
+            Archive._Filters.LINE_NO_FILTER(line_no),
+            lambda vv: vv.key.stub_name not in {'__SOLI__', '__EOLI__'}
+        ])
 
     def get_print_events(self, output: str) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(lambda vv: vv.key.stub_name == '__PRINT__' and vv.value == output)
@@ -376,3 +435,6 @@ class Archive(object):
 
     def flatten(self) -> Iterable[Tuple[Rk, Rv]]:
         return [(rk, vv) for rk, rv in self.records.items() for vv in rv]
+
+    def get_line_nos_for_time(self, time: int) -> Iterable[int]:
+        return {rv.line_no for _, rv in self.flatten() if rv.time == time}

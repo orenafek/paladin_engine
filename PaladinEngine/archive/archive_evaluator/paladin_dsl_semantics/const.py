@@ -1,5 +1,7 @@
 from typing import Iterable, Optional, Dict, Collection
 
+import typing
+
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
     EvalResultPair, Time
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
@@ -18,3 +20,6 @@ class Const(Operator):
 
     def _get_args(self) -> Collection['Operator']:
         return []
+
+    def eval_const_value(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None) -> typing.Any:
+        return self.eval(builder, query_locals)[self.times[0]].values[0]

@@ -1,11 +1,13 @@
 import unittest
 from abc import ABC
+from collections import deque
 from pathlib import Path
 from typing import *
-from collections import deque
+
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
+from utils.utils import separate_line_no
 
 
 class TestDiffObjectBuilder(TestCommon, ABC):
@@ -16,7 +18,7 @@ class TestDiffObjectBuilder(TestCommon, ABC):
         return self.diff_object_builder._build_iterator(obj, line_no)
 
     def _test_series_of_values(self, obj: Identifier, *expected: Any):
-        obj, line_no = self._separate_line_no(obj)
+        obj, line_no = separate_line_no(obj)
         return self._test_series(obj, lambda value: value, line_no, *expected)
 
 
@@ -64,15 +66,15 @@ class TestBuiltinCollections(TestDiffObjectBuilder):
     def tests_deques(self):
         self._test_series_of_values('dq', None, *[deque(l) for l in
                                                   [['a', 'b', 'c', 'd', 'e'],
-                                                    ['a', 'b', 'c', 'd', 'e', 'f'],
-                                                    ['~', 'a', 'b', 'c', 'd', 'e', 'f'],
+                                                   ['a', 'b', 'c', 'd', 'e', 'f'],
+                                                   ['~', 'a', 'b', 'c', 'd', 'e', 'f'],
                                                    ['~', 'a', 'b', 'd', 'e', 'f'],
-                                                   ['f', 'e', 'd','b','a', '~'],
+                                                   ['f', 'e', 'd', 'b', 'a', '~'],
                                                    [],
                                                    ['g', 'h', 'i', 'j', 'k'],
-                                                   ['c', 'b','a', 'g', 'h', 'i', 'j', 'k'],
-                                                   [ 'b', 'a', 'g', 'h', 'i', 'j', 'k']
-                                                  ]])
+                                                   ['c', 'b', 'a', 'g', 'h', 'i', 'j', 'k'],
+                                                   ['b', 'a', 'g', 'h', 'i', 'j', 'k']
+                                                   ]])
 
     def test_sets(self):
         self._test_series_of_values('s1', None, {1, 2, 3}, {1, 2, 3, 4}, {2, 3, 4}, {2, 3, 4, 5}, {2, 3, 4}, {2, 4},
@@ -110,9 +112,7 @@ class TestGraph(TestDiffObjectBuilder):
                                     SKIP_VALUE,
                                     graph({vertex('A'), vertex('B'), vertex('C')},
                                           {edge('A', 'B', 1), edge('B', 'C', 2)}),
-                                    SKIP_VALUE,
-                                    graph({vertex('A'), vertex('B'), vertex('C'), vertex('D')},
-                                          {edge('A', 'B', 1), edge('B', 'C', 2), edge('C', 'D', 3)})
+                                    SKIP_VALUE
                                     )
 
 

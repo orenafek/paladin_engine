@@ -5,9 +5,9 @@
     :since: 24/05/19
 """
 import ast
-from typing import List
+from typing import List, cast
 
-from ast_common.ast_common import ast2str, wrap_str_param
+from ast_common.ast_common import ast2str, wrap_str_param, lit2ast
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
     PaladinPostConditionFinder, PaladinLoopFinder, FunctionCallFinder, FunctionDefFinder, \
     AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder, BreakFinder
@@ -145,10 +145,13 @@ class ModuleTransformer(object):
                 prefix_stubs.append(arg_stub)
 
             # Create suffix stub.
-            suffix_stub = Stubber.create_ast_stub(__UNDEF__,
-                                                  wrap_str_param(function_def.extra.function_name),
-                                                  line_no=f'{original_line_no}',
-                                                  frame='__FRAME__()')
+            suffix_stub = lambda rsln: Stubber.copy_line_no(
+                cast(ast.AST, ast.Expr(ast.Call(func=lit2ast(__UNDEF__.__name__),
+                                                args=[lit2ast(wrap_str_param(function_def.extra.function_name)),
+                                                      Stubber._FRAME_CALL,
+                                                      lit2ast(rsln)],
+                                                keywords=[]
+                                                ))), function_def.node)
 
             # Find all return statements.
             return_statement_finder = ReturnStatementsFinder()

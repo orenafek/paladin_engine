@@ -5,9 +5,11 @@ from typing import Union, Any, Optional, Iterator, Tuple
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, Time, Identifier
 from archive.archive_evaluator.paladin_dsl_semantics import Raw, Operator
+from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from tests.test_common.test_common import SKIP_VALUE
 from tests.unit_tests.archive.object_builder.diff_object_builder.test_diff_object_builder import TestDiffObjectBuilder, \
     TestCaterpillar
+from utils.utils import separate_line_no
 
 
 class TestRaw(TestDiffObjectBuilder, ABC):
@@ -16,7 +18,7 @@ class TestRaw(TestDiffObjectBuilder, ABC):
         return self._test_series(Raw(obj, -1, self._times()), lambda v: v, -1, *expected)
 
     def _test_series_of_values(self, obj: Identifier, *expected: Any):
-        obj, line_no = self._separate_line_no(obj)
+        obj, line_no = separate_line_no(obj)
         raw_op = Raw(obj, line_no, self._times())
         return self._test_series(raw_op, lambda v: v, line_no, *expected)
 

@@ -1,3 +1,3 @@
-SLIDER_SIGN = '$'
+FUNCTION_CALL_MAGIC = '$'
 SCOPE_SIGN = '@'
 EMPTY_TIME = '-'

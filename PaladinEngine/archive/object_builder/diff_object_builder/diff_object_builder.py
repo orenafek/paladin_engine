@@ -1,5 +1,6 @@
 import copy
 from dataclasses import dataclass
+from enum import Enum
 from functools import reduce
 from types import NoneType
 from typing import *
@@ -15,7 +16,7 @@ from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollect
 from common.common import ISP
 from stubs.stubs import __AS__, __BMFCS__, __FC__
 
-_NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[Scope, Tuple[Type, RangeDict]]]
+_NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
 _NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
 
 
@@ -58,6 +59,10 @@ class DiffObjectBuilder(ObjectBuilder):
             return (isinstance(other,
                                DiffObjectBuilder._FieldChange) and self.value == other.value) or self.value == other
 
+    class _Mode(Enum):
+        FIRST = 0
+        CLOSEST = 1
+
     def __init__(self, archive: Archive):
         ObjectBuilder.__init__(self, archive)
         self.archive = archive
@@ -71,7 +76,8 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
         if isinstance(item, str):
-            object_type, object_id, obj_data = self._get_data_from_named(item, time, line_no)
+            object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.FIRST, time,
+                                                                         line_no)
             if ISP(object_type) or object_type is NoneType:
                 return obj_data
         else:
@@ -93,6 +99,13 @@ class DiffObjectBuilder(ObjectBuilder):
         built_object = self._built_objects[(object_id, time)] = self._build_object(line_no, object_data, object_type,
                                                                                    time)
         return built_object
+
+    def get_type(self, item: Identifier, time: Time, line_no: Optional[LineNo] = -1) -> Optional[Type]:
+        if not isinstance(item, str):
+            return None
+
+        object_type, _, _ = self._get_data_from_named(item, DiffObjectBuilder._Mode.CLOSEST, time, line_no)
+        return object_type
 
     def _build_object(self, line_no: LineNo, object_data: RangeDict, object_type: Type, time: Time):
         evaluated_object = DiffObjectBuilder.AttributedDict()
@@ -155,8 +168,9 @@ class DiffObjectBuilder(ObjectBuilder):
                                                                            evaluated_arg).items()) + to_evaluate
         return evaluated_object, to_evaluate
 
-    def __get_named_inner_data(self, name: str, line_no: Optional[LineNo] = -1) -> Tuple[
-        Union[RangeDict, Tuple[type, RangeDict], None], bool]:
+    def __get_named_inner_data(self, name: str, mode: 'DiffObjectBuilder._Mode', time: Time = -1,
+                               line_no: Optional[LineNo] = -1, ) -> \
+            Tuple[Union[RangeDict, Tuple[type, RangeDict], None], bool]:
         is_primitive = name in self._named_primitives
         line_no_exist = line_no > -1
 
@@ -175,44 +189,53 @@ class DiffObjectBuilder(ObjectBuilder):
                 return None, is_primitive
 
             return values_in_line_no[0], is_primitive
-        return list(named_collection[name].values())[0], is_primitive
+        else:
+            match mode:
+                case DiffObjectBuilder._Mode.FIRST:
+                    return list(named_collection[name].values())[0], is_primitive
 
-    def _get_data_from_named(self, name: str, time: Time, line_no: Optional[LineNo] = -1) -> Tuple[
+                case DiffObjectBuilder._Mode.CLOSEST:
+                    return self._find_closest(named_collection[name], time), is_primitive
+
+                case _:
+                    return None, is_primitive
+
+    def _get_data_from_named(self, name: str, mode: 'DiffObjectBuilder._Mode', time: Time,
+                             line_no: Optional[LineNo] = -1) -> Tuple[
         Type, Union[ObjectId, None], Union[RangeDict, Any, None]]:
 
         not_found_ret_value = NoneType, None, None
 
-        named_data_and_type, is_primitive = self.__get_named_inner_data(name, line_no)
+        named_data, is_primitive = self.__get_named_inner_data(name, mode, time, line_no)
 
-        if named_data_and_type is None:
+        if named_data is None:
             return not_found_ret_value
 
         if is_primitive:
-            named_type, named_data = named_data_and_type
-            if ISP(named_type):
-                # Item is a primitive, return it.
-                if time not in named_data:
-                    value = None
-                elif (name, named_type) in named_data[time]:
-                    value = named_data[time][name, named_type]
-
-                elif (DiffObjectBuilder._FieldChange(name), named_type) in named_data[time]:
-                    value = named_data[(DiffObjectBuilder._FieldChange(name), named_type)]
-                else:
-                    value = None
-
-                return named_type, None, value
+            # Item is a primitive, return it.
+            if time not in named_data:
+                value, named_type = None, NoneType
             else:
-                # TODO: Can this branch be reached?
-                return not_found_ret_value
+                for field, _type in named_data[time].keys():
+                    if field == DiffObjectBuilder._FieldChange(name):
+                        value, named_type = named_data[time][(field, _type)], _type
+                        break
+                    elif field == name:
+                        value, named_type = named_data[time][(field, _type)], _type
+                        break
+                else:
+                    value, named_type = None, NoneType
+
+            return named_type, None, value
+
         else:
-            if time not in named_data_and_type:
-                if time < DiffObjectBuilder.__get_first_time(named_data_and_type):
+            if time not in named_data:
+                if time < DiffObjectBuilder.__get_first_time(named_data):
                     return not_found_ret_value
 
-                named_type, object_id = named_data_and_type[DiffObjectBuilder.__get_last_time(named_data_and_type)]
+                named_type, object_id = named_data[DiffObjectBuilder.__get_last_time(named_data)]
             else:
-                named_type, object_id = named_data_and_type[time]
+                named_type, object_id = named_data[time]
 
             if isinstance(object_id, DiffObjectBuilder._FieldChange):
                 object_id = object_id.value
@@ -221,6 +244,25 @@ class DiffObjectBuilder(ObjectBuilder):
                 return not_found_ret_value
 
             return named_type, object_id, self._data[object_id]
+
+    def _find_closest(self, col, time):
+        in_specific_range = None
+        bigger_than = []
+        for _, rd in col.items():
+            first, last = self.get_edge_times(rd)
+            if first <= time <= last:
+                in_specific_range = rd
+
+            elif time >= first:
+                bigger_than.append(rd)
+
+        if in_specific_range:
+            return in_specific_range
+
+        elif not bigger_than:
+            return None
+        else:
+            return sorted(bigger_than, key=lambda rd: self.get_edge_times(rd)[1], reverse=True)[0]
 
     @staticmethod
     def __initial_range(t: Time):
@@ -348,7 +390,7 @@ class DiffObjectBuilder(ObjectBuilder):
         self._scopes[rv.line_no] = rv.key.container_id
 
         if is_primitive:
-            self._named_primitives[rv.expression][scope] = rv.rtype, object_data
+            self._named_primitives[rv.expression][scope] = object_data
         else:
             value_to_store = DiffObjectBuilder._FieldChange(rv.value)
             if scope not in self._named_objects[rv.expression]:
@@ -404,9 +446,13 @@ class DiffObjectBuilder(ObjectBuilder):
         return reduce(lambda rr, r: rr + r, rd.ranges())
 
     def get_change_times(self, item: Identifier, line_no: LineNo = -1) -> Iterable[Time]:
-        named_inner_data, is_primitive = self.__get_named_inner_data(item, line_no)
+        if isinstance(item, str):
+            named_inner_data, is_primitive = self.__get_named_inner_data(item, DiffObjectBuilder._Mode.FIRST, line_no)
+            rd: RangeDict = named_inner_data
+        else:
+            is_primitive = False
+            rd: RangeDict = self._data[item] if item in self._data else []
 
-        rd: RangeDict = named_inner_data[1] if is_primitive else named_inner_data
         if rd is None:
             return []
 
@@ -501,4 +547,3 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def get_line_nos_by_container_id(self, container_id: ContainerId) -> Iterable[LineNo]:
         return list(map(lambda t: t[0], filter(lambda t: t[1] == container_id, self._scopes.items())))
-

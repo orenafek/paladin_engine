@@ -1,5 +1,4 @@
 import abc
-import ast
 import re
 import sys
 from collections import deque
@@ -10,7 +9,7 @@ from types import NoneType
 from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Callable, Any
 
 from archive.archive import Archive
-from ast_common.ast_common import str2ast, ast2str
+from ast_common.ast_common import separate_to_container_and_field
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, EMPTY, EMPTY_COLLECTION
 from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
 
@@ -46,7 +45,7 @@ def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_
 def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
             line_no: int):
     archive.store_new \
-        .key(id(frame), arg, __ARG__.__name__) \
+        .key(id(frame), arg, __AS__.__name__) \
         .value(type(value), POID(value), arg, line_no)
 
     if func_name == '__init__' and arg == 'self':
@@ -61,12 +60,11 @@ def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, lin
     if not archive.should_record:
         return
 
-    container_id, field, container, is_container_value, is_container_id_frame = _separate_to_container_and_field(target,
-                                                                                                                 frame,
-                                                                                                                 locals,
-                                                                                                                 globals)
-    value = container if is_container_value else container.__getattribute__(
-        field) if field in container.__dict__ else None
+    container_id, field, container, is_container_value, is_container_id_frame = separate_to_container_and_field(target,
+                                                                                                                frame,
+                                                                                                                locals,
+                                                                                                                globals)
+    value = container if is_container_value else getattr(container, field) if field in container.__dict__ else None
 
     __store(container_id, field, line_no, target, value, locals, globals, __AS__,
             kind=Archive.Record.StoreKind.VAR if is_container_id_frame else Archive.Record.StoreKind.OBJ_ITEM)
@@ -208,7 +206,7 @@ def __SOLI__(line_no: int, frame):
             .value(int, line_no, '__start_of_loop_iteration', line_no)
 
 
-def __UNDEF__(func_name: str, line_no: int, frame):
+def __UNDEF__(func_name: str, frame, line_no: int):
     archive.store_new \
         .key(id(frame), func_name, __UNDEF__.__name__) \
         .value(type(lambda _: _), func_name, func_name, line_no)
@@ -293,29 +291,6 @@ def _separate_to_container_and_func(function, expression: str, frame, vars_dict:
     return container_id
 
     # return _separate_to_container_and_field_inner(expression, frame, vars_dict, _extract_identifier)
-
-
-def _separate_to_container_and_field(expression: str, frame, locals: dict, globals: dict) -> tuple[
-    int, str, object, bool, bool]:
-    expression_ast = str2ast(expression).value
-    if isinstance(expression_ast, ast.Subscript):
-        getitem_arg = f'''{slice.__name__}(start={ast2str(expression_ast.slice.lower)},
-                                           stop={ast2str(expression_ast.slice.upper)},
-                                           step={ast2str(expression_ast.slice.step)})
-                       ''' if isinstance(expression_ast.slice, ast.Slice) else eval(ast2str(expression_ast.slice),
-                                                                                    globals, locals)
-        subscript_value = eval(ast2str(expression_ast.value), globals, locals)
-        return id(subscript_value), getitem_arg, eval(expression, globals, locals), True, False
-
-    if not isinstance(expression_ast, ast.Attribute):
-        # There is only an object.
-        value = eval(expression, globals, locals)
-        return id(frame), expression, value, True, True
-
-    container = eval(ast2str(expression_ast.value), globals, locals)
-    field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
-
-    return id(container), field, container, False, False
 
 
 class StubArgumentType(enumerate):

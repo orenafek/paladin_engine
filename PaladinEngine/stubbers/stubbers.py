@@ -640,7 +640,7 @@ class FunctionDefStubber(Stubber):
         if node.body != [] and not isinstance(node.body[::-1][0], ast.Return):
             return_none_stub = ast.parse('return None').body[0]
             assert isinstance(return_none_stub, ast.Return)
-            node.body += [return_stub, return_none_stub]
+            node.body += [return_stub(Stubber.get_original_end_line_no(node)), return_none_stub]
 
         # Stub prefix and last return statement (if needed).
         stub_record = Stubber.ReplacingStubRecord(node, container, attr_name, node)
@@ -651,7 +651,7 @@ class FunctionDefStubber(Stubber):
             # Filter return statements of inner functions.
             if find_closest_parent(rs.node, node, ast.FunctionDef) == node:
                 self.root_module = self.stub(
-                    Stubber.BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub))
+                    Stubber.BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub(rs.node.lineno)))
 
         return self.root_module
 

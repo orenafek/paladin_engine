@@ -14,4 +14,4 @@ class Union(VariadicLateralOperator):
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
         return reduce(lambda r1, r2: EvalResult.join(r1, r2),
                       map(lambda arg: arg.eval(builder, query_locals), self.args),
-                      EvalResult.EMPTY)
+                      EvalResult.empty(self.times))

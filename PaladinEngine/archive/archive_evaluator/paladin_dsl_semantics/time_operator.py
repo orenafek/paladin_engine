@@ -5,7 +5,7 @@ from typing import Iterable, Optional, Dict, Collection, List, Callable
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Replacement, \
     EvalResultEntry, EvalResultPair, Time
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator, BiLateralOperator, \
-    VariadicLateralOperator
+    VariadicLateralOperator, UniLateralOperator
 from archive.object_builder.object_builder import ObjectBuilder
 
 
@@ -63,9 +63,18 @@ class Whenever(VariadicLateralOperator, TimeOperator):
         arg_results = list(map(lambda er: lambda t: er[t].satisfies(), evaled_args))
 
         return EvalResult([
-            TimeOperator.create_time_eval_result_entry(t, all([arg_res(t) for arg_res in arg_results]),
-                                                       list(reduce(lambda l, rep: l + rep,
-                                                                   map(lambda ar: ar[t].replacements, evaled_args),
-                                                                   [])))
+            TimeOperator.create_time_eval_result_entry(t, all([arg_res(t) for arg_res in arg_results]), [])
             for t in self.times
+        ])
+
+
+class FirstTime(UniLateralOperator, TimeOperator):
+
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+        first_satisfaction = self.first.eval(builder, query_locals).first_satisfaction()
+        if first_satisfaction == -1:
+            return EvalResult.empty(self.times)
+
+        return EvalResult([
+            TimeOperator.create_time_eval_result_entry(t, t == first_satisfaction.time) for t in self.times
         ])
