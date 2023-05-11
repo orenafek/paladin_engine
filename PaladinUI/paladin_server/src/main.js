@@ -195,6 +195,7 @@ const mainComponent = {
             let mo = rowHead.key.match(/\((\d+), (\d+)\)/);
             if (mo) {
                 this.runTimeWindow = [parseInt(mo[1]), parseInt(mo[2])];
+                this.sliderChange(this.runTimeWindow);
             }
         },
 
