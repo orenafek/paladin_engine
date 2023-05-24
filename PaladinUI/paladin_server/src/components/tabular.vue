@@ -16,6 +16,7 @@ export default {
   name: "tabular",
   props: {
     value: Object,
+    customization: String,
   },
   computed: {
     sortedEntries() {
@@ -43,7 +44,12 @@ export default {
   methods: {
     isEmpty: o => JSON.stringify(o) === "{}",
     result(range_index, key_index) {
-      return Object.values(Object.values(this.sortedEntries)[range_index])[key_index];
+      let item_to_print = Object.values(Object.values(this.sortedEntries)[range_index])[key_index];
+      let body = this.customization;
+      let wrap = s => "{ return " + body + " };" //return the block having function expression
+      let func = new Function( wrap(body) );
+      let customized_item = func.call( null ).call(null, item_to_print); //invoke the function using arguments
+      return customized_item;
     }
   }
 }

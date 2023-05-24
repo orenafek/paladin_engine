@@ -93,6 +93,7 @@ const mainComponent = {
                 smartIndent: true,
                 indentUnit: 2
             },
+            customizationCode: 'starting value',
             shouldCustomizeQuery: false
         }
     },
@@ -174,6 +175,10 @@ const mainComponent = {
                 this.queryInProgress = false;
             }
             return true;
+        },
+
+        update_customization_code: async function (code) {
+            this.customizationCode = code;
         },
 
         store_layout_panes(ev) {

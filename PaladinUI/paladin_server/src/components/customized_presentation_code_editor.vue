@@ -9,7 +9,7 @@
         :options="codemirror_options"
         placeholder="Write your function here..."
         :height="200" :width="600" border
-        @change="change"/>
+        @change="updateCustomizedCode()"/>
   </div>
 </template>
 
@@ -21,10 +21,17 @@ import "codemirror/theme/dracula.css";
 export default {
   name: "CustomizedPresentation",
   components: {Codemirror},
-  props: ['change'],
+  emits: ['updateCustomizedCode'],
+  methods: {
+    updateCustomizedCode() {
+      this.$emit('updateCustomizedCode', this.customized_data)
+    }
+  },
   data: function() {
     return {
-      customized_data: 'function() {}',
+      customized_data: 'function (data) {\n' +
+          '  return data;\n' +
+          '}',
       codemirror_options: {
         mode: "text/javascript",
         theme: "dracula",
