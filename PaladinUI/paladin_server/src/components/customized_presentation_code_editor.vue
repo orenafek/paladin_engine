@@ -27,6 +27,9 @@ export default {
       this.$emit('updateCustomizedCode', this.customized_data)
     }
   },
+  mounted () {
+    this.$emit('updateCustomizedCode', this.customized_data)
+  },
   data: function() {
     return {
       customized_data: 'function (data) {\n' +
