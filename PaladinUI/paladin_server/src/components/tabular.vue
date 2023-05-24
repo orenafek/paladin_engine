@@ -16,10 +16,16 @@ export default {
   name: "tabular",
   props: {
     value: Object,
+    customization: String,
   },
   methods: {
     result(rowKey, colKey) {
-      return this.value.rowData[rowKey]?.[colKey];
+      let item_to_print = this.value.rowData[rowKey]?.[colKey];
+      let body = this.customization;
+      let wrap = s => "{ return " + body + " };" //return the block having function expression
+      let func = new Function( wrap(body) );
+      let customized_item = func.call( null ).call(null, item_to_print); //invoke the function using arguments
+      return customized_item;
     },
     rowSelect($event, rowHead) {
       this.$emit('row:select', {$event, rowHead});

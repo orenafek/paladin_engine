@@ -97,6 +97,7 @@ const mainComponent = {
                 smartIndent: true,
                 indentUnit: 2
             },
+            customizationCode: 'starting value',
             shouldCustomizeQuery: false
         }
     },
@@ -199,6 +200,10 @@ const mainComponent = {
                 this.runTimeWindow = [parseInt(mo[1]), parseInt(mo[2])];
                 this.sliderChange(this.runTimeWindow);
             }
+        },
+
+        update_customization_code: async function (code) {
+            this.customizationCode = code;
         },
 
         store_layout_panes(ev) {
