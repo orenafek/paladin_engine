@@ -93,7 +93,7 @@ const mainComponent = {
                 smartIndent: true,
                 indentUnit: 2
             },
-            customizationCode: 'starting value',
+            customizationCode: '',
             shouldCustomizeQuery: false
         }
     },
