@@ -97,7 +97,8 @@ const mainComponent = {
                 smartIndent: true,
                 indentUnit: 2
             },
-            customizationCode: '',
+            matchesCode: '',
+            formatCode: '',
             shouldCustomizeQuery: false
         }
     },
@@ -203,7 +204,10 @@ const mainComponent = {
         },
 
         update_customization_code: async function (code) {
-            this.customizationCode = code;
+            let matchesRegex = /function\s+matches\s*\(.*?\)\s*{.*?}(?!\s*;)/s;
+            this.matchesCode = matchesRegex.exec(code)[0];
+            let formatRegex = /function\s+getFormattedData\s*\(.*?\)\s*{.*?}(?!\s*;)/s;
+            this.formatCode = formatRegex.exec(code)[0];
         },
 
         store_layout_panes(ev) {

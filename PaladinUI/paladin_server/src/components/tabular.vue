@@ -6,31 +6,44 @@
     </thead>
     <tr v-for="rowHead in value.rowHeaders">
       <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
-      <td v-for="colKey in value.columnHeaders"> {{ result(rowHead.key, colKey) }}</td>
+      <td v-for="colKey in value.columnHeaders">
+        <customized-presentation-view :content-data="result(rowHead.key, colKey)"></customized-presentation-view>
+      </td>
     </tr>
   </table>
 </template>
 
 <script>
+import CustomizedPresentationView from "./customized_presentation_view.vue";
+
 export default {
   name: "tabular",
-  props: {
+    components: {customizedPresentationView: CustomizedPresentationView},
+    props: {
     value: Object,
-    customization: String,
+    matches: String,
+    format: String,
   },
   methods: {
     result(rowKey, colKey) {
-      let item_to_print = this.value.rowData[rowKey]?.[colKey];
-      let body = this.customization;
-      let wrap = s => "{ return " + body + " };" //return the block having function expression
-      let func = new Function( wrap(body) );
-      let customized_item = func.call( null ).call(null, item_to_print); //invoke the function using arguments
-      return customized_item;
+      let item = this.value.rowData[rowKey]?.[colKey];
+      let hasMatch = applyStringFunctionToItem(this.matches, item);
+      if (hasMatch) {
+          item = applyStringFunctionToItem(this.format, item);
+      }
+      return item;
     },
     rowSelect($event, rowHead) {
       this.$emit('row:select', {$event, rowHead});
     }
   }
+}
+
+const applyStringFunctionToItem = function(body, item) {
+  let wrap = s => "{ return " + body + " };" //return the block having function expression
+  let func = new Function( wrap(body) );
+  let result = func.call( null ).call(null, item); //invoke the function using arguments
+  return result;
 }
 
 </script>

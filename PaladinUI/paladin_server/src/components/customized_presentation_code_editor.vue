@@ -24,17 +24,24 @@ export default {
   emits: ['updateCustomizedCode'],
   methods: {
     updateCustomizedCode() {
-      this.$emit('updateCustomizedCode', this.customized_data)
+      this.$emit('updateCustomizedCode', this.customized_data);
     }
   },
   mounted () {
-    this.$emit('updateCustomizedCode', this.customized_data)
+    this.$emit('updateCustomizedCode', this.customized_data);
   },
   data: function() {
     return {
-      customized_data: 'function (data) {\n' +
-          '  return data;\n' +
-          '}',
+      customized_data: 'function matches(data) {\n' +
+        '    return true;\n' +
+        '}\n' +
+        '\n' +
+        'function getFormattedData(data) {\n' +
+        '    let result = {};\n' +
+        '    result.contentType = "text/plain";\n' +
+        '    result.content = data;\n' +
+        '    return result;\n' +
+        '}',
       codemirror_options: {
         mode: "text/javascript",
         theme: "dracula",

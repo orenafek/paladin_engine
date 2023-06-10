@@ -69,7 +69,7 @@
                         <customized-presentation @update-customized-code="update_customization_code($event)"></customized-presentation>
                         <br/>
                         <tabular class="query-result" :value="formatResults(queryResult)"
-                            @row:select="narrowTimeRange" :customization="customizationCode"></tabular>
+                            @row:select="narrowTimeRange" :matches="matchesCode" :format="formatCode"></tabular>
                         <br/>
                         <div> PaLaDiN DSL Operators:</div>
                         <Markdown :source="dsl_docs" :breaks="true"/>
