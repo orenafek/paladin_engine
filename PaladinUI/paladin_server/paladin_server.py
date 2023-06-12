@@ -1,15 +1,19 @@
 import sys
+import traceback
 from dataclasses import dataclass
+from io import StringIO
 from pathlib import Path
 from typing import *
 
 from flask import Flask, request, send_file, send_from_directory
 from flask_classful import FlaskView, route
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 from PaladinEngine.engine.engine import PaLaDiNEngine
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator, QUERY_DSL_WORDS
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from common.common import ISP
@@ -21,17 +25,19 @@ STATIC_FOLDER = HERE / 'static'
 SCRIPTS_FOLDER = STATIC_FOLDER / 'scripts'
 STYLES_FOLDER = STATIC_FOLDER / 'styles'
 JSON_FILE_NAME = 'input_graph_tree.json'
-SOURCE_CODE: str = ''
-EVALUATOR: Optional[ArchiveEvaluator] = None
-ARCHIVE: Optional[Archive] = None
-RUN_OUTPUT: str = ''
-PARSER: Optional[PaladinNativeParser] = None
-
-# FIXME: Currently for debugging purposes.
-THROWN_EXCEPTION: Optional[PaLaDiNEngine.PaladinRunExceptionData] = None
-
+PROGRAM_ATTR = None
 
 class PaladinServer(FlaskView):
+    DEFAULT_TIMEOUT = 5
+    @dataclass
+    class ProgramAttributes(object):
+        file_name: str
+        source_code: str
+        output: str
+        thrown_exception: Optional[PaLaDiNEngine.PaladinRunExceptionData]
+        archive: Archive
+        parser: PaladinNativeParser
+
     @dataclass
     class _ArchiveEntriesView(object):
         stub: str
@@ -52,21 +58,48 @@ class PaladinServer(FlaskView):
         time: int
 
     @classmethod
-    def create(cls, source_code: str,
-               archive: Archive,
-               run_output: str,
-               thrown_exception: Optional[Tuple[int, str]] = None) -> 'PaladinServer':
-        global SOURCE_CODE, THROWN_EXCEPTION, ARCHIVE, EVALUATOR, RUN_OUTPUT, PARSER
+    def create(cls) -> 'PaladinServer':
         server = PaladinServer()
-        RUN_OUTPUT = run_output
-        SOURCE_CODE = source_code
-        THROWN_EXCEPTION = thrown_exception
-        ARCHIVE = archive
-        EVALUATOR = ArchiveEvaluator(ARCHIVE)
-        PARSER = PaladinNativeParser(ARCHIVE)
         return server
 
+    @route('/debug_info/run_program/<string:file_name>', methods=['POST'])
+    @route('/debug_info/run_program/<string:file_name>/<any:timeout>', methods=['POST'])
+    def run_program(self, file_name: str, timeout: bool = False):
+        if request.method != 'POST':
+            return PaladinServer.create_response({})
+
+        f = request.files[file_name]
+        if secure_filename(f.filename) != file_name:
+            return PaladinServer.create_response({})
+
+        source_code = str(f.stream.read())
+        paladinized_code = PaLaDiNEngine.transform(source_code)
+
+        output_capture = None
+        thrown_exception = None
+        archive = None
+        # noinspection PyBroadException
+        try:
+            output_capture = StringIO()
+            result, archive, thrown_exception = PaLaDiNEngine.execute_with_paladin(source_code,
+                                                                                   paladinized_code,
+                                                                                   file_name,
+                                                                                   PaladinServer.DEFAULT_TIMEOUT if timeout else -1,
+                                                                                   output_capture)
+        except BaseException:
+            traceback.print_exc()
+
+        finally:
+            self.program_attr = PaladinServer.ProgramAttributes(file_name,
+                                                                source_code,
+                                                                output_capture.getvalue(),
+                                                                thrown_exception,
+                                                                archive,
+                                                                PaladinNativeParser(archive))
+
     def run(self, port: int = 9999):
+        global PROGRAM_ATTR
+        PROGRAM_ATTR = self.program_attr
         self.register_app()
         self.app.run(port=port)
 
@@ -75,6 +108,7 @@ class PaladinServer(FlaskView):
         self._app.jinja_options['variable_start_string'] = '@='
         self._app.jinja_options['variable_end_string'] = '=@'
         CORS(self.app, resources={r'/*': {'origins': '*'}})
+        self.program_attr: Optional[PaladinServer.ProgramAttributes] = None
 
     def register_app(self):
         self.app.template_folder = TEMPLATE_FOLDER
@@ -118,25 +152,25 @@ class PaladinServer(FlaskView):
     @route('/debug_info/source_code/<int:line>')
     def source_code(self, line: int = None):
         return PaladinServer.create_response(
-            SOURCE_CODE.split('\n') if not line
-            else PaladinServer._get_line_from_source_code(line))
+            self.program_attr.file_name.split('\n') if not line
+            else self._get_line_from_source_code(line))
 
     @route('/debug_info/exception_line')
     def exception_line(self):
-        return PaladinServer.create_response({'exception_line_no': THROWN_EXCEPTION.source_code_line_no,
-                                              'exception_source_line': THROWN_EXCEPTION.source_line,  # TODO: Huh?
-                                              'exception_msg': THROWN_EXCEPTION.exception_msg,
-                                              'exception_archive_time': THROWN_EXCEPTION.archive_time}
-                                             if THROWN_EXCEPTION else {})
+        return PaladinServer.create_response({'exception_line_no': self.program_attr.thrown_exception.source_code_line_no,
+                                              'exception_source_line': self.program_attr.thrown_exception.source_line,  # TODO: Huh?
+                                              'exception_msg': self.program_attr.thrown_exception.exception_msg,
+                                              'exception_archive_time': self.program_attr.thrown_exception.archive_time}
+                                             if self.program_attr.thrown_exception else {})
 
     @route('/debug_info/archive_entries/<int:line_no>')
     def archive_entries(self, line_no: int):
         return PaladinServer.create_response(
-            PaladinServer._present_archive_entries(ARCHIVE.get_by_line_no(line_no).items()))
+            PaladinServer._present_archive_entries(self.program_attr.archive.get_by_line_no(line_no).items()))
 
     @route('/debug_info/vars_to_follow/<int:line_no>')
     def vars_to_follow(self, line_no: int):
-        archive_entries: list = PaladinServer._present_archive_entries(ARCHIVE.get_by_line_no(line_no).items())
+        archive_entries: list = PaladinServer._present_archive_entries(self.program_attr.archive.get_by_line_no(line_no).items())
 
         @dataclass
         class _ArchiveVarView(object):
@@ -150,7 +184,7 @@ class PaladinServer(FlaskView):
 
         return PaladinServer.create_response(list(
             {_ArchiveVarView(aev.container_id, aev.value if type(aev.value) is str else str(aev.value), aev.field,
-                             ARCHIVE.search_web(aev.field)) for aev in archive_entries}))
+                             self.program_attr.archive.search_web(aev.field)) for aev in archive_entries}))
 
     @route('/debug_info/var_assignments/<int:var_id>')
     def var_assignments(self, var_id: int):
@@ -160,11 +194,11 @@ class PaladinServer(FlaskView):
             value.line_no,
             value.expression,
             value.time
-        ) for (key, value_list) in ARCHIVE.get_by_container_id(var_id).items() for value in value_list])
+        ) for (key, value_list) in self.program_attr.archive.get_by_container_id(var_id).items() for value in value_list])
 
     @route('/debug_info/object_lifetime/<int:obj_id>')
     def object_lifetime(self, obj_id: int):
-        lifetime = ARCHIVE.object_lifetime(obj_id)
+        lifetime = self.program_attr.archive.object_lifetime(obj_id)
 
         def convert_object_state_to_node(i: int, object_state: Union[Dict, object]) -> Tuple[int, Union[List, Dict]]:
             if type(object_state) is not dict:
@@ -184,20 +218,20 @@ class PaladinServer(FlaskView):
 
     @route('/debug_info/last_run_time')
     def last_run_time(self):
-        return PaladinServer.create_response(ARCHIVE.last_time)
+        return PaladinServer.create_response(self.program_attr.archive.last_time)
 
     @route('/debug_info/time_window/<int:from_time>/<int:to>')
     def time_window(self, from_time: int, to: int):
         return PaladinServer.create_response(
             PaladinServer._present_archive_entries(
-                ARCHIVE.get_assignments(from_time, to).items()))
+                self.program_attr.archive.get_assignments(from_time, to).items()))
 
     @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/', defaults={'customizer': ''})
     @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<string:customizer>')
     def query(self, select_query: str, start_time: int, end_time: int, customizer: str):
         return PaladinServer.create_response(
-            PARSER.parse(select_query.replace('<br>', '\n'), start_time, end_time,
-                         customizer=customizer.replace('<br>', '\n')))
+            self.program_attr.parser.parse(select_query.replace('<br>', '\n'), start_time, end_time,
+                                           customizer=customizer.replace('<br>', '\n')))
 
     @route('/debug_info/docs')
     def docs(self):
@@ -205,7 +239,7 @@ class PaladinServer(FlaskView):
 
     @route('/debug_info/run_output')
     def run_output(self):
-        return PaladinServer.create_response(RUN_OUTPUT)
+        return PaladinServer.create_response(self.program_attr.output)
 
     @route('/debug_info/query_dsl_words')
     def query_dsl_words(self):
@@ -218,26 +252,25 @@ class PaladinServer(FlaskView):
         if 'info' in args:
             if args['info'] == 'retrieve_object':
                 response = {
-                    'object': ARCHIVE.retrieve_value(int(args['object_id']), args['object_type'], int(args['time']))}
+                    'object': self.program_attr.archive.retrieve_value(int(args['object_id']), args['object_type'], int(args['time']))}
         return {'result': response}
 
     @route('/source_code.txt')
     def src_code(self):
-        return SOURCE_CODE
+        return self.program_attr.source_code
 
-    @staticmethod
-    def _get_line_from_source_code(line_no: int) -> str:
+    def _get_line_from_source_code(self, line_no: int) -> str:
         if line_no <= 0:
             return ''
 
-        return SOURCE_CODE.split('\n')[line_no - 1].strip()
+        return self.program_attr.source_code.split('\n')[line_no - 1].strip()
 
     @route('/search', methods=['POST'])
     def search(self):
         if not request.json:
             result = {'search_result': ''}
         else:
-            result = {'search_result': ARCHIVE.search_web(request.json['expression_to_search'])}
+            result = {'search_result': self.program_attr.archive.search_web(request.json['expression_to_search'])}
         return result
 
     @staticmethod
@@ -254,7 +287,3 @@ class PaladinServer(FlaskView):
                 value.time
             ) for (key, value_list) in archive_entries for value in value_list
         ], key=lambda aev: aev.time, reverse=True)
-
-    @staticmethod
-    def _run_time_window():
-        return {'TIME_WINDOW': (0, ARCHIVE.last_time)}

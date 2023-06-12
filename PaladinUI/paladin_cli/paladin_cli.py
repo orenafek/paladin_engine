@@ -5,6 +5,7 @@ from io import StringIO
 
 from PaladinUI.paladin_server.paladin_server import PaladinServer
 from archive.archive import Archive
+from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from engine.engine import PaLaDiNEngine
 from pathlib import *
 
@@ -86,7 +87,13 @@ def main():
             if args.run_debug_server:
                 try:
                     run_output = output_capture.getvalue()
-                    server = PaladinServer.create(source_code, archive, run_output, thrown_exception)
+                    server = PaladinServer.create()
+                    server.program_attr = PaladinServer.ProgramAttributes(args.input_file,
+                                                                          source_code,
+                                                                          run_output,
+                                                                          thrown_exception,
+                                                                          archive,
+                                                                          PaladinNativeParser(archive))
                     server.run(args.port)
                 except KeyboardInterrupt:
                     pass

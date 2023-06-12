@@ -24,6 +24,12 @@
     <div id="main">
         <splitpanes class="default-theme" ref="mainSplit" @resize="store_layout_panes">
             <pane :size="layout.panes[0].size">
+                <div class="flex-container">
+                    <h3 class="section"> Run a Program </h3>
+                    <p> Select a file to run and debug: </p>
+                    <input type="file" id="programSelector"/>
+                    <button :onclick="runProgram"> Run </button>
+                </div>
                 <Codemirror id="source-editor" ref="sourceEditor" class="original-style"
                             :value="source_code.join('\n')"
                             :options="{mode: 'python', theme: 'darcula', scrollbarStyle: 'overlay'}"></Codemirror>

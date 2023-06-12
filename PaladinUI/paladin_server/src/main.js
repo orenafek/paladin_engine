@@ -199,6 +199,13 @@ const mainComponent = {
             }
         },
 
+        runProgram: async function() {
+            await request_debug_info("run_program",
+                document.getElementById("programSelector").files[0],
+                false
+                );
+        },
+
         store_layout_panes(ev) {
             this.layout.panes = ev.map(x => ({size: x.size}));
         },
