@@ -149,16 +149,35 @@ class PaladinNativeParser(object):
         def _create_const_op_from_arg(self, arg: ast.AST):
             return Const(ast2str(arg), self.times)
 
+        def visit_Compare(self, node: ast.Compare) -> Any:
+            super().visit(node.left)
+            line_no = node.left.lineno
+            for comp in node.comparators:
+                super().visit(comp)
+                if line_no != -1 and comp.lineno != -1 and comp.lineno != line_no:
+                    # In case line_no is already a real line no (not -1), and one of the comparators has a line_no,
+                    # ignore all line_nos to not enforce the wrong line_no from both sides or cross-comparators.
+                    line_no = -1
+                elif line_no == -1 and comp.lineno != -1:
+                    # If there is no line_no yet, take the comp's one.
+                    line_no = comp.lineno
+
+            node.lineno = line_no
+            return node
+
         def visit_Name(self, node: ast.Name) -> Any:
             if PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL in node.id:
                 function_name = node.id.replace(PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL, '')
                 var_name = self.create_operator_lambda_var()
                 self._add_operator(var_name, node.id, Raw(function_name, node.lineno, self.times))
-                return ast.Name(id=function_name, lineno=node.lineno)
+                _id = function_name
+            else:
+                _id = node.id
 
-            return node
+            return ast.Name(id=_id, lineno=node.lineno)
 
         def visit_Attribute(self, node: ast.Attribute) -> Any:
+            super().visit(node.value)
             node.lineno = node.value.lineno
             return node
         @property

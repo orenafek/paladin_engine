@@ -1,5 +1,5 @@
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import reduce
 from typing import *
 
@@ -20,7 +20,6 @@ Time = int
 ObjectId = int
 LineNo = int
 ContainerId = int
-Scope = Tuple[LineNo, ContainerId]
 
 Identifier: Type = Union[str, ObjectId]
 ParseResults: Type = Dict[str, Dict[str, Any]]
@@ -29,6 +28,18 @@ BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
 EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict, deque.__name__: deque}
 BAD_JSON_VALUES = {'-Infinity': '"-∞"', 'Infinity': '"∞"', 'NaN': '"NaN"'}
+
+
+@dataclass
+class Scope(object):
+    line_no: LineNo
+    container_ids: Set[ContainerId] = field(default_factory=lambda: set())
+
+    def add_container_id(self, container_id: ContainerId):
+        self.container_ids.add(container_id)
+
+    def __hash__(self) -> int:
+        return hash(self.line_no)
 
 
 @dataclass

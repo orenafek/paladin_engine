@@ -71,12 +71,12 @@ class DiffObjectBuilder(ObjectBuilder):
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
         self._named_primitives: _NAMED_PRIMITIVES_DATA_TYPE = {}
         self._named_objects: _NAMED_OBJECTS_DATA_TYPE = {}
-        self._scopes: Dict[LineNo, ContainerId] = {}
+        self._scopes: Dict[LineNo, Scope] = {}
         self._construct()
 
     def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
         if isinstance(item, str):
-            object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.FIRST, time,
+            object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.CLOSEST, time,
                                                                          line_no)
             if ISP(object_type) or object_type is NoneType:
                 return obj_data
@@ -182,13 +182,11 @@ class DiffObjectBuilder(ObjectBuilder):
             return None, False
 
         if line_no_exist:
-            values_in_line_no = list(
-                map(lambda k: named_collection[name][k], filter(lambda k: k[0] == line_no, named_collection[name])))
-
-            if not values_in_line_no:
+            if line_no not in self._scopes:
                 return None, is_primitive
 
-            return values_in_line_no[0], is_primitive
+            return named_collection[name][self._scopes[line_no]], is_primitive
+
         else:
             match mode:
                 case DiffObjectBuilder._Mode.FIRST:
@@ -245,24 +243,18 @@ class DiffObjectBuilder(ObjectBuilder):
 
             return named_type, object_id, self._data[object_id]
 
-    def _find_closest(self, col, time):
-        in_specific_range = None
-        bigger_than = []
+    def _find_closest(self, col, time) -> Optional[RangeDict]:
+        _closest_time = lambda tt: min([abs(time - t) for t in tt if t <= time], default=float('inf'))
+        closest: Tuple[Union[Time, float], Optional[RangeDict]] = float('inf'), None
         for _, rd in col.items():
-            first, last = self.get_edge_times(rd)
-            if first <= time <= last:
-                in_specific_range = rd
+            times = self.get_all_ranges_edge_times(rd)
+            if time in times:
+                return rd
 
-            elif time >= first:
-                bigger_than.append(rd)
+            if (c := _closest_time(times)) < closest[0]:
+                closest = c, rd
 
-        if in_specific_range:
-            return in_specific_range
-
-        elif not bigger_than:
-            return None
-        else:
-            return sorted(bigger_than, key=lambda rd: self.get_edge_times(rd)[1], reverse=True)[0]
+        return closest[1]
 
     @staticmethod
     def __initial_range(t: Time):
@@ -386,8 +378,7 @@ class DiffObjectBuilder(ObjectBuilder):
         collection = self._named_primitives if is_primitive else self._named_objects
         self.__init_named_collection_for_expression(collection, rv)
 
-        scope: Scope = DiffObjectBuilder.__get_scope(collection, rv)
-        self._scopes[rv.line_no] = rv.key.container_id
+        scope: Scope = self.__add_scope(rv)
 
         if is_primitive:
             self._named_primitives[rv.expression][scope] = object_data
@@ -440,6 +431,16 @@ class DiffObjectBuilder(ObjectBuilder):
     def get_edge_times(rd: RangeDict) -> Tuple[Time, Time]:
         all_ranges = DiffObjectBuilder._get_all_time_ranges(rd)
         return min(all_ranges).start, max(all_ranges).end
+
+    @staticmethod
+    def get_all_ranges_edge_times(rd: RangeDict) -> Set[Time]:
+        times = set()
+        for rs in rd.ranges():
+            for r in rs:
+                times.add(r.start)
+                times.add(r.end)
+
+        return times
 
     @staticmethod
     def _get_all_time_ranges(rd: RangeDict) -> RangeSet:
@@ -530,20 +531,17 @@ class DiffObjectBuilder(ObjectBuilder):
             if isinstance(f, str):
                 setattr(evaluated_object, f, v)
 
-    @staticmethod
-    def __get_scope(collection: Union[_NAMED_PRIMITIVES_DATA_TYPE, _NAMED_OBJECTS_DATA_TYPE],
-                    rv: Archive.Record.RecordValue) -> Tuple[LineNo, ContainerId]:
+    def __add_scope(self, rv: Archive.Record.RecordValue) -> Scope:
+        if rv.line_no not in self._scopes:
+            self._scopes[rv.line_no] = Scope(rv.line_no)
 
-        scopes = list(filter(lambda k: k[1] == rv.key.container_id, collection[rv.expression].keys()))
-        if not scopes:
-            return rv.line_no, rv.key.container_id
+        scope: Scope = self._scopes[rv.line_no]
+        scope.add_container_id(rv.key.container_id)
 
-        assert len(scopes) == 1
+        return scope
 
-        return scopes[0]
-
-    def get_container_id_by_line_no(self, line_no: LineNo) -> Optional[ContainerId]:
+    def get_container_ids_by_line_no(self, line_no: LineNo) -> Optional[ContainerId]:
         return self._scopes[line_no] if line_no in self._scopes else None
 
-    def get_line_nos_by_container_id(self, container_id: ContainerId) -> Iterable[LineNo]:
-        return list(map(lambda t: t[0], filter(lambda t: t[1] == container_id, self._scopes.items())))
+    def get_line_nos_by_container_ids(self, container_ids: Set[ContainerId]) -> Iterable[LineNo]:
+        return list(map(lambda t: t[0], filter(lambda t: t[1] in container_ids, self._scopes.items())))

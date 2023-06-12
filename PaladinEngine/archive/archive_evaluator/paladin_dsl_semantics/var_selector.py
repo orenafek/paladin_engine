@@ -60,5 +60,5 @@ class VarSelectorByLineNo(VarSelectorByTimeAndLines):
     def _get_assignments(self, builder: ObjectBuilder, time_range: range):
         if not isinstance(builder, DiffObjectBuilder):
             return []
-        return builder.archive.get_assignments(time_range, line_nos=builder.get_line_nos_by_container_id(
-            builder.get_container_id_by_line_no(self.line_no)))
+        return builder.archive.get_assignments(time_range, line_nos=builder.get_line_nos_by_container_ids(
+            builder.get_container_ids_by_line_no(self.line_no)))
