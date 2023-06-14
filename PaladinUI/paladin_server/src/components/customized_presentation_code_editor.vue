@@ -9,7 +9,7 @@
         :options="codemirror_options"
         placeholder="Write your function here..."
         :height="200" :width="600" border
-        @change="updateCustomizedCode()"/>
+        @changes="updateCustomizedCode()"/>
   </div>
 </template>
 

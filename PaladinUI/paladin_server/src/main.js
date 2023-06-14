@@ -204,10 +204,11 @@ const mainComponent = {
         },
 
         update_customization_code: async function (code) {
-            let matchesRegex = /function\s+matches\s*\(.*?\)\s*{.*?}(?!\s*;)/s;
-            this.matchesCode = matchesRegex.exec(code)[0];
-            let formatRegex = /function\s+getFormattedData\s*\(.*?\)\s*{.*?}(?!\s*;)/s;
-            this.formatCode = formatRegex.exec(code)[0];
+            let pattern = /(?<func1>(function\s+matches\s*\(.*?\)\s*{(.|\n)*?}))\s+(?<func2>(function\s+getFormattedData\s*\(.*?\)\s*{(.|\n)*?}))$/;
+            let regexMatches = pattern.exec(code);
+            let regexMatchesGroups = regexMatches.groups;
+            this.matchesCode = regexMatchesGroups.func1;
+            this.formatCode = regexMatchesGroups.func2;
         },
 
         store_layout_panes(ev) {
