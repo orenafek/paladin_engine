@@ -37,10 +37,11 @@ export default {
         '}\n' +
         '\n' +
         'function getFormattedData(data) {\n' +
-        '    let result = {};\n' +
-        '    result.contentType = "text/plain";\n' +
-        '    result.content = data;\n' +
-        '    return result;\n' +
+        '    let formattedData = {};\n' +
+        '    formattedData.data = data;\n' +
+        '    formattedData.contentType = "text/plain";\n' +
+        '    formattedData.content = data;\n' +
+        '    return formattedData;\n' +
         '}',
       codemirror_options: {
         mode: "text/javascript",

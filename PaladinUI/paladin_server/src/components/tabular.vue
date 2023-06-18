@@ -7,7 +7,7 @@
     <tr v-for="rowHead in value.rowHeaders">
       <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
       <td v-for="colKey in value.columnHeaders">
-        <customized-presentation-view :content-data="result(rowHead.key, colKey)"></customized-presentation-view>
+        <customized-presentation-view :formatted-data="result(rowHead.key, colKey)"></customized-presentation-view>
       </td>
     </tr>
   </table>

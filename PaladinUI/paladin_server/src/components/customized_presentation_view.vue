@@ -1,16 +1,33 @@
 <template>
-  <span v-if="this.contentData === null"></span>
-  <span v-else-if="this.contentData?.contentType==='text/plain'" v-text="this.contentData?.content"></span>
-  <span v-else-if="this.contentData?.contentType==='text/html'" v-html="this.contentData?.content"></span>
-  <span v-else>UNABLE TO PARSE DATA</span>
+  <v-runtime-template :template="formattedDataTemplate"></v-runtime-template>
 </template>
 
 <script>
+import VRuntimeTemplate from "vue3-runtime-template";
+
 export default {
   name: "CustomizedPresentationView",
   props: {
-    contentData: Object,
+    formattedData: Object,
   },
+  components: {
+    VRuntimeTemplate
+  },
+  computed: {
+    formattedDataTemplate() {
+      if (this.formattedData === null) {
+          return '<span></span>';
+      }
+      if (this.formattedData?.contentType==='text/plain') {
+        return '<span>{{this.formattedData?.content}}</span>';
+      }
+      if (this.formattedData?.contentType==='text/html') {
+        return this.formattedData?.content;
+      }
+
+      return '<span>UNABLE TO PARSE DATA</span>';
+    }
+  }
 }
 </script>
 
