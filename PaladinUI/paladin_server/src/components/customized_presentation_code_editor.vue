@@ -32,17 +32,19 @@ export default {
   },
   data: function() {
     return {
-      customized_data: 'function matches(data) {\n' +
-        '    return true;\n' +
-        '}\n' +
-        '\n' +
-        'function getFormattedData(data) {\n' +
-        '    let formattedData = {};\n' +
-        '    formattedData.data = data;\n' +
-        '    formattedData.contentType = "text/plain";\n' +
-        '    formattedData.content = data;\n' +
-        '    return formattedData;\n' +
-        '}',
+      customized_data: 'class Customization {\n' +
+      '    static matches(data) {\n' +
+      '        return true;\n' +
+      '    }\n' +
+      '\n' +
+      '    static getFormattedData(data) {\n' +
+      '        let formattedData = {};\n' +
+      '        formattedData.data = data;\n' +
+      '        formattedData.contentType = "text/plain";\n' +
+      '        formattedData.content = data;\n' +
+      '        return formattedData;\n' +
+      '    }\n' +
+      '}',
       codemirror_options: {
         mode: "text/javascript",
         theme: "dracula",

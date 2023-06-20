@@ -23,13 +23,16 @@ export default {
     value: Object,
     matches: String,
     format: String,
+    customization: String,
   },
   methods: {
     result(rowKey, colKey) {
       let item = this.value.rowData[rowKey]?.[colKey];
-      let hasMatch = applyStringFunctionToItem(this.matches, item);
+      let classString = '(' + this.customization + ')';
+      let customizationClass = eval(classString);
+      let hasMatch = customizationClass.matches(item);
       if (hasMatch) {
-          item = applyStringFunctionToItem(this.format, item);
+          item = customizationClass.getFormattedData(item);
       }
       return item;
     },
@@ -37,13 +40,6 @@ export default {
       this.$emit('row:select', {$event, rowHead});
     }
   }
-}
-
-const applyStringFunctionToItem = function(body, item) {
-  let wrap = s => "{ return " + body + " };" //return the block having function expression
-  let func = new Function( wrap(body) );
-  let result = func.call( null ).call(null, item); //invoke the function using arguments
-  return result;
 }
 
 </script>
