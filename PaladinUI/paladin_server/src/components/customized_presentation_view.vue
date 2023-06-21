@@ -23,7 +23,7 @@ export default {
       if (this.contentType === 'text/html') {
         return this.content;
       }
-      return '<span>UNABLE TO PARSE DATA</span>';
+      return '<span>{{this.data}}</span>';
     }
   }
 }

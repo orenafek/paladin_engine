@@ -38,11 +38,10 @@ export default {
       '    }\n' +
       '\n' +
       '    static getFormattedData(data) {\n' +
-      '        let formattedData = {};\n' +
-      '        formattedData.data = data;\n' +
-      '        formattedData.contentType = "text/plain";\n' +
-      '        formattedData.content = data;\n' +
-      '        return formattedData;\n' +
+      '        return {\n' +
+      '          \t"contentType": "text/plain",\n' +
+      '          \t"content": data\n' +
+      '        };\n' +
       '    }\n' +
       '}',
       codemirror_options: {

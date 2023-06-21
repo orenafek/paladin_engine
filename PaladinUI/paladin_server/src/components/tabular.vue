@@ -26,16 +26,15 @@ export default {
   methods: {
     result(rowKey, colKey) {
       let item = this.value.rowData[rowKey]?.[colKey];
-      let classString = '(' + this.customization + ')';
-      let customizationClass = eval(classString);
-      let hasMatch = customizationClass.matches(item);
-      if (hasMatch) {
-          item = customizationClass.getFormattedData(item);
+      let customizationClass = eval('(' + this.customization + ')');
+      let formattedData = {"contentType": "text/plain", "content": item};
+      if (customizationClass.matches(item)) {
+          formattedData = customizationClass.getFormattedData(item);
       }
-      if (item == null) {
-          return {"data": null, "contentType": null, "content": null};
-      }
-      return item;
+      // Add the item itself to the formatted-data object, to allow the user to access it in the view template
+      formattedData.data = item;
+
+      return formattedData;
     },
     rowSelect($event, rowHead) {
       this.$emit('row:select', {$event, rowHead});
