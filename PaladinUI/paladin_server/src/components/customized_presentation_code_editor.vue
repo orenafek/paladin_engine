@@ -27,23 +27,14 @@ export default {
       this.$emit('updateCustomizedCode', this.customized_data);
     }
   },
-  mounted () {
+  async mounted () {
+    let customizationFile = await fetch('/static/customization.js');
+    this.customized_data = await customizationFile.text();
     this.$emit('updateCustomizedCode', this.customized_data);
   },
   data: function() {
     return {
-      customized_data: 'class Customization {\n' +
-      '    static matches(data) {\n' +
-      '        return true;\n' +
-      '    }\n' +
-      '\n' +
-      '    static getFormattedData(data) {\n' +
-      '        return {\n' +
-      '          \t"contentType": "text/plain",\n' +
-      '          \t"content": data\n' +
-      '        };\n' +
-      '    }\n' +
-      '}',
+      customized_data: '',
       codemirror_options: {
         mode: "text/javascript",
         theme: "dracula",
