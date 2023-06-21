@@ -7,7 +7,7 @@
     <tr v-for="rowHead in value.rowHeaders">
       <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
       <td v-for="colKey in value.columnHeaders">
-        <customized-presentation-view :formatted-data="result(rowHead.key, colKey)"></customized-presentation-view>
+        <customized-presentation-view v-bind="result(rowHead.key, colKey)"></customized-presentation-view>
       </td>
     </tr>
   </table>
@@ -21,8 +21,6 @@ export default {
     components: {customizedPresentationView: CustomizedPresentationView},
     props: {
     value: Object,
-    matches: String,
-    format: String,
     customization: String,
   },
   methods: {
@@ -33,6 +31,9 @@ export default {
       let hasMatch = customizationClass.matches(item);
       if (hasMatch) {
           item = customizationClass.getFormattedData(item);
+      }
+      if (item == null) {
+          return {"data": null, "contentType": null, "content": null};
       }
       return item;
     },

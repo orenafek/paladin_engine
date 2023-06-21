@@ -8,23 +8,21 @@ import VRuntimeTemplate from "vue3-runtime-template";
 export default {
   name: "CustomizedPresentationView",
   props: {
-    formattedData: Object,
+    contentType: String,
+    content: [Object, String],
+    data: Object,
   },
   components: {
     VRuntimeTemplate
   },
   computed: {
     formattedDataTemplate() {
-      if (this.formattedData === null) {
-          return '<span></span>';
+      if (this.contentType === 'text/plain') {
+        return '<span>{{this.content}}</span>';
       }
-      if (this.formattedData?.contentType==='text/plain') {
-        return '<span>{{this.formattedData?.content}}</span>';
+      if (this.contentType === 'text/html') {
+        return this.content;
       }
-      if (this.formattedData?.contentType==='text/html') {
-        return this.formattedData?.content;
-      }
-
       return '<span>UNABLE TO PARSE DATA</span>';
     }
   }
