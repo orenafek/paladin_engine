@@ -9,7 +9,7 @@
         :options="codemirror_options"
         placeholder="Write your function here..."
         :height="200" :width="600" border
-        @changes="updateCustomizedCode()"/>
+        />
   </div>
 </template>
 
@@ -17,14 +17,24 @@
 import Codemirror from "codemirror-editor-vue3";
 import "codemirror/mode/javascript/javascript.js";
 import "codemirror/theme/dracula.css";
+import _ from "lodash";
 
 export default {
   name: "CustomizedPresentation",
   components: {Codemirror},
   emits: ['updateCustomizedCode'],
   methods: {
-    updateCustomizedCode() {
+  },
+  created() {
+    this.debounceFn = _.debounce( () => {
       this.$emit('updateCustomizedCode', this.customized_data);
+    }, 1000)
+  },
+  watch: {
+    customized_data: {
+        handler: function (val, oldVal) {
+            this.debounceFn();
+        }
     }
   },
   async mounted () {

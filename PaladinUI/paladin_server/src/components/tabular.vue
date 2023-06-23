@@ -1,8 +1,8 @@
 <template>
   <table v-if="value?.columnHeaders">
     <thead>
-    <td>Time</td>
-    <td v-for="h in value.columnHeaders"> {{ h }}</td>
+      <td>Time</td>
+      <td v-for="h in value.columnHeaders"> {{ h }}</td>
     </thead>
     <tr v-for="rowHead in value.rowHeaders">
       <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
@@ -20,8 +20,8 @@ export default {
   name: "tabular",
     components: {customizedPresentationView: CustomizedPresentationView},
     props: {
-    value: Object,
-    customization: String,
+      value: Object,
+      customization: String,
   },
   methods: {
     result(rowKey, colKey) {
