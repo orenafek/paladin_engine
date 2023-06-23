@@ -18,18 +18,23 @@ import CustomizedPresentationView from "./customized_presentation_view.vue";
 
 export default {
   name: "tabular",
-    components: {customizedPresentationView: CustomizedPresentationView},
-    props: {
-      value: Object,
-      customization: String,
+  components: {customizedPresentationView: CustomizedPresentationView},
+  props: {
+    value: Object,
+    customization: String,
   },
   methods: {
     result(rowKey, colKey) {
       let item = this.value.rowData[rowKey]?.[colKey];
-      let customizationClass = eval('(' + this.customization + ')');
       let formattedData = {"contentType": "text/plain", "content": item};
-      if (customizationClass.matches(item)) {
+      try {
+        let customizationClass = eval('(' + this.customization + ')');
+        if (customizationClass.matches(item)) {
           formattedData = customizationClass.getFormattedData(item);
+        }
+      }
+      catch(error) {
+        console.log("Error: " + error);
       }
       // Add the item itself to the formatted-data object, to allow the user to access it in the view template
       formattedData.data = item;

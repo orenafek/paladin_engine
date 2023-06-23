@@ -4,7 +4,7 @@
     <p>
         Write customization functions for specific result types to change the appearance of your results.
     </p>
-      <Codemirror
+    <Codemirror
         v-model:value="customized_data"
         :options="codemirror_options"
         placeholder="Write your function here..."
