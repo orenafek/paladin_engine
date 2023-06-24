@@ -41,9 +41,9 @@
                     <div>
                         <h3 class="section"> Run Query </h3>
                         <div>
-                            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto"
+                            <python-code-editor placeholder="Selection" :options="codemirror_options" height="auto"
                                         :width="600"
-                                        style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
+                                        style="font-size: 14pt;" :value="query.select"></python-code-editor>
                         </div>
                         <loading-spinner :is-loading="queryInProgress"
                                          @loading-button-click="run_query">Run

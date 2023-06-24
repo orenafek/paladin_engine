@@ -17,6 +17,7 @@ import tabular from "./components/tabular.vue";
 import {persistField, LocalStore} from "./infra/store";
 import Slider from "@vueform/slider";
 import "@vueform/slider/themes/default.scss";
+import PythonCodeEditor from "./components/python_code_editor.vue"
 
 import LoadingSpinner from "./components/loading_spinner.vue";
 import './main.scss';
@@ -41,6 +42,7 @@ const mainComponent = {
         Codemirror,
         Tree,
         loadingSpinner: LoadingSpinner,
+        pythonCodeEditor: PythonCodeEditor,
         tabular,
         Markdown,
         Slider,

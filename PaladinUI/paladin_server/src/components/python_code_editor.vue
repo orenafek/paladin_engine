@@ -1,16 +1,17 @@
 <template>
-  <Codemirror placeholder="Type your query here" :options="codemiror_options" @change="change" />
+  <Codemirror placeholder="Type your query here" :options="codemirror_options" v-model:value="value"></Codemirror>
 </template>
 
 <script>
 import Codemirror from "codemirror-editor-vue3";
 import "codemirror/mode/python/python.js";
 import "codemirror/theme/dracula.css";
+import {bracketMatching} from "@codemirror/matchbrackets";
 
 export default {
   name: "PythonCodeEditor",
   components: {Codemirror},
-  props: ['change'],
+  props: ['value'],
   data: function() {
     return {
       codemirror_options: {
@@ -23,7 +24,10 @@ export default {
         styleActiveLine: true
       }
     }
-  }
+  },
+  extensions: [
+      bracketMatching({brackets: "(){}[]"})
+  ]
 }
 </script>
 
