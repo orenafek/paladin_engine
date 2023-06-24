@@ -35,9 +35,23 @@ class DiffObjectBuilder(ObjectBuilder):
             return hash(self._type)
 
     class AttributedDict(Dict):
+
+        def __init__(self) -> None:
+            super().__init__()
+
+            for k, v in self:
+                self.__setattr__(str(k), v)
+
         def __hash__(self) -> int:
             return hash(str(self))
 
+        def __setitem__(self, key, value):
+            super().__setitem__(key, value)
+            self.__setattr__(str(key), value)
+
+        def __delitem__(self, key):
+            super().__delitem__(key)
+            self.__delattr__(key)
     @dataclass
     class _DictKeyResolve(object):
         field_type: Type
