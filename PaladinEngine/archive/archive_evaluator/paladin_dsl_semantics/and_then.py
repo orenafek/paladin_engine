@@ -9,7 +9,7 @@ from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOp
 from archive.object_builder.object_builder import ObjectBuilder
 
 
-class AndThan(BiLateralOperator, TimeOperator):
+class AndThen(BiLateralOperator, TimeOperator):
     """
     AndThan(c, o): Satisfies on the first satisfaction of o after each satisfaction of c.
                    This operator is useful to capture key events that have happened after a known event.
@@ -21,12 +21,12 @@ class AndThan(BiLateralOperator, TimeOperator):
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
         # Evaluate event.
-        first_satisfaction = list(self.first.eval(builder, query_locals).satisfies_iterator())
-        satisfaction_pairs = list(zip([e.time for e in first_satisfaction], [e.time for e in first_satisfaction][1::]))
+        first_satisfaction = self.first.eval(builder, query_locals).satisfaction_ranges(self.times)
 
         # Create ranges.
         last_time = list(self.times)[::-1][0]
-        next_satisfaction_ranges = [range(p[0] + 1, p[1]) for p in satisfaction_pairs if p[0] + 1 < last_time]
+        next_satisfaction_ranges = [range(r.start + 1, r.stop) for r in first_satisfaction if
+                                    r.start + 1 <= r.stop and r.start + 1 <= last_time]
 
         return Union(self.times, *[First(self.times, copy.copy(self.second).update_times(r)) for r in
                                    next_satisfaction_ranges]).eval(builder, query_locals)

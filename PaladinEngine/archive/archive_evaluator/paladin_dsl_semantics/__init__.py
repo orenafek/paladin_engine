@@ -1,7 +1,7 @@
 from .operator import Operator
 from .time_operator import TimeOperator, BiTimeOperator, Whenever, FirstTime
 from .basic_logical_ops import And, Not
-from .and_than import AndThan
+from .and_then import AndThen
 from .after import After
 from .align import Align
 from .bounded import Bounded

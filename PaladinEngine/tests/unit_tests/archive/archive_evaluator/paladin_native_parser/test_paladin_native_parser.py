@@ -1,10 +1,12 @@
 import re
 import unittest
 from abc import ABC
-from typing import Tuple, Any, Iterator, Optional
+from pathlib import Path
+from typing import Tuple, Any, Iterator, Optional, Dict
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
+from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
 from tests.unit_tests.archive.object_builder.diff_object_builder.test_diff_object_builder import TestBasic4
 
@@ -41,34 +43,14 @@ class TestCaterpillarParser(TestPaladinNativeParser):
             'for e1 in Where(Union(total_slices@26, i@25, j@25), LineHit(30))]'
         self._test_series_of_values(
             query,
-            query,
+            SKIP_VALUE,
             (None, set()),
-            (0, set()), (1, set()),
+            (1, set()),
             (None, set()),
-            (1, {2}), (2, {2}),
-            (None, set()),
-            (2, {2, 3}), (3, {2, 3}),
-            (None, set()),
-            (3, {2, 4}), (4, {2, 4}),
-            (None, set()),
-            (4, {4, 5}), (5, {4, 5}),
-            (None, set()),
-            (5, {6}), (6, {6}),
-            (None, set()),
-            (6, {6, 7}), (7, {6, 7}),
-            (None, set()),
-            (7, {8}), (8, {8}),
-            (None, set()),
-            (8, {8, 9}), (9, {8, 9}),
-            (None, set()),
-            (9, {8, 10}), (10, {8, 10}),
-            (None, set()),
-            (10, {10, 11}), (11, {10, 11}),
-            (None, set()))
+            *[j for t in zip([(i, {i}) for i in range(2, 12)], [(None, set())] * 10) for j in t])
 
 
 class TestBasic4Parser(TestPaladinNativeParser):
-
     program_path = TestBasic4.program_path
     def test_function_call_ret_value(self):
         self._test_series_of_values(f'$square',

@@ -17,4 +17,6 @@ class First(UniLateralOperator):
         if not first_result:
             return EvalResult.empty(self.times)
 
-        return EvalResult([first_result if t == first_result.time else EvalResultEntry.empty(t) for t in self.times])
+        return EvalResult(
+            [first_result if t == first_result.time else EvalResultEntry.empty_with_keys(t, first_result.keys) for t in
+             self.times])
