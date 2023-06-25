@@ -20,7 +20,7 @@ import "codemirror/theme/dracula.css";
 import _ from "lodash";
 
 export default {
-  name: "CustomizedPresentation",
+  name: "CustomizedPresentationEditor",
   components: {Codemirror},
   emits: ['updateCustomizedCode'],
   methods: {

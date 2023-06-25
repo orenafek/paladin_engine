@@ -66,7 +66,7 @@
                                             v-model:value="query.customizer"></Codemirror>
                             </div>
                         </div>
-                        <customized-presentation @update-customized-code="update_customization_code($event)"></customized-presentation>
+                        <customized-presentation-editor @update-customized-code="update_customization_code($event)"></customized-presentation-editor>
                         <br/>
                         <tabular class="query-result" :value="formatResults(queryResult)"
                             @row:select="narrowTimeRange" :customization="customizationCode"></tabular>
