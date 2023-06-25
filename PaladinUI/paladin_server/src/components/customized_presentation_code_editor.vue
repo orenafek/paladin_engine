@@ -4,12 +4,17 @@
     <p>
         Write customization functions for specific result types to change the appearance of your results.
     </p>
+    <div v-for="(customization, index) in customizations" :key="index">
+      <button @click="changeCustomizationClass(customization, index)">
+        CustomizationClass-{{index}}
+      </button>
+    </div>
     <Codemirror
         v-model:value="customized_data"
         :options="codemirror_options"
         placeholder="Write your function here..."
         :height="200" :width="600" border
-        />
+        @change="updateCustomizedCode"/>
   </div>
 </template>
 
@@ -24,27 +29,31 @@ export default {
   components: {Codemirror},
   emits: ['updateCustomizedCode'],
   methods: {
+    updateCustomizedCode: function() {
+      this.debounceCustomizedCodeUpdate();
+    },
+    changeCustomizationClass: function(customization, index) {
+      this.customized_data = customization;
+      this.editor_index = index;
+    }
   },
   created() {
-    this.debounceFn = _.debounce( () => {
-      this.$emit('updateCustomizedCode', this.customized_data);
+    this.debounceCustomizedCodeUpdate = _.debounce( () => {
+      this.customizations[this.editor_index] = this.customized_data;
+      this.$emit('updateCustomizedCode', this.customizations);
     }, 1000)
-  },
-  watch: {
-    customized_data: {
-        handler: function (val, oldVal) {
-            this.debounceFn();
-        }
-    }
   },
   async mounted () {
     let customizationFile = await fetch('/static/customization.js');
     this.customized_data = await customizationFile.text();
-    this.$emit('updateCustomizedCode', this.customized_data);
+    this.customizations[this.editor_index] = this.customized_data;
+    this.$emit('updateCustomizedCode', this.customizations);
   },
   data: function() {
     return {
+      customizations: [''],
       customized_data: '',
+      editor_index: 0,
       codemirror_options: {
         mode: "text/javascript",
         theme: "dracula",

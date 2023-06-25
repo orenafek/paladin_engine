@@ -21,21 +21,27 @@ export default {
   components: {customizedPresentationView: CustomizedPresentationView},
   props: {
     value: Object,
-    customization: String,
+    customizations: Object,
   },
   methods: {
     result(rowKey, colKey) {
       let item = this.value.rowData[rowKey]?.[colKey];
       let formattedData = {"contentType": "text/plain", "content": item};
-      try {
-        let customizationClass = eval('(' + this.customization + ')');
-        if (customizationClass.matches(item)) {
-          formattedData = customizationClass.getFormattedData(item);
+
+      for (let customization of this.customizations) {
+        try {
+          let customizationClass = eval('(' + customization + ')');
+          if (customizationClass.matches(item)) {
+            formattedData = customizationClass.getFormattedData(item);
+            // Match found, so no need to continue the iteration over all the customizations
+            break;
+          }
+        }
+        catch(error) {
+          console.log("Error: " + error);
         }
       }
-      catch(error) {
-        console.log("Error: " + error);
-      }
+
       // Add the item itself to the formatted-data object, to allow the user to access it in the view template
       formattedData.data = item;
 

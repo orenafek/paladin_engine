@@ -97,7 +97,7 @@ const mainComponent = {
                 smartIndent: true,
                 indentUnit: 2
             },
-            customizationCode: '',
+            customizations: [],
             shouldCustomizeQuery: false
         }
     },
@@ -203,7 +203,7 @@ const mainComponent = {
         },
 
         update_customization_code: async function (code) {
-            this.customizationCode = code;
+            this.customizations = code;
         },
 
         store_layout_panes(ev) {
