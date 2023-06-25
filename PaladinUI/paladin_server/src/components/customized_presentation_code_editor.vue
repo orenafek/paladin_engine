@@ -4,17 +4,21 @@
     <p>
         Write customization functions for specific result types to change the appearance of your results.
     </p>
-    <div v-for="(customization, index) in customizations" :key="index">
-      <button @click="changeCustomizationClass(customization, index)">
-        CustomizationClass-{{index}}
-      </button>
+    <div class="customized-presentation">
+      <ul class="tab">
+        <li v-for="(customization, index) in customizations" :key="index">
+          <button @click="changeCustomizationClass(customization, index)" :class="{'selected-button': index === this.editor_index}">
+            CustomizationClass-{{index}}
+          </button>
+        </li>
+        <li>
+          <button @click="addCustomizationClass">+</button>
+        </li>
+      </ul>
+      <Codemirror class="code-mirror"
+          v-model:value="customized_data" :options="codemirror_options"
+          @change="updateCustomizedCode"/>
     </div>
-    <Codemirror
-        v-model:value="customized_data"
-        :options="codemirror_options"
-        placeholder="Write your function here..."
-        :height="200" :width="600" border
-        @change="updateCustomizedCode"/>
   </div>
 </template>
 
@@ -35,6 +39,15 @@ export default {
     changeCustomizationClass: function(customization, index) {
       this.customized_data = customization;
       this.editor_index = index;
+    },
+    addCustomizationClass: async function() {
+      this.editor_index = this.customizations.length;
+      this.customized_data = await this.fetchCustomizationClass();
+      this.customizations[this.editor_index] = this.customized_data;
+    },
+    fetchCustomizationClass: async function() {
+      let customizationFile = await fetch('/static/customization.js');
+      return await customizationFile.text();
     }
   },
   created() {
@@ -44,8 +57,7 @@ export default {
     }, 1000)
   },
   async mounted () {
-    let customizationFile = await fetch('/static/customization.js');
-    this.customized_data = await customizationFile.text();
+    this.customized_data = await this.fetchCustomizationClass();
     this.customizations[this.editor_index] = this.customized_data;
     this.$emit('updateCustomizedCode', this.customizations);
   },
@@ -69,5 +81,47 @@ export default {
 </script>
 
 <style scoped>
+ul {
+  list-style-type: none; /* Remove bullets */
+  padding: 0;
+  margin: 0;
+}
 
+ul li {
+  border: 1px solid #ddd; /* Add a thin border to each list item */
+  margin-top: -1px; /* Prevent double borders */
+  background-color: #192f9a;
+}
+
+.customized-presentation {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+}
+
+.code-mirror {
+  height: 300px;
+  width: 700px;
+  border: 1px solid;
+}
+
+.tab button {
+  background-color: inherit;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  transition: 0.3s;
+  width: 100%;
+  color: white;
+}
+
+.tab button:hover {
+  background-color: #6b6ed5;
+}
+
+.tab button.selected-button {
+  background-color: #7195e0;
+}
 </style>
