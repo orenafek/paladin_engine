@@ -23,6 +23,7 @@ export default {
     value: Object,
     customizations: Object,
   },
+  emits: ['customizedCodeError'],
   methods: {
     result(rowKey, colKey) {
       let item = this.value.rowData[rowKey]?.[colKey];
@@ -39,6 +40,7 @@ export default {
         }
         catch(error) {
           console.log("Error: " + error);
+          this.$emit('customizedCodeError', error.toString());
         }
       }
 

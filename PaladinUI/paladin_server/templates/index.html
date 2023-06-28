@@ -66,10 +66,13 @@
                                             v-model:value="query.customizer"></Codemirror>
                             </div>
                         </div>
-                        <customized-presentation-editor @update-customized-code="update_customization_code($event)"></customized-presentation-editor>
+                        <customized-presentation-editor @update-customized-code="update_customization_code($event)"
+                                                        :customization_error="customizedCodeError">
+                        </customized-presentation-editor>
                         <br/>
                         <tabular class="query-result" :value="formatResults(queryResult)"
-                            @row:select="narrowTimeRange" :customizations="customizations"></tabular>
+                            @row:select="narrowTimeRange" :customizations="customizations"
+                                 @customized-code-error="customized_code_error($event)"></tabular>
                         <br/>
                         <div> PaLaDiN DSL Operators:</div>
                         <Markdown :source="dsl_docs" :breaks="true"/>

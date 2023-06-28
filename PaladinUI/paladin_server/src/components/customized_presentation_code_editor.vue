@@ -19,6 +19,7 @@
           v-model:value="customized_data" :options="codemirror_options"
           @change="updateCustomizedCode"/>
     </div>
+    <div class="errors" v-show="presentable_error.length > 0">{{presentable_error}}</div>
   </div>
 </template>
 
@@ -31,6 +32,9 @@ import _ from "lodash";
 export default {
   name: "CustomizedPresentationEditor",
   components: {Codemirror},
+  props: {
+      customization_error: String,
+  },
   emits: ['updateCustomizedCode'],
   methods: {
     updateCustomizedCode: function() {
@@ -52,6 +56,7 @@ export default {
   },
   created() {
     this.debounceCustomizedCodeUpdate = _.debounce( () => {
+      this.presentable_error = '';
       this.customizations[this.editor_index] = this.customized_data;
       this.$emit('updateCustomizedCode', this.customizations);
     }, 1000)
@@ -61,11 +66,17 @@ export default {
     this.customizations[this.editor_index] = this.customized_data;
     this.$emit('updateCustomizedCode', this.customizations);
   },
+  watch: {
+    customization_error: function (val, oldVal) {
+      this.presentable_error = val;
+    }
+  },
   data: function() {
     return {
       customizations: [''],
       customized_data: '',
       editor_index: 0,
+      presentable_error: '',
       codemirror_options: {
         mode: "text/javascript",
         theme: "dracula",
@@ -123,5 +134,10 @@ ul li {
 
 .tab button.selected-button {
   background-color: #7195e0;
+}
+
+.errors {
+  color: orangered;
+  padding: 10px;
 }
 </style>

@@ -98,6 +98,7 @@ const mainComponent = {
                 indentUnit: 2
             },
             customizations: [],
+            customizedCodeError: '',
             shouldCustomizeQuery: false
         }
     },
@@ -204,6 +205,10 @@ const mainComponent = {
 
         update_customization_code: async function (code) {
             this.customizations = code;
+        },
+
+        customized_code_error: async function (error) {
+            this.customizedCodeError = error;
         },
 
         store_layout_panes(ev) {
