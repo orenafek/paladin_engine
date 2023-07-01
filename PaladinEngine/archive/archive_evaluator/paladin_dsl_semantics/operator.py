@@ -1,7 +1,6 @@
-import copy
 from abc import ABC
 from dataclasses import dataclass
-from typing import Optional, Iterable, Dict, Collection, List, Type
+from typing import Optional, Iterable, Dict, Collection, List, Type, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Time
 from archive.object_builder.object_builder import ObjectBuilder
@@ -13,8 +12,8 @@ class Operator(ABC):
     def __init__(self, times: Optional[Iterable[Time]] = None):
         self._times = times
 
-    def eval(self, builder: ObjectBuilder,
-             query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
         raise NotImplementedError()
 
     @classmethod

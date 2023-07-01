@@ -1,6 +1,4 @@
-from typing import Iterable, Optional, Dict, Collection
-
-import typing
+from typing import Iterable, Optional, Dict, Collection, Any as AnyT, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
     EvalResultPair, Time
@@ -15,11 +13,12 @@ class Const(Operator):
         super(Const, self).__init__(times if times else [range(0, 1)])
         self.const = const
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         return EvalResult([EvalResultEntry(t, [EvalResultPair(Const.CONST_KEY, self.const)], []) for t in self.times])
 
     def _get_args(self) -> Collection['Operator']:
         return []
 
-    def eval_const_value(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None) -> typing.Any:
-        return self.eval(builder, query_locals)[self.times[0]].values[0]
+    def eval_const_value(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None) -> AnyT:
+        return self.eval(builder, query_locals, user_aux)[self.times[0]].values[0]

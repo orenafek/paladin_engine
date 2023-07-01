@@ -33,6 +33,7 @@ class PaladinNativeParser(object):
         self.archive: Archive = archive
         self._line_no: int = -1
         self.builder: ObjectBuilder = DiffObjectBuilder(archive)
+        self.user_aux: Dict[str, Any] = {}
 
     class HasOperatorVisitor(ast.NodeVisitor):
         def visit(self, node: ast.AST):
@@ -366,10 +367,16 @@ class PaladinNativeParser(object):
 
             raise e
 
+    def add_user_aux(self, f_content: str | bytes):
+        exec(f_content, self.user_aux)
+
+    def remove_user_aux(self):
+        self.user_aux.clear()
+
     def _eval_operators(self, visitor):
         operator_results = {}
         for var_name, (operator, operator_original_name) in visitor.operators.items():
-            eval_result = operator.eval(self.builder, operator_results)
+            eval_result = operator.eval(self.builder, operator_results, self.user_aux)
             if is_tuple(var_name):
                 operator_results.update({e: eval_result.by_key(e) for e in split_tuple(var_name)})
             else:

@@ -8,7 +8,7 @@ import Codemirror from "codemirror-editor-vue3";
 import {Splitpanes, Pane} from 'splitpanes';
 import 'splitpanes/dist/splitpanes.css';
 
-import {request_debug_info} from "./request"
+import {request_debug_info, reset_aux_file, upload_file} from "./request"
 import {capitalizeFirstLetter} from "./string_utils";
 import Vue3Highlightjs from "./vue3-highlight";
 import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
@@ -72,6 +72,7 @@ const mainComponent = {
                 customizer: DEFAULT_CUSTOMIZER
             },
             queryInProgress: false,
+            auxFileSendingInProcess: false,
             queryResult: {},
             dsl_docs: '',
             run_output: '',
@@ -95,7 +96,8 @@ const mainComponent = {
                 smartIndent: true,
                 indentUnit: 2
             },
-            shouldCustomizeQuery: false
+            shouldCustomizeQuery: false,
+            shouldSendAuxFile: false
         }
     },
     created: async function () {
@@ -110,6 +112,7 @@ const mainComponent = {
         this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
         this.query.endTime = this.lastRunTime;
         this.runTimeWindow = [0, this.lastRunTime];
+        await this.clear_aux_file();
     },
     mounted() {
         persistField(this.query, 'select', new LocalStore('app:querySelect'));
@@ -179,6 +182,24 @@ const mainComponent = {
             return true;
         },
 
+        send_aux_file: async function () {
+            let aux_file_input = document.getElementById("aux_file");
+            if (aux_file_input.files.length > 0) {
+                try {
+                    this.auxFileSendingInProcess = true;
+                    let resp = await upload_file(aux_file_input.files[0], "/uploader");
+                } finally {
+                    this.auxFileSendingInProcess = false;
+                }
+            }
+        },
+
+        clear_aux_file: async function () {
+            if(!this.shouldSendAuxFile){
+                await reset_aux_file();
+            }
+        },
+
         formatResults(queryResult) {
             return {
                 columnHeaders: queryResult['keys'],
@@ -188,7 +209,9 @@ const mainComponent = {
             };
         },
 
-        formatTimeInterval(s) { return s.replace(/\((\d+), (\d+)\)/, '$1–$2'); },
+        formatTimeInterval(s) {
+            return s.replace(/\((\d+), (\d+)\)/, '$1–$2');
+        },
 
         narrowTimeRange({rowHead}) {
             console.log(rowHead);

@@ -6,6 +6,7 @@ from typing import *
 from flask import Flask, request, send_file, send_from_directory
 from flask_classful import FlaskView, route
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 from PaladinEngine.engine.engine import PaLaDiNEngine
 from archive.archive import Archive
@@ -18,6 +19,7 @@ NAME = 'PaLaDiN - Time-travel Debugging with Semantic Queries'
 HERE = Path(__file__).parent
 TEMPLATE_FOLDER = HERE / 'templates'
 STATIC_FOLDER = HERE / 'static'
+UPLOAD_FOLDER = HERE / 'upload'
 SCRIPTS_FOLDER = STATIC_FOLDER / 'scripts'
 STYLES_FOLDER = STATIC_FOLDER / 'styles'
 JSON_FILE_NAME = 'input_graph_tree.json'
@@ -74,6 +76,7 @@ class PaladinServer(FlaskView):
         self._app = Flask(NAME, template_folder=str(TEMPLATE_FOLDER), static_folder=str(STATIC_FOLDER))
         self._app.jinja_options['variable_start_string'] = '@='
         self._app.jinja_options['variable_end_string'] = '=@'
+        self._app.config['UPLOAD_FOLDER'] = str(UPLOAD_FOLDER)
         CORS(self.app, resources={r'/*': {'origins': '*'}})
 
     def register_app(self):
@@ -198,6 +201,18 @@ class PaladinServer(FlaskView):
         return PaladinServer.create_response(
             PARSER.parse(select_query.replace('<br>', '\n'), start_time, end_time,
                          customizer=customizer.replace('<br>', '\n')))
+
+    @route('/uploader', methods=['GET', 'POST'])
+    def upload_file(self):
+        if request.method == 'POST':
+            f = request.data
+            PARSER.add_user_aux(f)
+            return PaladinServer.create_response({})
+
+    @route('/reset_aux_file')
+    def reset_aux_file(self):
+        PARSER.remove_user_aux()
+        return PaladinServer.create_response({})
 
     @route('/debug_info/docs')
     def docs(self):

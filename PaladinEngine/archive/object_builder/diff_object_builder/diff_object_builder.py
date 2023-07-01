@@ -36,10 +36,11 @@ class DiffObjectBuilder(ObjectBuilder):
 
     class AttributedDict(Dict):
 
-        def __init__(self) -> None:
-            super().__init__()
+        def __init__(self, seq=None) -> None:
+            if seq:
+                super().__init__(seq)
 
-            for k, v in self:
+            for k, v in self.items():
                 self.__setattr__(str(k), v)
 
         def __hash__(self) -> int:
@@ -52,6 +53,7 @@ class DiffObjectBuilder(ObjectBuilder):
         def __delitem__(self, key):
             super().__delitem__(key)
             self.__delattr__(key)
+
     @dataclass
     class _DictKeyResolve(object):
         field_type: Type
@@ -90,10 +92,13 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
         if isinstance(item, str):
-            object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.CLOSEST, time,
-                                                                         line_no)
-            if ISP(object_type) or object_type is NoneType:
-                return obj_data
+            try:
+                object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.CLOSEST, time,
+                                                                             line_no)
+                if ISP(object_type) or object_type is NoneType:
+                    return obj_data
+            except BaseException:
+                return None
         else:
             # If the object asked to be built is a primitive, or it's not an object in the data
             if ISP(_type) or item not in self._data:
@@ -499,7 +504,8 @@ class DiffObjectBuilder(ObjectBuilder):
             return -1
 
         if container_id != -1:
-            line_nos_of_container_id = list(map(lambda s: s[0], filter(lambda s: s[1] == container_id, scopes)))
+            line_nos_of_container_id = list(
+                map(lambda s: s.line_no, filter(lambda s: container_id in s.container_ids, scopes)))
             if not line_nos_of_container_id:
                 return -1
 
