@@ -32,8 +32,8 @@ class UnionFind:
             elif self.rank[root_x] > self.rank[root_y]:
                 self.parent[root_y] = root_x
             else:
-                #self.parent[root_y] = root_x
-                self.parent[root_y] = root_y  # BUG
+                self.parent[root_y] = root_x
+                #self.parent[root_y] = root_y  # BUG
                 self.rank[root_x] += 1
 
 
