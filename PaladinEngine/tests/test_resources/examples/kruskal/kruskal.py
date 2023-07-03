@@ -1,7 +1,5 @@
 import itertools
 
-from stubs.stubs import __PAUSE__, __RESUME__
-
 
 class UnionFind:
     def __init__(self, size):
@@ -32,8 +30,8 @@ class UnionFind:
             elif self.rank[root_x] > self.rank[root_y]:
                 self.parent[root_y] = root_x
             else:
-                self.parent[root_y] = root_x
-                #self.parent[root_y] = root_y  # BUG
+                #self.parent[root_y] = root_x
+                self.parent[root_y] = root_y  # BUG
                 self.rank[root_x] += 1
 
 
@@ -110,10 +108,10 @@ if __name__ == "__main__":
     mst = kruskal(graph, num_vertices)
     mst_weight = st_weight(mst)
 
-   #  #__PAUSE__()
-   #  all_st = find_all_spanning_trees(graph, num_vertices)
-   # # __RESUME__()
-   #  min_st_weight = min([st_weight(st) for st in all_st])
-   #
-   #  if min_st_weight < mst_weight:
-   #      raise RuntimeError(f"weight(minimal st)[{min_st_weight}] < weight(found mst)[{mst_weight}]")
+#  #__PAUSE__()
+#  all_st = find_all_spanning_trees(graph, num_vertices)
+# # __RESUME__()
+#  min_st_weight = min([st_weight(st) for st in all_st])
+#
+#  if min_st_weight < mst_weight:
+#      raise RuntimeError(f"weight(minimal st)[{min_st_weight}] < weight(found mst)[{mst_weight}]")
