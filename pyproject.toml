@@ -5,7 +5,7 @@ description = ""
 authors = ["Oren Afek"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "paladin_engine"}]
+#packages = [{include = "paladin_engine"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -20,6 +20,7 @@ python-ranges = "^1.2.2"
 PyHamcrest = "^2.0.4"
 Flask-Classful = "^0.14.2"
 pytest = "^7.3.0"
+frozendict = "^2.3.8"
 
 
 [build-system]

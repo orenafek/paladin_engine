@@ -12,7 +12,6 @@ from .const_time import ConstTime
 from .diff import Diff
 from .function_ops import InFunction
 from .first import First
-from .for_each import ForEach
 from .last import Last
 from .let import Let
 from .line import Line
