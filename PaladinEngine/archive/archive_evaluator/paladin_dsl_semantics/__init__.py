@@ -1,7 +1,7 @@
 from .operator import Operator
 from .time_operator import TimeOperator, BiTimeOperator, Whenever, FirstTime
 from .basic_logical_ops import And, Not
-from .and_than import AndThan
+from .and_then import AndThen
 from .after import After
 from .align import Align
 from .bounded import Bounded
@@ -13,6 +13,7 @@ from .diff import Diff
 from .function_ops import InFunction
 from .first import First
 from .last import Last
+from .let import Let
 from .line import Line
 from .line_hit import LineHit
 from .line_no import LineNo

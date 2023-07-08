@@ -48,11 +48,22 @@
                         <loading-spinner :is-loading="queryInProgress"
                                          @loading-button-click="run_query">Run
                         </loading-spinner>
-                        <br />
+                        <br/>
                         <div class="range-spec">
                             <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"
                                     @change="sliderChange"></Slider>
                             <label>Time range</label>
+                        </div>
+                        <label>
+                            <input type="checkbox" id="shouldSendAuxFileInput"
+                                   v-model="shouldSendAuxFile" @change="clear_aux_file"/> With Aux File
+                        </label>
+                        <div id="auxFileCollapsable" v-if="shouldSendAuxFile">
+                            <input id="aux_file" type="file">
+                            <loading-spinner :is-loading="auxFileSendingInProcess"
+                                             @loading-button-click="send_aux_file">
+                                Send Aux File
+                            </loading-spinner>
                         </div>
                         <label>
                             <input type="checkbox" id="shouldCustomize" v-model="shouldCustomizeQuery"/>
@@ -68,7 +79,7 @@
                         </div>
                         <br/>
                         <tabular class="query-result" :value="formatResults(queryResult)"
-                            @row:select="narrowTimeRange"></tabular>
+                                 @row:select="narrowTimeRange"></tabular>
                         <br/>
                         <div> PaLaDiN DSL Operators:</div>
                         <Markdown :source="dsl_docs" :breaks="true"/>

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Any, List, Optional, Dict
+from typing import Tuple, Any, List, Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
 from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOperator
@@ -29,7 +29,8 @@ class Meld(BiLateralOperator):
         def empty(cls):
             return cls(tuple(), -1, tuple(), [])
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         r1 = self.first.eval(builder)
         r2 = self.second.eval(builder)
 
@@ -77,7 +78,7 @@ class Meld(BiLateralOperator):
                 zip(r2_selectors, r2.data + ('-',) * len(r2_selectors))))
 
             results[SemanticsUtils.displayable_time(r1.time),
-                    SemanticsUtils.displayable_time(r2.time)] = (d, set(r1.replacements).union(r2.replacements))
+            SemanticsUtils.displayable_time(r2.time)] = (d, set(r1.replacements).union(r2.replacements))
 
         return results
 

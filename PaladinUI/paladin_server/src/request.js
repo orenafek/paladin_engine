@@ -8,9 +8,28 @@ async function request(req) {
     return gResponse?.json();
 }
 
-export async function request_debug_info(req, ...args) {
-    return new Object(
+    export async function request_debug_info(req, ...args) {
+        return new Object(
         (await request("debug_info/" + req +
                 (args.length > 0 ? ("/" + args.join("/")) : ""))
         )["result"][req]);
+}
+
+export async function upload_file(file, server_path) {
+    await fetch(server_path, {
+        method: 'POST',
+        headers: {
+            "Accept": "application-json"
+        },
+        body: file
+    });
+}
+
+export async function reset_aux_file() {
+     await fetch("reset_aux_file", {
+        method: 'GET',
+        headers: {
+            "Accept": "application-json"
+        },
+    });
 }
