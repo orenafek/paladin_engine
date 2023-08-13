@@ -23,10 +23,9 @@ class ChangedInto(BiLateralOperator, TimeOperator):
                                    Changed(times, target))
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        target_with_value = self.first.eval(builder, query_locals, user_aux).satisfaction_times()
-        changed = self.second.eval(builder, query_locals, user_aux).satisfaction_times()
+    def eval(self, eval_data):
+        target_with_value = self.first.eval(eval_data).satisfaction_times()
+        changed = self.second.eval(eval_data).satisfaction_times()
 
         return EvalResult(
             [TimeOperator.create_time_eval_result_entry(t, t in target_with_value and t in changed) for t in

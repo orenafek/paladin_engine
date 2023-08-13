@@ -9,5 +9,5 @@ build-ui:
 .PHONY: all build-%
 
 test:
-	cd $(TESTS_DIR) && find . -name 'test*.py' -exec sh -c "PYTHONPATH=$(ROOT_PYTHON_DIR) PYTHONDONTWRITEBYTECODE=1 $(ROOT)/.venv/bin/pytest -p no:cacheprovider {}" ";"
+	cd $(TESTS_DIR) && find . -name 'test*.py' -print0 | xargs -0 sh -c "PYTHONPATH=$(ROOT_PYTHON_DIR) PYTHONDONTWRITEBYTECODE=1 $(ROOT)/.venv/bin/pytest -p no:cacheprovider {}" ";"
 

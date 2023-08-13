@@ -11,15 +11,14 @@ class Where(BiLateralOperator):
                  This operator is useful to retrieve data for a certain time stamps.
     """
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        condition: EvalResult = self.second.eval(builder, query_locals, user_aux)
+    def eval(self, eval_data):
+        condition: EvalResult = self.second.eval(eval_data)
 
         # Set times for selector with the results given by condition's eval.
         self.first.update_times(condition.satisfaction_ranges(self.times))
 
         # Create a sparse results-list with the original time range.
-        first_results = self.first.eval(builder, query_locals, user_aux)
+        first_results = self.first.eval(eval_data)
 
         return EvalResult(
             [first_results[time] if time in self.first.times else EvalResultEntry.empty_with_keys(time, first_results[

@@ -12,8 +12,7 @@ class ConstTime(TimeOperator):
         super().__init__(times)
         self.const_time = const_time
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(t, t == self.const_time, [])
             for t in self.times

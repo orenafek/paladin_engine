@@ -40,97 +40,95 @@
                     </div>
                     <div>
                         <h3 class="section"> Run Query </h3>
-                        <div>
-                            <Codemirror placeholder="Selection" :options="codemirror_options" height="auto"
-                                        :width="600"
-                                        style="font-size: 14pt;" v-model:value="query.select"></Codemirror>
-                        </div>
-                        <loading-spinner :is-loading="queryInProgress"
-                                         @loading-button-click="run_query">Run
+                        <query-box :queries="queries" :options="codemirror_options"
+                                   :add_query_event="addQuery"></query-box>
+                    </div>
+                    <loading-spinner :is-loading="queryInProgress"
+                                     @loading-button-click="run_query">Run
+                    </loading-spinner>
+                    <br/>
+                    <div class="range-spec">
+                        <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"
+                                @change="sliderChange"></Slider>
+                        <label>Time range</label>
+                    </div>
+                    <label>
+                        <input type="checkbox" id="shouldSendAuxFileInput"
+                               v-model="shouldSendAuxFile" @change="clear_aux_file"/> With Aux File
+                    </label>
+                    <div id="auxFileCollapsable" v-if="shouldSendAuxFile">
+                        <input id="aux_file" type="file">
+                        <loading-spinner :is-loading="auxFileSendingInProcess"
+                                         @loading-button-click="send_aux_file">
+                            Send Aux File
                         </loading-spinner>
-                        <br/>
-                        <div class="range-spec">
-                            <Slider id="queryTimeSlider" :min="0" :max="lastRunTime" :value="runTimeWindow"
-                                    @change="sliderChange"></Slider>
-                            <label>Time range</label>
-                        </div>
-                        <label>
-                            <input type="checkbox" id="shouldSendAuxFileInput"
-                                   v-model="shouldSendAuxFile" @change="clear_aux_file"/> With Aux File
-                        </label>
-                        <div id="auxFileCollapsable" v-if="shouldSendAuxFile">
-                            <input id="aux_file" type="file">
-                            <loading-spinner :is-loading="auxFileSendingInProcess"
-                                             @loading-button-click="send_aux_file">
-                                Send Aux File
-                            </loading-spinner>
-                        </div>
-                        <label>
-                            <input type="checkbox" id="shouldCustomize" v-model="shouldCustomizeQuery"/>
-                            Custom display
-                        </label>
-                        <div id="customizeCollapsable" v-if="shouldCustomizeQuery">
-                            <div>
-                                <Codemirror placeholder="Selection" :options="codemirror_options_customizer"
-                                            height="auto" :width="600"
-                                            class="original-style"
-                                            v-model:value="query.customizer"></Codemirror>
-                            </div>
-                        </div>
-                        <br/>
-                        <tabular class="query-result" :value="formatResults(queryResult)"
-                                 @row:select="narrowTimeRange"></tabular>
-                        <br/>
-                        <div> PaLaDiN DSL Operators:</div>
-                        <Markdown :source="dsl_docs" :breaks="true"/>
                     </div>
-                    <div hidden="hidden">
-                        <h3>Create a time window:</h3>
-                        <br/>
-                        <input type="number" id="time_window_from" placeholder="Start Time">
-                        <input type="number" id="time_window_to" placeholder="End Time"/>
-                        <button @click="create_time_window()">
-                            Create time window
-                        </button>
-                        <div id="time_window_archive_table" style="visibility: hidden;"
-                             class="collapsible_archive_table_div">
-                            <table>
-                                <thead>
-                                <td v-if="time_window.length > 0"
-                                    v-for="k in Object.keys(time_window[0])"
-                                    v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
-                                </thead>
-                                <tbody>
-                                <tr v-for="entry in time_window">
-                                    <td v-for="value, key in entry">
-                                        <highlighted :code="value"/>
-                                    </td>
-                                </tr>
-                                </tbody>
-                            </table>
+                    <label>
+                        <input type="checkbox" id="shouldCustomize" v-model="shouldCustomizeQuery"/>
+                        Custom display
+                    </label>
+                    <div id="customizeCollapsable" v-if="shouldCustomizeQuery">
+                        <div>
+                            <Codemirror placeholder="Selection" :options="codemirror_options_customizer"
+                                        height="auto" :width="600"
+                                        class="original-style"
+                                        v-model:value="query.customizer"></Codemirror>
                         </div>
                     </div>
-                    <div id="span_line_debug" style="visibility: hidden" hidden="hidden">
+                    <br/>
+                    <tabular class="query-result" :value="formatResults(queryResult)"
+                             @row:select="narrowTimeRange"></tabular>
+                    <br/>
+                    <div> PaLaDiN DSL Operators:</div>
+                    <Markdown :source="dsl_docs" :breaks="true"/>
+                </div>
+                <div hidden="hidden">
+                    <h3>Create a time window:</h3>
+                    <br/>
+                    <input type="number" id="time_window_from" placeholder="Start Time">
+                    <input type="number" id="time_window_to" placeholder="End Time"/>
+                    <button @click="create_time_window()">
+                        Create time window
+                    </button>
+                    <div id="time_window_archive_table" style="visibility: hidden;"
+                         class="collapsible_archive_table_div">
                         <table>
                             <thead>
-                            <td>
-                                <highlighted v-if="line_to_debug != null" :code="line_no_to_debug"/>
-                            </td>
-                            <td>
-                                <highlighted v-if="line_to_debug != null" :code="line_to_debug"/>
-                            </td>
+                            <td v-if="time_window.length > 0"
+                                v-for="k in Object.keys(time_window[0])"
+                                v-html="k.charAt(0).toUpperCase() + k.slice(1)"/>
                             </thead>
-                        </table>
-                        <h3>Archive entries for line:</h3>
-                        <div class="collapsible_archive_table_div">
-                            <archive-Table :entries="archive_entries"></archive-Table>
-                        </div>
+                            <tbody>
+                            <tr v-for="entry in time_window">
+                                <td v-for="value, key in entry">
+                                    <highlighted :code="value"/>
+                                </td>
+                            </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
-            </pane>
-        </splitpanes>
-    </div> <!-- #main -->
+                <div id="span_line_debug" style="visibility: hidden" hidden="hidden">
+                    <table>
+                        <thead>
+                        <td>
+                            <highlighted v-if="line_to_debug != null" :code="line_no_to_debug"/>
+                        </td>
+                        <td>
+                            <highlighted v-if="line_to_debug != null" :code="line_to_debug"/>
+                        </td>
+                        </thead>
+                    </table>
+                    <h3>Archive entries for line:</h3>
+                    <div class="collapsible_archive_table_div">
+                        <archive-Table :entries="archive_entries"></archive-Table>
+                    </div>
+                    </table>
+                </div>
+    </div>
+    </pane>
+    </splitpanes>
+</div> <!-- #main -->
 </div> <!-- #app -->
 
 </body>

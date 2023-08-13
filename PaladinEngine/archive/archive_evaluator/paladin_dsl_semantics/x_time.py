@@ -15,8 +15,7 @@ class XTime(BiLateralOperator, TimeOperator):
         BiLateralOperator.__init__(self, times, event, Const(number, times))
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         number = cast(Const, self.second).eval_const_value(builder, query_locals)
 
         if number < 0:
@@ -26,4 +25,4 @@ class XTime(BiLateralOperator, TimeOperator):
         for n in range(number):
             event = Next(self.times, event)
 
-        return event.eval(builder, query_locals, user_aux)
+        return event.eval(eval_data)

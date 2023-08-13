@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Union, Any, Optional, Iterator, Tuple
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ObjectId, Time, Identifier
+from archive.archive_evaluator.operator_eval_results import OperatorEvalData
 from archive.archive_evaluator.paladin_dsl_semantics import Raw, Operator
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from tests.test_common.test_common import SKIP_VALUE
@@ -24,7 +25,7 @@ class TestRaw(TestDiffObjectBuilder, ABC):
 
     def value_generator(self, obj, line_no) -> Optional[Iterator[Tuple[Time, Any]]]:
         assert isinstance(obj, Operator)
-        for e in obj.eval(self.diff_object_builder):
+        for e in obj.eval(OperatorEvalData(self.diff_object_builder, None, None)):
             yield e.time, getattr(e, obj.query)
 
 

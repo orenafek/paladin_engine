@@ -16,10 +16,9 @@ class Range(BiLateralOperator, TimeOperator):
         BiLateralOperator.__init__(self, times, first, second)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        first = self.first.eval(builder, query_locals, user_aux)
-        second = self.second.eval(builder, query_locals, user_aux)
+    def eval(self, eval_data):
+        first = self.first.eval(eval_data)
+        second = self.second.eval(eval_data)
 
         first_satisfaction = first.first_satisfaction().time
         last_satisfaction = second.last_satisfaction().time

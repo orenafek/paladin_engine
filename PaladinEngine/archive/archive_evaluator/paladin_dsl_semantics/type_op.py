@@ -17,8 +17,7 @@ class Type(UniLateralOperator):
         super().__init__(times, name)
         self.line_no = line_no
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
+    def eval(self, eval_data) -> EvalResult:
         if not isinstance(self.first, Raw):
             return EvalResult.empty(self.times)
 

@@ -9,7 +9,5 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class Release(BiLateralOperator):
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        return Not(self.times, Until(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval(
-            builder)
+    def eval(self, eval_data):
+        return Not(self.times, Until(self.times, Not(self.times, self.first), Not(self.times, self.second))).eval(eval_data)

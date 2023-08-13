@@ -14,12 +14,11 @@ class VarSelector(UniLateralOperator):
     def __init__(self, times: Iterable[Time], first: Operator):
         UniLateralOperator.__init__(self, times, first)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         return EvalResult([
             EvalResultEntry(t, [
                 EvalResultPair(VarSelector.VARS_KEY, self._get_all_vars(builder, time_range))], [])
-            for time_range in self.first.eval(builder, query_locals, user_aux).satisfaction_ranges(self.times) for t in time_range
+            for time_range in self.first.eval(eval_data).satisfaction_ranges(self.times) for t in time_range
         ])
 
     def _get_assignments(self, builder: ObjectBuilder, time_range: range):

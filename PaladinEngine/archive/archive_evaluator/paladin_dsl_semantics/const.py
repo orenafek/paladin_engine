@@ -13,12 +13,11 @@ class Const(Operator):
         super(Const, self).__init__(times if times else [range(0, 1)])
         self.const = const
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         return EvalResult([EvalResultEntry(t, [EvalResultPair(Const.CONST_KEY, self.const)], []) for t in self.times])
 
     def _get_args(self) -> Collection['Operator']:
         return []
 
     def eval_const_value(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None) -> AnyT:
-        return self.eval(builder, query_locals, user_aux)[self.times[0]].values[0]
+        return self.eval(eval_data)[self.times[0]].values[0]

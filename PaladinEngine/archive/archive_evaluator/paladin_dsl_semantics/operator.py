@@ -12,8 +12,7 @@ class Operator(ABC):
     def __init__(self, times: Optional[Iterable[Time]] = None):
         self._times = times
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
+    def eval(self, eval_data) -> EvalResult:
         raise NotImplementedError()
 
     @classmethod
@@ -50,8 +49,9 @@ class Operator(ABC):
         self.times = times
 
         for a in self._get_args():
-            a.times = times
-            a.update_times(times)
+            if a:
+                a.times = times
+                a.update_times(times)
 
         return self
 

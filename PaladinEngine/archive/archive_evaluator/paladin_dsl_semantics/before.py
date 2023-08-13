@@ -10,7 +10,6 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class Before(BiLateralOperator):
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         return Until(self.times, Not(self.times, Globally(self.times, Not(self.times, self.first))), self.second).eval(
-            builder)
+            None)

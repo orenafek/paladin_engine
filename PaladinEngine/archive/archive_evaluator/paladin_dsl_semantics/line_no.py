@@ -11,9 +11,8 @@ class LineNo(UniLateralOperator):
     LineNo(o): Retrieve the line numbers in the program for each event that had happened in the entry's time if it has been satisfied.
     """
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
-        evaled = self.first.eval(builder, query_locals, user_aux)
+    def eval(self, eval_data) -> EvalResult:
+        evaled = self.first.eval(eval_data)
 
         return EvalResult(
             [EvalResultEntry(e.time,

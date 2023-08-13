@@ -12,8 +12,7 @@ class Union(VariadicLateralOperator):
                         The operator returns the union of all time stamps and outer join of all os' columns.
     """
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         return reduce(lambda r1, r2: EvalResult.join(r1, r2),
-                      map(lambda arg: arg.eval(builder, query_locals, user_aux), self.args),
+                      map(lambda arg: arg.eval(eval_data), self.args),
                       EvalResult.empty(self.times))

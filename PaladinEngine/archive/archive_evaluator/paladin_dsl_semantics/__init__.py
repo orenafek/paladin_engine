@@ -12,6 +12,7 @@ from .const_time import ConstTime
 from .diff import Diff
 from .function_ops import InFunction
 from .first import First
+from .in_time import InTime
 from .last import Last
 from .let import Let
 from .line import Line
@@ -23,6 +24,7 @@ from .next_op import Next
 from .next_after import NextAfter
 from .range import Range
 from .raw import Raw
+from .ref import Ref, OpRef, QueryRef
 from .semantic_utils import SemanticsUtils
 from .type_op import Type
 from .union import Union

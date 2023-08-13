@@ -17,10 +17,10 @@ class LineHit(UniLateralOperator, TimeOperator):
         UniLateralOperator.__init__(self, times, Const(line_no, times))
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None, user_aux: Optional[Dict[str, Callable]] = None):
-        line_no: int = self.first.eval(builder, query_locals, user_aux)[0].values[0]
+    def eval(self, eval_data):
+        line_no: int = self.first.eval(eval_data)[0].values[0]
 
         events: Collection[Time] = list(
-            map(lambda t: t[1].time, sorted(builder.find_events(line_no), key=lambda t: t[1].time)))
+            map(lambda t: t[1].time, sorted(eval_data.builder.find_events(line_no), key=lambda t: t[1].time)))
 
         return EvalResult([TimeOperator.create_time_eval_result_entry(t, t in events, []) for t in self.times])

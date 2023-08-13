@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 from PaladinEngine.engine.engine import PaLaDiNEngine
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator, QUERY_DSL_WORDS
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import QUERY_SEPERATOR
 from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from common.common import ISP
@@ -116,6 +117,10 @@ class PaladinServer(FlaskView):
     @route('/styles/<string:path>')
     def get_stylesheet(self, path):
         return send_file(STYLES_FOLDER / path, 'text/css')
+
+    @route('/config/query_seperator')
+    def query_seperator(self):
+        return PaladinServer.create_response(QUERY_SEPERATOR)
 
     @route('/debug_info/source_code')
     @route('/debug_info/source_code/<int:line>')

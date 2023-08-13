@@ -4,7 +4,8 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Type, Any, Dict, Tuple
 
-__BUILTIN_COLLECTIONS__ = {list, set, tuple, deque}
+BUILTIN_COLLECTIONS = {list, set, tuple, deque}
+BUILTIN_COLLECTIONS_NAMES = {c.__name__ for c in BUILTIN_COLLECTIONS}
 
 EMPTY = object()
 EMPTY_COLLECTION = object()
@@ -37,7 +38,7 @@ class BuiltinCollectionsUtils(object):
 
     @staticmethod
     def is_builtin_collection_type(t: Type) -> bool:
-        return t in __BUILTIN_COLLECTIONS__
+        return t in BUILTIN_COLLECTIONS
 
     @staticmethod
     def update_dict_object_with_builtin_method(d: Dict, col_type: Type, manip_name: str, v: Any) -> Dict[

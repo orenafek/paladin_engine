@@ -14,11 +14,10 @@ class Until(BiLateralOperator, TimeOperator):
         BiLateralOperator.__init__(self, times, first, second)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        first = Whenever(self.times, self.first).eval(builder, query_locals, user_aux)
-        second = self.second.eval(builder, query_locals, user_aux)
-        not_second = Not(self.times, self.second).eval(builder, query_locals, user_aux)
+    def eval(self, eval_data):
+        first = Whenever(self.times, self.first).eval(eval_data)
+        second = self.second.eval(eval_data)
+        not_second = Not(self.times, self.second).eval(eval_data)
 
         min_max_times = range(first.first_satisfaction().time,
                               min(second.last_satisfaction().time + 1, self.times.stop))

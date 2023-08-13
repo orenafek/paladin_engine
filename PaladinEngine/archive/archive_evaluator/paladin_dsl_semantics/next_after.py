@@ -7,10 +7,9 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class NextAfter(BiLateralOperator):
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        a = self.first.eval(builder)
-        b = self.second.eval(builder)
+    def eval(self, eval_data):
+        a = self.first.eval(eval_data)
+        b = self.second.eval(eval_data)
 
         if isinstance(a, bool) or isinstance(b, bool):
             raise TypeError('Cannot find NextAfter if either of the queries are bool')

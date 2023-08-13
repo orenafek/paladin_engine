@@ -23,6 +23,7 @@ ContainerId = int
 
 Identifier: Type = Union[str, ObjectId]
 ParseResults: Type = Dict[str, Dict[str, Any]]
+UserAux: Type = Dict[str, Any]
 
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
@@ -334,6 +335,12 @@ class EvalResult(List[EvalResultEntry]):
             for e in self
         ])
 
+    @staticmethod
+    def duplicate(e: EvalResultEntry, times: Iterable[Time]) -> 'EvalResult':
+        return EvalResult([
+            EvalResultEntry(t, [EvalResultPair(k, v) for k, v in e.items()]) for t in times
+        ])
 
-EvalFunction = Callable[[int, int, int, int], EvalResult]
-SemanticsArgType = Union[bool, EvalResult]
+EvalFunction: Type = Callable[[int, int, int, int], EvalResult]
+SemanticsArgType: Type = Union[bool, EvalResult]
+OperatorResults: Type = Dict[str, EvalResult]

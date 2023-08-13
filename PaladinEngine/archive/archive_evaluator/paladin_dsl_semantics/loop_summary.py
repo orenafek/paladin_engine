@@ -28,10 +28,9 @@ class LoopIteration(BiLateralOperator):
         BiLateralOperator.__init__(self, times, Const(line_no, times), Const(index, times))
         self.is_short = short
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        line_no: int = self.first.eval(builder)[self.times[0]].values[0]
-        index: int = self.second.eval(builder)[self.times[0]].values[0]
+    def eval(self, eval_data):
+        line_no: int = self.first.eval(eval_data)[self.times[0]].values[0]
+        index: int = self.second.eval(eval_data)[self.times[0]].values[0]
 
         loop_iteration_starts_and_ends: List[Tuple[Rk, Rv]] = sorted(builder.get_loop_iterations(line_no),
                                                                      key=lambda t: t[1].time)
@@ -48,13 +47,13 @@ class LoopIteration(BiLateralOperator):
                      *self._create_iteration_operators(iterator_values_times, builder, query_locals,
                                                        range(loop_iteration_start[1].line_no,
                                                              loop_iteration_end[1].line_no + 1))) \
-            .eval(builder, query_locals, user_aux)
+            .eval(eval_data)
 
     def _create_iteration_operators(self, time_range_operator: Range, builder: ObjectBuilder,
                                     query_locals: Optional[Dict[str, EvalResult]],
                                     line_no_range: range) -> Iterable[Operator]:
         vars_selector_result = \
-            VarSelectorByTimeAndLines(self.times, time_range_operator, line_no_range).eval(builder, query_locals, user_aux)
+            VarSelectorByTimeAndLines(self.times, time_range_operator, line_no_range).eval(eval_data)
 
         if len(vars_selector_result) == 0:
             return EvalResult.empty(self.times)
@@ -83,16 +82,15 @@ class LoopSummary(UniLateralOperator):
         UniLateralOperator.__init__(self, times, Const(line_no, times))
         self.is_short = short
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        line_no: int = self.first.eval(builder)[self.times[0]].values[0]
+    def eval(self, eval_data):
+        line_no: int = self.first.eval(eval_data)[self.times[0]].values[0]
 
         iterations = builder.get_loop_iterations(line_no)
         iterations_count = floor(len(iterations) / 2)
 
         return Union(self.times,
                      *[LoopIteration(self.times, line_no, i, self.is_short)
-                       for i in range(iterations_count)]).eval(builder, query_locals, user_aux) \
+                       for i in range(iterations_count)]).eval(eval_data) \
             + LoopSummary.__create_iteration_number_result(iterations, builder.get_loop_starts(line_no))
 
     @staticmethod
@@ -121,9 +119,8 @@ class LoopIterationsTimes(UniLateralOperator, TimeOperator):
         UniLateralOperator.__init__(self, times, Const(line_no, times))
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        line_no: int = self.first.eval(builder, query_locals, user_aux)[0].values[0]
+    def eval(self, eval_data):
+        line_no: int = self.first.eval(eval_data)[0].values[0]
 
         loop_iteration_starts_and_ends: Collection[Time] = list(
             map(lambda t: t[1].time, sorted(builder.get_loop_iterations(line_no),

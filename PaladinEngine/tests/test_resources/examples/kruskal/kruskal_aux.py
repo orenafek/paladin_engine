@@ -60,39 +60,55 @@ def _d2obj(d: Dict, t: Type) -> Any:
     return cast(t, _obj)
 
 
-def has_cycle(g_d: List[Dict], cycle: List[int]) -> bool:
+def get_path(g_d: List[Dict], _from: int, to: int) -> List[int]:
     graph = [_d2obj(e, Edge) for e in g_d]
+    adj_list = adjacency_list(graph)
 
+    if to in adj_list[_from]:
+        return [_from, to]
+    visited = dfs(_from, None, [], adj_list)[1]
+    if not visited or to not in visited:
+        return []
+
+    return visited[0:visited.index(to) + 1]
+
+
+def dfs(node, parent, visited, adj_list):
+    visited.append(node)
+    for neighbor in adj_list.get(node, []):
+        if neighbor not in visited:
+            if dfs(neighbor, node, visited, adj_list)[0]:
+                return True, visited
+        elif neighbor != parent:
+            return True, visited
+    return False, visited
+
+
+def has_cycle(g_d: List[Dict], cycle: List[int]) -> bool:
     if not cycle:
         return True
 
-    adjacency_list = {}
-    for edge in graph:
-        if edge.src not in adjacency_list:
-            adjacency_list[edge.src] = []
-        if edge.dest not in adjacency_list:
-            adjacency_list[edge.dest] = []
-        adjacency_list[edge.src].append(edge.dest)
-        adjacency_list[edge.dest].append(edge.src)
+    graph = [_d2obj(e, Edge) for e in g_d]
 
-    if any([node not in adjacency_list for node in cycle]):
-        return False
-    # Perform a depth-first search (DFS) to detect cycles
-    visited = set()
-
-    def dfs(node, parent):
-        visited.add(node)
-        for neighbor in adjacency_list.get(node, []):
-            if neighbor not in visited:
-                if dfs(neighbor, node):
-                    return True
-            elif neighbor != parent:
-                return True
+    adj_list = adjacency_list(graph)
+    if any([node not in adj_list for node in cycle]):
         return False
 
-    # Check if the cycle is present in the graph
+    # Perform a depth-first search (DFS) to detect cycles and check if the cycle is present in the graph.
     start_node = cycle[0]
-    return dfs(start_node, None)
+    return dfs(start_node, None, [] , adj_list)[0]
+
+
+def adjacency_list(graph: List[Edge]):
+    adj_list = {}
+    for edge in graph:
+        if edge.src not in adj_list:
+            adj_list[edge.src] = []
+        if edge.dest not in adj_list:
+            adj_list[edge.dest] = []
+        adj_list[edge.src].append(edge.dest)
+        adj_list[edge.dest].append(edge.src)
+    return adj_list
 
 
 def uf_find(uf_d: Dict, x):

@@ -18,9 +18,8 @@ class Line(UniLateralOperator):
     def __init__(self, times: Iterable[Time], line_no: int):
         UniLateralOperator.__init__(self, times, Const(line_no, times))
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
-        line_no = self.first.eval(builder)[self.times[0]].values[0]
+    def eval(self, eval_data) -> EvalResult:
+        line_no = self.first.eval(eval_data)[self.times[0]].values[0]
         events_by_line_no: List[Tuple[Rk, Rv]] = builder.find_events(line_no)
         if not events_by_line_no:
             return EvalResult.empty(self.times)
@@ -32,11 +31,11 @@ class Line(UniLateralOperator):
 
         for r in ranges:
             time_range = range(r[0], r[1] + 1)
-            vars = VarSelectorByLineNo(self.times, Const(True, times=time_range), line_no).eval(builder)
+            vars = VarSelectorByLineNo(self.times, Const(True, times=time_range), line_no).eval(eval_data)
             if not vars or not vars[r[1]].__getitem__(VarSelector.VARS_KEY).value:
                 continue
 
             for v in vars[r[1]].__getitem__(VarSelector.VARS_KEY).value:
-                results = results.join(results, Raw(v[0], v[1], time_range).eval(builder))
+                results = results.join(results, Raw(v[0], v[1], time_range).eval(eval_data))
 
         return results

@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from typing import *
 
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time, ObjectId, \
-    Identifier, ContainerId
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time, Identifier, \
+    ContainerId
 
 
 class ObjectBuilder(ABC):

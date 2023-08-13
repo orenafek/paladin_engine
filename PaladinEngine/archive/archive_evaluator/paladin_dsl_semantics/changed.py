@@ -20,8 +20,7 @@ class Changed(UniLateralOperator, TimeOperator):
         UniLateralOperator.__init__(self, times, first)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         if not isinstance(self.first, Raw):
             return EvalResult.empty(self.times)
 
@@ -30,7 +29,7 @@ class Changed(UniLateralOperator, TimeOperator):
             return EvalResult.empty(self.times)
 
         base: str = expr_components[0]
-        change_times: Iterable[Time] = builder.get_change_times(base, self.first.line_no)
+        change_times: Iterable[Time] = eval_data.builder.get_change_times(base, self.first.line_no)
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(t, t in change_times, []) for t in self.times
         ])

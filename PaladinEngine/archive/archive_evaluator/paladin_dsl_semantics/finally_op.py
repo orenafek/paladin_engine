@@ -8,6 +8,5 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Finally(UniLateralOperator):
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        return Until(self.times, TRUE, self.first).eval(builder)
+    def eval(self, eval_data):
+        return Until(self.times, TRUE, self.first).eval(eval_data)

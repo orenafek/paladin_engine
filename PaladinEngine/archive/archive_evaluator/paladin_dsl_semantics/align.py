@@ -38,10 +38,9 @@ class Align(BiLateralOperator):
 
         return self._current_heuristic(r1, r2)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        r1 = self.first.eval(builder)
-        r2 = self.second.eval(builder)
+    def eval(self, eval_data):
+        r1 = self.first.eval(eval_data)
+        r2 = self.second.eval(eval_data)
 
         if isinstance(r1, bool) or isinstance(r2, bool):
             raise TypeError("Cannot run Align if any of its operands are bool.")

@@ -19,10 +19,9 @@ class AndThen(BiLateralOperator, TimeOperator):
         BiLateralOperator.__init__(self, times, time_op, op)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         # Evaluate event.
-        first_satisfaction = self.first.eval(builder, query_locals, user_aux).satisfaction_ranges(self.times)
+        first_satisfaction = self.first.eval(eval_data).satisfaction_ranges(self.times)
 
         # Create ranges.
         last_time = list(self.times)[::-1][0]
@@ -30,4 +29,4 @@ class AndThen(BiLateralOperator, TimeOperator):
                                     r.start + 1 <= r.stop and r.start + 1 <= last_time]
 
         return Union(self.times, *[First(self.times, copy.copy(self.second).update_times(r)) for r in
-                                   next_satisfaction_ranges]).eval(builder, query_locals, user_aux)
+                                   next_satisfaction_ranges]).eval(eval_data)

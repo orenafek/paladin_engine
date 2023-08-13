@@ -55,7 +55,7 @@ class PaladinDSLParser(object):
     def parse(self, s: str):
         for f in self.grammar.scanString(s):
             for ff in f[0].asList():
-                return ff.eval()
+                return ff.eval(None)
 
     def _raw_query(self):
         """

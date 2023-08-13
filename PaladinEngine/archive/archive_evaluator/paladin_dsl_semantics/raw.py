@@ -5,6 +5,7 @@ from typing import Optional, Iterable, Dict, Set, Collection, Union, List, Any, 
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EVAL_BUILTIN_CLOSURE, \
     EvalResultEntry, EvalResultPair, ExpressionMapper, LineNo
+from archive.archive_evaluator.operator_eval_results import OperatorEvalData
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 from archive.archive_evaluator.paladin_dsl_semantics.let import Let
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
@@ -25,8 +26,7 @@ class Raw(Operator):
         self.query = query
         self.line_no = line_no
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         # Extract names to resolve from the builder.
         extractor = ArchiveEvaluator.SymbolExtractor()
         extractor.visit(str2ast(self.query))
@@ -36,15 +36,15 @@ class Raw(Operator):
 
         # Check for a comprehension.
         if any([isinstance(str2ast(self.query).value, t) for t in {ast.ListComp, ast.SetComp, ast.DictComp}]):
-            return self._evaluate_comprehension(queries, query_locals)
+            return self._evaluate_comprehension(queries, eval_data.query_locals)
 
-        return self._evaluate_raw_by_time(builder, extractor, queries, query_locals, user_aux)
+        return self._evaluate_raw_by_time(extractor, queries, eval_data)
 
-    def _evaluate_raw_by_time(self, builder, extractor, queries, query_locals, user_aux: Dict[str, Callable]):
+    def _evaluate_raw_by_time(self, extractor, queries, eval_data: OperatorEvalData):
 
         results = []
         for t in self.times:
-            resolved_names = self._resolve_names(builder, extractor.names, self.line_no, t, query_locals, user_aux)
+            resolved_names = self._resolve_names(extractor.names, self.line_no, t, eval_data)
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
                 result = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **resolved_names})
@@ -72,8 +72,7 @@ class Raw(Operator):
         return f'{query}{SCOPE_SIGN}{self.line_no}' if self.line_no is not None and self.line_no != -1 else f'{query}'
 
     @staticmethod
-    def _resolve_names(builder: ObjectBuilder, names: Set[str], line_no: int, time: int,
-                       query_locals: Dict[str, EvalResult], user_aux: Dict[str, Callable]) -> ExpressionMapper:
+    def _resolve_names(names: Set[str], line_no: int, time: int, eval_data: OperatorEvalData) -> ExpressionMapper:
         """
             Resolves the values of the objects in names from the builder.
         :param names: A set of names to resolve.
@@ -81,14 +80,14 @@ class Raw(Operator):
         :param time: The time in which the object's value should be resolved.
         :return:
         """
-        resolved = {name: builder.build(name, time, line_no=line_no) for name in names}
+        resolved = {name: eval_data.builder.build(name, time, line_no=line_no) for name in names}
         # Delete empty results (for names that couldn't be found).
         resolved = {name: resolved[name] for name in resolved if resolved[name] is not None}
 
-        if query_locals:
-            for name in query_locals:
-                if query_locals[name]:
-                    vals_for_name = sorted([e for e in query_locals[name] if e.time <= time], reverse=True,
+        if eval_data.query_locals:
+            for name in eval_data.query_locals:
+                if eval_data.query_locals[name]:
+                    vals_for_name = sorted([e for e in eval_data.query_locals[name] if e.time <= time], reverse=True,
                                            key=lambda e: e.time)
                     if vals_for_name:
                         val = vals_for_name[0]
@@ -100,9 +99,12 @@ class Raw(Operator):
                         res = EvalResultEntry.empty(time)
                     resolved.update({name: res})
 
-        if user_aux:
-            resolved.update({k: v for k, v in user_aux.items() if v is not None})
+        if eval_data.user_aux:
+            resolved.update({k: v for k, v in eval_data.user_aux.items() if v is not None and k in names})
 
+        if eval_data.bounded:
+            resolved.update(eval_data.bounded)
         return resolved
+
     def _get_args(self) -> Collection['Operator']:
         return []

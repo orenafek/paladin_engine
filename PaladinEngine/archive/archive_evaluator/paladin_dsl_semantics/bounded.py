@@ -12,13 +12,12 @@ class Bounded(TriLateralOperator):
     def __init__(self, times: Iterable[Time], name: Raw, value: Operator, rest: Operator):
         super(Bounded, self).__init__(times, Const(name.query, times), value, rest)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
+    def eval(self, eval_data) -> EvalResult:
         # Eval name of first.
-        name = SemanticsUtils.get_first(self.times, self.first.eval(builder, query_locals, user_aux))
+        name = SemanticsUtils.get_first(self.times, self.first.eval(eval_data))
 
         # Eval value of second.
-        value_result = self.second.eval(builder, query_locals, user_aux)
+        value_result = self.second.eval(eval_data)
 
         # Eval rest.
-        return self.third.eval(builder, {**query_locals, name: value_result})
+        return self.third.eval(eval_data)

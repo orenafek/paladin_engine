@@ -8,7 +8,7 @@ import Codemirror from "codemirror-editor-vue3";
 import {Splitpanes, Pane} from 'splitpanes';
 import 'splitpanes/dist/splitpanes.css';
 
-import {request_debug_info, reset_aux_file, upload_file} from "./request"
+import {request_debug_info, reset_aux_file, request_config, upload_file} from "./request"
 import {capitalizeFirstLetter} from "./string_utils";
 import Vue3Highlightjs from "./vue3-highlight";
 import Highlighted, {escapeHTMLTags} from "./components/highlighted.vue";
@@ -21,7 +21,7 @@ import "@vueform/slider/themes/default.scss";
 import LoadingSpinner from "./components/loading_spinner.vue";
 import './main.scss';
 import Markdown from "vue3-markdown-it";
-
+import QueryBox from "./components/query_box.vue"
 
 const DEFAULT_CUSTOMIZER = `def customizer(d: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -44,7 +44,8 @@ const mainComponent = {
         tabular,
         Markdown,
         Slider,
-        Splitpanes, Pane
+        Splitpanes, Pane,
+        QueryBox
     },
     data: function () {
         return {
@@ -71,6 +72,7 @@ const mainComponent = {
                 endTime: 10000,
                 customizer: DEFAULT_CUSTOMIZER
             },
+            queries: {},
             queryInProgress: false,
             auxFileSendingInProcess: false,
             queryResult: {},
@@ -86,7 +88,10 @@ const mainComponent = {
                 indentUnit: 2,
                 foldGutter: true,
                 styleActiveLine: true,
-                query_dsl_words: async () => (await request_debug_info("query_dsl_words")).join(", ")
+                query_dsl_words: async () => (await request_debug_info("query_dsl_words")).join(", "),
+                extensions: {
+                    placeholder: true
+                }
             },
             codemirror_options_customizer: {
                 mode: "text/x-python",
@@ -97,7 +102,11 @@ const mainComponent = {
                 indentUnit: 2
             },
             shouldCustomizeQuery: false,
-            shouldSendAuxFile: false
+            shouldSendAuxFile: false,
+            queries_container: {
+                count: 1
+            },
+            query_seperator: ""
         }
     },
     created: async function () {
@@ -113,6 +122,7 @@ const mainComponent = {
         this.query.endTime = this.lastRunTime;
         this.runTimeWindow = [0, this.lastRunTime];
         await this.clear_aux_file();
+        this.query_seperator = (await request_config('query_seperator'));
     },
     mounted() {
         persistField(this.query, 'select', new LocalStore('app:querySelect'));
@@ -172,6 +182,7 @@ const mainComponent = {
         run_query: async function () {
             this.queryInProgress = true;
             try {
+                this.query.select = this.mergeQueries();
                 let resp = await request_debug_info("query",
                     ...[this.query.select, this.query.startTime, this.query.endTime,
                         this.shouldCustomizeQuery ? this.query.customizer : ""]);
@@ -235,7 +246,14 @@ const mainComponent = {
             const isShouldCustomizeChecked = document.getElementById('shouldCustomize').checked;
             document.getElementById('customizeCollapsable').hidden = !isShouldCustomizeChecked;
             this.shouldCustomizeQuery = isShouldCustomizeChecked;
+        },
+
+        mergeQueries() {
+            document.XXX = this.queries;
+            return Object.values(this.queries).filter(q => q !== undefined).join(this.query_seperator);
         }
+
+
     }
 
 }

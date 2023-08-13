@@ -17,8 +17,7 @@ class InFunction(UniLateralOperator, TimeOperator):
         self.func_name = func_name
         self.line_no = line_no
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
+    def eval(self, eval_data) -> EvalResult:
         func_entries_times = list(map(lambda r: r[1].time, builder.get_function_entries(self.func_name, self.line_no)))
 
         return EvalResult([

@@ -15,9 +15,8 @@ class Next(UniLateralOperator, TimeOperator):
         UniLateralOperator.__init__(self, times, first)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        results: EvalResult = self.first.eval(builder)
+    def eval(self, eval_data):
+        results: EvalResult = self.first.eval(eval_data)
 
         satisfaction_iterator = results.satisfies_iterator()
         next(satisfaction_iterator)

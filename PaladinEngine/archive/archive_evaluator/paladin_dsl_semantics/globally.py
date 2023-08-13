@@ -8,6 +8,5 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Globally(UniLateralOperator):
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        return Release(self.times, FALSE, self.first).eval(builder)
+    def eval(self, eval_data):
+        return Release(self.times, FALSE, self.first).eval(eval_data)

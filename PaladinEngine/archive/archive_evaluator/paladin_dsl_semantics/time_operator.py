@@ -19,8 +19,7 @@ class TimeOperator(Operator, ABC):
     def __init__(self, times: Iterable[Time]):
         super().__init__(times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
+    def eval(self, eval_data):
         raise NotImplementedError()
 
     def _get_args(self) -> Collection['Operator']:
@@ -39,10 +38,9 @@ class BiTimeOperator(BiLateralOperator, TimeOperator, ABC):
         TimeOperator.__init__(self, times)
         self.bi_result_maker = bi_result_maker
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        first = TimeOperator.make(self.first).eval(builder, query_locals, user_aux)
-        second = TimeOperator.make(self.second).eval(builder, query_locals, user_aux)
+    def eval(self, eval_data):
+        first = TimeOperator.make(self.first).eval(eval_data)
+        second = TimeOperator.make(self.second).eval(eval_data)
 
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(e1.time, self._make_res(e1, e2),
@@ -64,9 +62,8 @@ class Whenever(VariadicLateralOperator, TimeOperator):
         VariadicLateralOperator.__init__(self, times, *args)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        evaled_args = list(map(lambda arg: arg.eval(builder, query_locals, user_aux), self.args))
+    def eval(self, eval_data):
+        evaled_args = list(map(lambda arg: arg.eval(eval_data), self.args))
         arg_results = list(map(lambda er: lambda t: er[t].satisfies(), evaled_args))
 
         return EvalResult([
@@ -77,9 +74,8 @@ class Whenever(VariadicLateralOperator, TimeOperator):
 
 class FirstTime(UniLateralOperator, TimeOperator):
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        first_satisfaction = self.first.eval(builder, query_locals, user_aux).first_satisfaction()
+    def eval(self, eval_data):
+        first_satisfaction = self.first.eval(eval_data).first_satisfaction()
         if first_satisfaction == -1:
             return EvalResult.empty(self.times)
 

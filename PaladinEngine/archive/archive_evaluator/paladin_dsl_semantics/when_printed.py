@@ -18,9 +18,8 @@ class WhenPrinted(UniLateralOperator, TimeOperator):
         TimeOperator.__init__(self, times)
         UniLateralOperator.__init__(self, times, Const(output.query, times))
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        str_to_search = self.first.eval(builder, query_locals, user_aux)[self.times[0]].values[0]
+    def eval(self, eval_data):
+        str_to_search = self.first.eval(eval_data)[self.times[0]].values[0]
 
         print_event_times = list(map(lambda r: r[1].time, builder.get_print_events(str_to_search)))
 

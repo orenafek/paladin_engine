@@ -10,9 +10,8 @@ class First(UniLateralOperator):
     First(o): Satisfies only for the first time of o.
     """
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
-             user_aux: Optional[Dict[str, Callable]] = None):
-        first = self.first.eval(builder, query_locals, user_aux)
+    def eval(self, eval_data):
+        first = self.first.eval(eval_data)
 
         first_result = first.first_satisfaction()
         if not first_result:
