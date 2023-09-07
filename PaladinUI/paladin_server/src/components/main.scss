@@ -95,13 +95,14 @@ body {
         }
     }
 
-    #query-pane {
+    .query-pane {
         background: #282727;
         padding: 8px;
 
         .range-spec {
             #queryTimeSlider {
                 min-width: 10em;
+                max-width: 20em;
                 --slider-bg: #777;
                 --slider-connect-bg: #a6a;
                 --slider-tooltip-bg: #757;
@@ -126,6 +127,14 @@ body {
                 background: #557;
             }
         }
+    }
+
+    #settings-pane {
+        @extend .query-pane;
+    }
+
+    #vuebook-pane {
+        @extend .query-pane
     }
 }
 

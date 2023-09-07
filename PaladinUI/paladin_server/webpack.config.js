@@ -1,10 +1,11 @@
 const webpack = require('webpack');
 const { VueLoaderPlugin } = require('vue-loader')
+const path = require(`path`);
 
 module.exports = (env, argv) => ({
     name: 'paladin-ui',
     mode: argv.mode || 'development',
-    entry: './src/main.js',
+    entry: './src/main.ts',
     devtool: argv.mode !== 'production' ? "source-map" : undefined,
     stats: {
         hash: false, version: false, modules: false  // reduce verbosity
@@ -17,7 +18,12 @@ module.exports = (env, argv) => ({
         rules: [
             {
                 test: /\.tsx?$/,
-                use: 'ts-loader'
+                loader: 'ts-loader',
+                options: {
+                    appendTsSuffixTo: [/\.vue$/],
+                    allowTsInNodeModules: true
+                }
+
             },
             {
                 test: /\.css$/i,
@@ -41,7 +47,12 @@ module.exports = (env, argv) => ({
         ],
     },
     resolve: {
-        extensions: ['.tsx', '.ts', '.js'],
+        extensions: ['.*', '.js', '.jsx', '.vue', '.ts', '.tsx'],
+        symlinks: false,
+        alias: {
+            vue: path.resolve(`node_modules/vue`),
+            infra: path.resolve(`src/infra`)
+        },
     },
     externals: {
         fs: '{}'
