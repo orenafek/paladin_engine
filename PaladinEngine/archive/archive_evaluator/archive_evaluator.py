@@ -4,6 +4,56 @@ from PaladinEngine.ast_common.ast_common import *
 
 
 @dataclass
+class Query(object):
+    results: EvalResult
+
+    @property
+    def _passed(self) -> 'Query':
+        return Query({t: (result, replacements) for (t, (result, replacements)) in self.results.items() if result})
+
+    @property
+    def _failed(self) -> 'Query':
+        return Query({t: (result, replacements) for (t, (result, replacements)) in self.results.items() if not result})
+
+    @property
+    def _first(self):
+        return sorted(self._passed.results.items())[0]
+
+    @property
+    def _last(self):
+        return sorted(self._passed.results.items(), reverse=True)[0]
+
+    def Also(self, query: 'Query') -> 'Query':
+        return Query(
+            {t1: (True, rep1 + rep2) for t1, (res1, rep1) in self.results.items() for t2, (res2, rep2) in
+             query.results.items() if t1 == t2 and res1 == res2}
+        )
+
+    @classmethod
+    def Not(cls, q: 'Query'):
+        return q._failed
+
+    @classmethod
+    def Since(cls, q: 'Query') -> 'Query':
+        return Query(
+            {t: (res, rep) for t, (res, rep) in q.results.items() if t >= q._first[0]}
+        )
+
+    @classmethod
+    def Before(cls, q: 'Query'):
+        return Query(
+            {t: (res, rep) for t, (res, rep) in q.results.items() if t < q._first[0]}
+        )
+
+
+Since = Query.Since
+Before = Query.Before
+Not = Query.Not
+
+QUERY_DSL_WORDS = list(map(lambda f: f.__name__, [Since, Before, Not]))
+
+
+@dataclass
 class ArchiveEvaluator(object):
     archive: Archive
 
@@ -62,3 +112,7 @@ class ArchiveEvaluator(object):
         #
         #     except KeyError or IndexError:
         #         return node
+
+
+if __name__ == '__main__':
+    pass

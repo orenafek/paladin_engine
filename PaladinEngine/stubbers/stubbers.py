@@ -651,8 +651,7 @@ class FunctionDefStubber(Stubber):
             # Filter return statements of inner functions.
             if find_closest_parent(rs.node, node, ast.FunctionDef) == node:
                 self.root_module = self.stub(
-                    Stubber.BeforeStubRecord(rs.node, rs.container, rs.attr_name,
-                                             return_stub(Stubber.get_original_line_no(rs.node))))
+                    Stubber.BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub(rs.node.lineno)))
 
         return self.root_module
 

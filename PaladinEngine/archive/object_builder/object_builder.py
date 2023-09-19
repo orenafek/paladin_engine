@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from typing import *
 
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time, Identifier, \
-    ContainerId
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time, ObjectId, \
+    Identifier, ContainerId
 
 
 class ObjectBuilder(ABC):
@@ -30,8 +30,8 @@ class ObjectBuilder(ABC):
     def get_assignments(self, time_range: range, line_no_range: range):
         return self.archive.get_assignments(time_range, line_no_range)
 
-    def get_line_nos_for_time(self, time: Time) -> Iterable[Time]:
-        return self.archive.get_line_nos_for_time(time)
+    def get_line_nos_for_time(self, line_no: LineNo) -> Iterable[Time]:
+        return self.archive.get_line_nos_for_time(line_no)
 
     @abstractmethod
     def get_change_times(self, name: str, line_no: LineNo = -1):
@@ -41,10 +41,5 @@ class ObjectBuilder(ABC):
     def get_line_no_by_name_and_container_id(self, name: str, container_id: ContainerId = -1) -> LineNo:
         raise NotImplementedError()
 
-    def get_function_entries(self, func_name: str, line_no: LineNo, entrances: bool = True, exits: bool = True,
-                             ass_and_bmfcs_only: bool = False):
-        return self.archive.get_function_entries(func_name, line_no, entrances=entrances, exits=exits,
-                                                 ass_and_bmfcs_only=ass_and_bmfcs_only)
-
-    def get_function_line_nos(self, func_name: str):
-        return self.archive.get_function_line_nos(func_name)
+    def get_function_entries(self, func_name: str, line_no: LineNo, entrances: bool = True, exits: bool = True):
+        return self.archive.get_function_entries(func_name, line_no, entrances, exits)

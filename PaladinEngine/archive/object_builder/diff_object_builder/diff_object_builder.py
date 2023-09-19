@@ -1,5 +1,5 @@
 import copy
-from abc import ABC
+from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
 from types import NoneType
@@ -23,52 +23,16 @@ _NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
 class DiffObjectBuilder(ObjectBuilder):
     ObjectEntry = Tuple[Type, Any]
 
-    class _ComparableField(ABC):
-        def __init__(self, value: Any):
-            self.value = value
+    @dataclass
+    class _FunctionCallFieldType(object):
+        _type: Type
 
         def __eq__(self, other):
-            return self._compare(other, lambda x, y: x == y)
-
-        def __ne__(self, other):
-            return not (self == other)
-
-        def __ge__(self, other):
-            return self._compare(other, lambda x, y: x >= y)
-
-        def __le__(self, other):
-            return self._compare(other, lambda x, y: x <= y)
-
-        def __gt__(self, other):
-            return not (self <= other)
-
-        def __lt__(self, other):
-            return not (self >= other)
+            return isinstance(other, DiffObjectBuilder._FunctionCallFieldType) and self._type == other._type or \
+                isinstance(other, type) and other == self._type
 
         def __hash__(self):
-            return hash(self.value)
-
-        def _compare(self, other: Any, comparator: Callable[[Any, Any], bool]):
-            other_value = other.value if isinstance(other, DiffObjectBuilder._ComparableField) else other
-
-            if isinstance(self.value, type(other_value)) or isinstance(other_value, type(self.value)):
-                return comparator(self.value, other_value)
-
-            numeric_and_string = lambda x, y: any([isinstance(x, t) for t in [int, float]]) and isinstance(y, str)
-            if numeric_and_string(self.value, other_value):
-                # Here defining that any numeric value is greater than a string.
-                return comparator(1, 0)
-
-            if numeric_and_string(other_value, self.value):
-                return comparator(0, 1)
-
-            return False
-
-    class _Field(_ComparableField):
-        pass
-
-    class _FunctionCallFieldType(_ComparableField):
-        pass
+            return hash(self._type)
 
     class AttributedDict(Dict):
 
@@ -90,20 +54,26 @@ class DiffObjectBuilder(ObjectBuilder):
             super().__delitem__(key)
             self.__delattr__(key)
 
-    class _DictKeyResolve(_ComparableField):
+    @dataclass
+    class _DictKeyResolve(object):
         field_type: Type
         field: Union[str, Any, ObjectId]
         value_type: Type
         value: Any
 
-        def __init__(self, field_type: Type, field: Union[str, Any, ObjectId], value_type: Type, value: Any):
-            super().__init__(value)
-            self.field_type: Type = field_type
-            self.field: Union[str, Any, ObjectId] = field
-            self.value_type: Type = value_type
-
         def __hash__(self) -> int:
             return hash(hash(self.field_type) + hash(self.field) + hash(self.value_type) + hash(self.value))
+
+    @dataclass
+    class _FieldChange(object):
+        value: Union[str, ObjectId, Any]
+
+        def __hash__(self) -> int:
+            return hash(self.value)
+
+        def __eq__(self, other):
+            return (isinstance(other,
+                               DiffObjectBuilder._FieldChange) and self.value == other.value) or self.value == other
 
     class _Mode(Enum):
         FIRST = 0
@@ -123,8 +93,7 @@ class DiffObjectBuilder(ObjectBuilder):
     def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
         if isinstance(item, str):
             try:
-                object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.CLOSEST,
-                                                                             time,
+                object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.CLOSEST, time,
                                                                              line_no)
                 if ISP(object_type) or object_type is NoneType:
                     return obj_data
@@ -145,12 +114,6 @@ class DiffObjectBuilder(ObjectBuilder):
         if not object_data:
             return None
 
-        try:
-            # Sort the object data by keys (important for collections whose keys are integers, such as lists).
-            object_data = dict(sorted(object_data.items()))
-        except TypeError as e:
-            pass
-
         # Build object and store if for future references.
         built_object = self._built_objects[(object_id, time)] = self._build_object(line_no, object_data, object_type,
                                                                                    time)
@@ -169,7 +132,7 @@ class DiffObjectBuilder(ObjectBuilder):
         while to_evaluate:
             (field, field_type), value = to_evaluate.pop(0)
 
-            if isinstance(field, DiffObjectBuilder._Field):
+            if isinstance(field, DiffObjectBuilder._FieldChange):
                 field = field.value
             if value == EMPTY_COLLECTION:
                 continue
@@ -214,7 +177,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def __build_postponed(self, evaluated_object, line_no, t, to_evaluate, value):
         manip_name = value.manip_name if not isinstance(value.manip_name,
-                                                        DiffObjectBuilder._Field) else value.manip_name.value
+                                                        DiffObjectBuilder._FieldChange) else value.manip_name.value
         col_type = value.builtin_type
         arg = value.arg_value
         arg_type = value.arg_type
@@ -271,7 +234,7 @@ class DiffObjectBuilder(ObjectBuilder):
                 value, named_type = None, NoneType
             else:
                 for field, _type in named_data[time].keys():
-                    if field == DiffObjectBuilder._Field(name):
+                    if field == DiffObjectBuilder._FieldChange(name):
                         value, named_type = named_data[time][(field, _type)], _type
                         break
                     elif field == name:
@@ -291,7 +254,7 @@ class DiffObjectBuilder(ObjectBuilder):
             else:
                 named_type, object_id = named_data[time]
 
-            if isinstance(object_id, DiffObjectBuilder._Field):
+            if isinstance(object_id, DiffObjectBuilder._FieldChange):
                 object_id = object_id.value
 
             if object_id is None:
@@ -396,7 +359,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
         new_obj = DiffObjectBuilder.__clear_field_changes(obj, field)
 
-        field = DiffObjectBuilder._Field(field)
+        field = DiffObjectBuilder._FieldChange(field)
 
         match kind:
             case Archive.Record.StoreKind.BUILTIN_MANIP:
@@ -439,7 +402,7 @@ class DiffObjectBuilder(ObjectBuilder):
         if is_primitive:
             self._named_primitives[rv.expression][scope] = object_data
         else:
-            value_to_store = DiffObjectBuilder._Field(rv.value)
+            value_to_store = DiffObjectBuilder._FieldChange(rv.value)
             if scope not in self._named_objects[rv.expression]:
                 self._named_objects[rv.expression][scope] = RangeDict(
                     [(self.__initial_range(rv.time), (rv.rtype, value_to_store))])
@@ -449,8 +412,8 @@ class DiffObjectBuilder(ObjectBuilder):
 
     @staticmethod
     def __get_field_change_from_dict(d: Dict) -> Optional[
-        Tuple[Tuple['DiffObjectBuilder._Field', Type], Any]]:
-        field_changes = list(filter(lambda k: isinstance(k[0], DiffObjectBuilder._Field), d))
+        Tuple[Tuple['DiffObjectBuilder._FieldChange', Type], Any]]:
+        field_changes = list(filter(lambda k: isinstance(k[0], DiffObjectBuilder._FieldChange), d))
         if not field_changes:
             return None
 
@@ -516,12 +479,12 @@ class DiffObjectBuilder(ObjectBuilder):
         change_times = []
         for range_set, value in rd.items():
             if is_primitive:
-                if DiffObjectBuilder._Field(item) not in filter(
-                        lambda f: type(f) is DiffObjectBuilder._Field,
+                if DiffObjectBuilder._FieldChange(item) not in filter(
+                        lambda f: type(f) is DiffObjectBuilder._FieldChange,
                         map(lambda x: x[0], value.keys())):
                     continue
             else:
-                if not isinstance(value[1], DiffObjectBuilder._Field):
+                if not isinstance(value[1], DiffObjectBuilder._FieldChange):
                     continue
 
             change_times.extend([rng.start for rng in list(*range_set)])
@@ -572,7 +535,7 @@ class DiffObjectBuilder(ObjectBuilder):
                     cleaned_obj[cleaned_dict_key_resolved] = v
                 case _:
                     field, _type = k
-                    if isinstance(field, DiffObjectBuilder._Field):
+                    if isinstance(field, DiffObjectBuilder._FieldChange):
                         field = field.value
 
                     if field == new_field:

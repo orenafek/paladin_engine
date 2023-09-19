@@ -10,9 +10,8 @@ from .changed_into import ChangedInto
 from .const import Const
 from .const_time import ConstTime
 from .diff import Diff
-from .function_ops import InFunction, Locals
+from .function_ops import InFunction
 from .first import First
-from .group import Group
 from .last import Last
 from .let import Let
 from .line import Line

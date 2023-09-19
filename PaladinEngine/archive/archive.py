@@ -5,6 +5,7 @@
     :since: 05/04/2019
 """
 import dataclasses
+import json
 from ast import *
 from collections import deque
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, 
 import pandas as pd
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
+from ast_common.ast_common import ast2str
 from common.common import ISP, IS_ITERABLE
 
 Rk = 'Archive.Record.RecordKey'
@@ -213,7 +215,7 @@ class Archive(object):
         return self.records[record_key]
 
     def reset(self):
-        self.__init__()
+        self.records.clear()
 
     def to_table(self):
         try:
@@ -373,7 +375,7 @@ class Archive(object):
             ])
 
     def get_function_entries(self, func_name: str, line_no: Optional[int] = -1, entrances: bool = True,
-                             in_func: bool = True, exits: bool = True, ass_and_bmfcs_only: bool = False):
+                             in_func: bool = True, exits: bool = True):
 
         def_or_undef = Archive._Filters.OR(Archive._Filters.DEF_FILTER, Archive._Filters.UNDEF_FILTER)
         filters = [Archive._Filters.VALUE_FILTER(func_name)]
@@ -401,9 +403,8 @@ class Archive(object):
             function_entrances_and_exits.append(None)
 
         entries = function_entrances_and_exits
-        for func_entrance, func_exit in zip(function_entrances_and_exits[::2], function_entrances_and_exits[1::2]):
-            filters = [self._Filters.LINE_NOS_FILTER(range(func_entrance[1].line_no, func_exit[1].line_no + 1))] + \
-                      [Archive._Filters.AS_OR_BMFCS_FILTER] if ass_and_bmfcs_only else []
+        for func_entrance, func_exit in zip(function_entrances_and_exits, function_entrances_and_exits[1::]):
+            filters = [self._Filters.LINE_NOS_FILTER(range(func_entrance[1].line_no, func_exit[1].line_no + 1))]
             if func_exit is not None:
                 filters.append(self._Filters.TIME_RANGE_FILTER(range(func_entrance[1].time + 1, func_exit[1].time)))
             else:
@@ -437,14 +438,3 @@ class Archive(object):
 
     def get_line_nos_for_time(self, time: int) -> Iterable[int]:
         return {rv.line_no for _, rv in self.flatten() if rv.time == time}
-
-    def get_function_line_nos(self, func_name: str) -> Tuple[int, int]:
-        func_entries = self.get_function_entries(func_name)
-        func_defs = map(lambda t: t[1].line_no, filter(lambda t: Archive._Filters.DEF_FILTER(t[1]), func_entries))
-        func_start_line_no = list(func_defs)[0]
-        assert all([func_def == func_start_line_no for func_def in func_defs])
-
-        func_undefs = map(lambda t: t[1].line_no, filter(lambda t: Archive._Filters.UNDEF_FILTER(t[1]), func_entries))
-        func_end_line_no = max(func_undefs)
-
-        return func_end_line_no, func_end_line_no
