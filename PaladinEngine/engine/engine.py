@@ -4,9 +4,7 @@
     :author: Oren Afek
     :since: 05/04/19
 """
-import _ast
 import ast
-import dataclasses
 import inspect
 import pickle
 import re
@@ -14,12 +12,14 @@ import signal
 import sys
 import traceback
 from contextlib import redirect_stdout
-from io import IOBase
+from dataclasses import dataclass, asdict
+from io import StringIO
+from pathlib import Path
 from types import CodeType
-from typing import Tuple, Any, Optional
+from typing import Optional, Union
 
 from archive.archive import Archive
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from ast_common.ast_common import ast2str, get_arg_from_func_call
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
 from module_transformer.module_transformator import ModuleTransformer
@@ -31,26 +31,22 @@ from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __
     __PRINT__, __STUBS__
 
 
-class PaLaDiNEngine(object):
-    ...
-
-
 # noinspection PyRedeclaration
 class PaLaDiNEngine(object):
     """
         Paladin's conversion engine.
     """
 
-    @dataclasses.dataclass
+    @dataclass
     class PaladinRunExceptionData(object):
         """
             Data for an exception the occures during a PaLaDiNized run of a code.
         """
-        source_code_line_no: int
-        paladinized_code_line_no: int
-        exception_msg: str
-        source_line: str
-        archive_time: int
+        line_no: int
+        paladinized_line_no: int
+        msg: str
+        throwing_line_source: str
+        time: Time
 
         @staticmethod
         def create(source_code: str, paladinized_code: str, sys_exc_info,
@@ -87,66 +83,75 @@ class PaLaDiNEngine(object):
                 matched_lines = [(no + 1, l) for no, l in enumerate(original_lines) if
                                  paladinized_lines[run_line_no - 1] == l]
                 # TODO: What to do if there are more (or less) than 1?
-                #assert len(matched_lines) == 1
+                # assert len(matched_lines) == 1
 
                 matched_line = matched_lines[0]
-            return PaLaDiNEngine.PaladinRunExceptionData(source_code_line_no=matched_line[0],
-                                                         paladinized_code_line_no=run_line_no - 1,
-                                                         exception_msg=str(sys_exc_info[1]),
-                                                         source_line=matched_line[1],
-                                                         archive_time=archive_time)
+            return PaLaDiNEngine.PaladinRunExceptionData(line_no=matched_line[0],
+                                                         paladinized_line_no=run_line_no - 1,
+                                                         msg=str(sys_exc_info[1]),
+                                                         throwing_line_source=matched_line[1],
+                                                         time=archive_time)
 
-    __INSTANCE = PaLaDiNEngine()
+        @classmethod
+        def empty(cls):
+            return PaLaDiNEngine.PaladinRunExceptionData(-1, -1, '', '', -1)
+
+        @property
+        def as_dict(self):
+            return asdict(self)
+
+    @dataclass
+    class PaladinRunData(object):
+        output: str
+        archive: Archive
+        thrown_exception: Optional['PaLaDiNEngine.PaladinRunExceptionData']
+
+    def __init__(self, source_path: Union[str, Path], timeout: int = -1, record: bool = True):
+        self.source_path: Path = source_path if isinstance(source_path, Path) else Path(source_path)
+        self.file_name: str = self.source_path.name
+        self.timeout: int = timeout
+        self.output_capture: Optional[StringIO] = StringIO() if record else None
+        with open(source_path, 'r') as f:
+            self.source_code: str = f.read()
+
+        self._paladinized_code: str = PaLaDiNEngine.transform(self.source_code)
+
+        self._run_data: Optional['PaLaDiNEngine.PaladinRunData'] = None
 
     # Mode of Pythonic compilation.
     __COMPILATION_MODE = 'exec'
 
     __SOURCE_PROVIDER = None
 
-    @staticmethod
-    def __get_line_no_from_paladinized_source(paladinized_line: str) -> LineNo:
-        try:
-            line_no = int(
-                re.compile(r'.*line_no=(?P<lineno>[0-9]+).*').match(paladinized_line).groupdict()['lineno'])
-        except BaseException as e:
-            for f in {__FC__, __PRINT__}:
-                if f.__name__ in paladinized_line:
-                    if 'line_no' not in f.__code__.co_varnames:
-                        raise e
-                    line_no_var_pos = f.__code__.co_varnames.index('line_no')
-                    start_of_line_no = paladinized_line.index()
-                    line_no = int(
-                        re.compile(r'(?P<n>(\d+))[,)].*').match(paladinized_line[start_of_line_no::]).group('n'))
-            raise e
+    @property
+    def paladinized_code(self):
+        return self._paladinized_code
 
-    @staticmethod
-    def get_source_provider():
+    @paladinized_code.setter
+    def paladinized_code(self, value: str):
+        self._paladinized_code = value
+
+    @property
+    def run_data(self) -> Optional['PaLaDiNEngine.PaladinRunData']:
+        return self._run_data
+
+    @property
+    def source_provider(self):
         return PaLaDiNEngine.__SOURCE_PROVIDER
 
-    def __new__(cls, *args, **kwargs):
-        """
-        Constructor for PaLaDiNEngine class.
-        Keeps the engine singleton.
-        :param args:
-        :param kwargs:
-        """
-        return PaLaDiNEngine.__INSTANCE
+    def write_paladinized(self, output_path: Path):
+        with open(output_path, 'w+') as fo:
+            fo.write(PaLaDiNEngine.import_line('stubs.stubs'))
+            fo.writelines('\n' * 3)
+            fo.write(self.paladinized_code)
 
-    @staticmethod
-    def compile(source_code) -> CodeType:
+    def compile(self) -> CodeType:
         # Compile it.
-        return compile(source_code, PALADIN_ERROR_FILE_PATH, mode=PaLaDiNEngine.__COMPILATION_MODE)
+        return compile(self.source_code, PALADIN_ERROR_FILE_PATH, mode=PaLaDiNEngine.__COMPILATION_MODE)
 
-    @staticmethod
-    def execute_with_paladin(source_code: str, paladinized_code: str, original_file_name: str, timeout: int = -1,
-                             output_capture: Optional[IOBase] = None) -> Tuple[
-        Any, Archive, Optional[PaladinRunExceptionData]]:
+    def execute_with_paladin(self):
         """
             Execute a source code with the paladin environment.
-        :param source_code:
-        :param paladinized_code:
-        :param original_file_name
-        :param timeout
         :param output_capture
         :return:
         """
@@ -155,13 +160,13 @@ class PaLaDiNEngine(object):
 
         # Make sure that the script runs as if was alone.
         variables['__name__'] = '__main__'
-        variables['__PALADIN_file__'] = original_file_name
+        variables['__PALADIN_file__'] = self.file_name
 
         # Collect imports.
         variables.update(PaLaDiNEngine.__collect_imports_to_execution())
 
         # Set program name.
-        sys.argv[0] = original_file_name
+        sys.argv[0] = self.file_name
         # Clear args.
         sys.argv[1:] = []
 
@@ -170,6 +175,8 @@ class PaLaDiNEngine(object):
                 super(PaladinTimeoutError, self).__init__(args, kwargs)
                 self.line_no = line_no
 
+        thrown_exception: Optional[PaLaDiNEngine.PaladinRunExceptionData] = None
+        output: Optional[str] = None
         try:
             def handler(signum, frame):
                 current_frame = frame
@@ -180,23 +187,35 @@ class PaLaDiNEngine(object):
                 raise PaladinTimeoutError(line_no,
                                           f'Program exceeded timeout, stopped on: {line_no}')
 
-            signal.signal(signal.SIGALRM, handler)
+            if self.timeout > 0:
+                signal.signal(signal.SIGALRM, handler)
+                signal.alarm(self.timeout)
 
-            if timeout > 0:
-                signal.alarm(timeout)
+            archive.reset()
 
-            if output_capture is not None:
-                with redirect_stdout(output_capture):
-                    return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
-
-            return exec(compile(paladinized_code, 'PALADIN', 'exec'), variables), archive, None
+            if self.output_capture is not None:
+                self.output_capture = StringIO()
+                with redirect_stdout(self.output_capture):
+                    exec(compile(self.paladinized_code, 'PALADIN', 'exec'), variables)
+                    output = self.output_capture.getvalue()
+            else:
+                exec(compile(self.paladinized_code, 'PALADIN', 'exec'), variables)
 
         except (PaladinTimeoutError, BaseException) as e:
-            return None, archive, PaLaDiNEngine.PaladinRunExceptionData \
-                .create(source_code, paladinized_code,
+            thrown_exception = PaLaDiNEngine.PaladinRunExceptionData \
+                .create(self.source_code, self.paladinized_code,
                         sys.exc_info(),
                         archive.time,
                         e.line_no if isinstance(e, PaladinTimeoutError) else -1)
+
+        self._run_data = PaLaDiNEngine.PaladinRunData(output, archive, thrown_exception)
+
+    def update_source_code(self, updated_source_code: str):
+        with open(self.source_path, 'w') as f:
+            f.write(updated_source_code)
+
+        self.source_code = updated_source_code
+        self.paladinized_code = PaLaDiNEngine.transform(self.source_code)
 
     @staticmethod
     def __collect_imports_to_execution():
@@ -212,20 +231,13 @@ class PaLaDiNEngine(object):
 
         t = ModuleTransformer(module)
         try:
-            t = t.transform_aug_assigns()
-            m = t.module
-            t = t.transform_function_calls()
-            m = t.module
-            t = t.transform_loops()
-            m = t.module
-            t = t.transform_assignments()
-            m = t.module
-            t = t.transform_function_def()
-            m = t.module
-            t = t.transform_paladin_post_condition()
-            m = t.module
-            t = t.transform_breaks()
-            m = t.module
+            t.transform_aug_assigns() \
+                .transform_function_calls() \
+                .transform_loops() \
+                .transform_assignments() \
+                .transform_function_def() \
+                .transform_paladin_post_condition() \
+                .transform_breaks()
 
         except BaseException as e:
             print(e)
@@ -259,35 +271,3 @@ class PaLaDiNEngine(object):
     @staticmethod
     def import_line(import_path):
         return f'from {import_path} import {", ".join([stub.__name__ for stub in __STUBS__])}'
-
-
-def main():
-    # Read source file.
-    file_name = r'tests/test_resources/test_module.py'
-    with open(file_name) as f:
-        # Read the source file.
-        tetris_source_file = f.read()
-
-        # Transform into a PaLaDiN form.
-        paladinized = PaLaDiNEngine.transform(tetris_source_file)
-
-        # Print the code.
-        print(str(paladinized))
-
-        # Compile it.
-        try:
-            complied_code = PaLaDiNEngine.compile(paladinized)
-
-            # Execute the code.
-            PaLaDiNEngine.execute_with_paladin(complied_code, file_name)
-
-        except BaseException:
-            traceback.print_exc()
-
-        finally:
-            # Print the archive.
-            print(archive)
-
-
-if __name__ == '__main__':
-    main()

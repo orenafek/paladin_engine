@@ -50,7 +50,7 @@ module.exports = (env, argv) => ({
         extensions: ['.*', '.js', '.jsx', '.vue', '.ts', '.tsx'],
         symlinks: false,
         alias: {
-            vue: path.resolve(`node_modules/vue`),
+            vue: path.resolve(`node_modules/vue/dist/vue.esm-bundler.js`),
             infra: path.resolve(`src/infra`)
         },
     },

@@ -127,6 +127,8 @@ body {
                 background: #557;
             }
         }
+
+        overflow-y: auto;
     }
 
     #settings-pane {
@@ -134,7 +136,12 @@ body {
     }
 
     #vuebook-pane {
-        @extend .query-pane
+        @extend .query-pane;
+        overflow-y: scroll;
+    }
+
+    #program-output-pane {
+        @extend .query-pane;
     }
 }
 
