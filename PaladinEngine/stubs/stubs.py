@@ -42,19 +42,13 @@ def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_
     return field
 
 
-def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
-            line_no: int):
-    archive.store_new \
-        .key(id(frame), arg, __AS__.__name__) \
-        .value(type(value), POID(value), arg, line_no)
-
-    if func_name == '__init__' and arg == 'self':
-        # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
-        # FIXME: Meaning that if __init__ is called with a firs arg which is not "self", this wouldn't work.
-        archive.store_new \
-            .key(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__) \
-            .value(type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION, line_no)
-
+def __ARG__(func_name: str, frame, line_no: int, **kwargs):
+    time = -1
+    for arg, value in kwargs.items():
+        rv = archive.store_new \
+            .key(id(frame), arg, __AS__.__name__) \
+            .value(type(value), POID(value), arg, line_no, time)
+        time = rv.time
 
 def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
     if not archive.should_record:
@@ -86,6 +80,7 @@ def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str
                     Archive.Record.StoreKind.UNAMED_OBJECT)
 
     return func_stub_wrapper
+
 
 def __BREAK__(line_no: int, frame):
     if archive.should_record:

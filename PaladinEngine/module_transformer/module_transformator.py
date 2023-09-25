@@ -133,16 +133,12 @@ class ModuleTransformer(object):
                 prefix_stubs.append(init_prefix_stub)
             # Create args prefix_stubs.
 
-            for arg in function_def.extra.args:
-                arg_stub = Stubber.create_ast_stub(__ARG__,
-                                                   wrap_str_param(function_def.extra.function_name),
-                                                   wrap_str_param(arg),
-                                                   arg,
-                                                   locals='locals()',
-                                                   globals='globals()',
-                                                   frame='__FRAME__()',
-                                                   line_no=f'{original_line_no}', )
-                prefix_stubs.append(arg_stub)
+            prefix_stubs.append(
+                ast.Expr(ast.Call(func=lit2ast(__ARG__.__name__),
+                         args=[lit2ast(wrap_str_param(function_def.extra.function_name)),
+                               Stubber._FRAME_CALL,
+                               lit2ast(original_line_no)],
+                         keywords=[ast.keyword(arg=arg, value=lit2ast(arg)) for arg in function_def.extra.args])))
 
             # Create suffix stub.
             suffix_stub = lambda rsln: Stubber.copy_line_no(
