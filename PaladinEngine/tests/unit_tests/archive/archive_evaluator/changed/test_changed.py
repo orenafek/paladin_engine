@@ -26,8 +26,8 @@ class TestBasic5Changed(TestChanged):
         return cls.example('basic5')
 
     def test_changed_primitives(self):
-        self._test_times('x', [1, 8, 21])
-        self._test_times('y', [2, 9, 22])
+        self._test_times('x', [1, 8, 19])
+        self._test_times('y', [2, 9, 20])
         self._test_times('z', [4, 5])
 
 
