@@ -25,7 +25,7 @@
                             </div>
                         </pane>
                         <pane id="vuebook-pane" :size="55">
-                            <vuebook ref="vuebook"></vuebook>
+                            <vuebook ref="vuebook" :completions="completions"></vuebook>
                         </pane>
                     </splitpanes>
                 </pane>
@@ -42,7 +42,7 @@ import 'splitpanes/dist/splitpanes.css';
 import Slider from "@vueform/slider";
 import "@vueform/slider/themes/default.scss";
 //@ts-ignore
-import Vuebook, {IVuebook} from "./vuebook_app.vue";
+import Vuebook, {IVuebook, Completion} from "./vuebook_app.vue";
 
 
 //@ts-ignore
@@ -73,9 +73,9 @@ class Main extends Vue {
     sourceCode: Array<string> = []
     programOutput: string = ''
     thrownException: Exception = {} as Exception
+    completions: Completion[] = []
 
     @Ref vuebook: IVuebook
-    //$refs: {vuebook}
 
     readonly actions = [
         {name: 'Save', icon: 'save', action: this.updateCode},
@@ -101,6 +101,9 @@ class Main extends Vue {
         this.programOutput = await request_debug_info('run_output') as string;
         this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
         this.thrownException = await request_debug_info('thrown_exception') as Exception;
+        this.completions = await request_debug_info('completions') as Completion[];
+        console.log('main.vue: this.completions = ', this.completions);
+        this.$forceUpdate();
         this.resetSlider();
     }
 
