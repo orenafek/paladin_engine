@@ -15,16 +15,6 @@ export async function request_debug_info(req, ...args) {
         )["result"][req]);
 }
 
-export async function upload_file(file, server_path) {
-    await fetch(server_path, {
-        method: 'POST',
-        headers: {
-            "Accept": "application-json"
-        },
-        body: file
-    });
-}
-
 export async function upload(content, server_path) {
     await fetch(server_path, {
         method: 'POST',

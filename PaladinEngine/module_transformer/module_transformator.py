@@ -7,14 +7,14 @@
 import ast
 from typing import List, cast
 
+from api.api import Paladin
 from ast_common.ast_common import ast2str, wrap_str_param, lit2ast
-from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, \
-    PaladinPostConditionFinder, PaladinLoopFinder, FunctionCallFinder, FunctionDefFinder, \
-    AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder, BreakFinder
+from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, PaladinLoopFinder, FunctionCallFinder, \
+    FunctionDefFinder, AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder, BreakFinder
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, \
     FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber, BreakStubber, Stubber
 from stubs.stubs import __FLI__, __POST_CONDITION__, __AS__, __ARG__, __DEF__, \
-    __UNDEF__, __AC__, __PIS__, __BREAK__
+    __UNDEF__, __AC__, __PIS__, __BREAK__, __PAUSE__, __RESUME__
 
 
 class ModuleTransformer(object):
@@ -111,9 +111,10 @@ class ModuleTransformer(object):
         function_defs: List[StubEntry] = function_def_finder.find()
 
         for function_def in function_defs:
+            extra = cast(FunctionDefFinder.FunctionDefExtra, function_def.extra)
             original_line_no = Stubber.get_original_line_no(function_def.node)
             function_def_stub = Stubber.create_ast_stub(__DEF__,
-                                                        wrap_str_param(function_def.extra.function_name),
+                                                        wrap_str_param(extra.function_name),
                                                         line_no=f'{original_line_no}',
                                                         frame='__FRAME__()')
 
@@ -122,32 +123,41 @@ class ModuleTransformer(object):
 
             prefix_stubs = [function_def_stub]
 
-            if function_def.extra.function_name == '__init__':
+            added_pause = False
+            if Paladin.atomic.__name__ in extra.decorators:
+                added_pause = True
+                prefix_stubs.append(self._pause_record_call())
+
+            if extra.function_name == '__init__':
                 # Add a __PIS__ stub.
                 # First param should be the object being initialized (usually "self").
-                first_arg = function_def.extra.args[0]
+                first_arg = extra.args[0]
                 init_prefix_stub = Stubber.create_ast_stub(__PIS__,
                                                            first_arg,
                                                            wrap_str_param(first_arg),
                                                            line_no=f'{original_line_no}')
                 prefix_stubs.append(init_prefix_stub)
-            # Create args prefix_stubs.
 
+            # Create args prefix_stubs.
             prefix_stubs.append(
                 ast.Expr(ast.Call(func=lit2ast(__ARG__.__name__),
-                         args=[lit2ast(wrap_str_param(function_def.extra.function_name)),
-                               Stubber._FRAME_CALL,
-                               lit2ast(original_line_no)],
-                         keywords=[ast.keyword(arg=arg, value=lit2ast(arg)) for arg in function_def.extra.args])))
+                                  args=[lit2ast(wrap_str_param(extra.function_name)),
+                                        Stubber._FRAME_CALL,
+                                        lit2ast(original_line_no)],
+                                  keywords=[ast.keyword(arg=arg, value=lit2ast(arg)) for arg in extra.args])))
 
             # Create suffix stub.
             suffix_stub = lambda rsln: Stubber.copy_line_no(
                 cast(ast.AST, ast.Expr(ast.Call(func=lit2ast(__UNDEF__.__name__),
-                                                args=[lit2ast(wrap_str_param(function_def.extra.function_name)),
-                                                      Stubber._FRAME_CALL,
-                                                      lit2ast(rsln)],
+                                                args=[lit2ast(
+                                                    wrap_str_param(extra.function_name)),
+                                                    Stubber._FRAME_CALL,
+                                                    lit2ast(rsln)],
                                                 keywords=[]
                                                 ))), function_def.node)
+
+            suffix_stubs = (
+                lambda rsln: [self._resume_record_call(), suffix_stub(rsln)]) if added_pause else suffix_stub
 
             # Find all return statements.
             return_statement_finder = ReturnStatementsFinder()
@@ -158,7 +168,7 @@ class ModuleTransformer(object):
             self._module = function_def_stubber.stub_function_def(function_def.node, function_def.container,
                                                                   function_def.attr_name,
                                                                   prefix_stubs,
-                                                                  suffix_stub, return_statements)
+                                                                  suffix_stubs, return_statements)
 
         return self
 
@@ -320,3 +330,13 @@ class ModuleTransformer(object):
                 return super().visit(node)
 
         self.module = _Transformer().visit(self.module)
+
+    @staticmethod
+    def _pause_record_call():
+        return ast.Expr(ast.Call(func=ast.Name(__PAUSE__.__name__), args=[], keywords=[]))
+
+    @staticmethod
+    def _resume_record_call():
+        return ast.Expr(ast.Call(func=ast.Name(__RESUME__.__name__), args=[], keywords=[]))
+
+

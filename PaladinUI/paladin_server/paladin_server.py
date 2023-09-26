@@ -8,9 +8,9 @@ from flask_classful import FlaskView, route
 from flask_cors import CORS
 
 from PaladinEngine.engine.engine import PaLaDiNEngine
-from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
+from archive.archive_evaluator.paladin_dsl_semantics import Operator
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from common.common import ISP
 
@@ -201,6 +201,12 @@ class PaladinServer(FlaskView):
             PaladinServer._present_archive_entries(
                 RUN_DATA.archive.get_assignments(from_time, to).items()))
 
+    @route('/debug_info/completions')
+    def completions(self):
+        return PaladinServer.create_response(
+            [{'label': op.name(), 'type': 'keyword', 'info': op.__doc__} for op in Operator.all()]
+        )
+
     @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/', defaults={'customizer': ''})
     @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<string:customizer>')
     def query(self, select_query: str, start_time: int, end_time: int, customizer: str):
@@ -235,19 +241,20 @@ class PaladinServer(FlaskView):
         if 'info' in args:
             if args['info'] == 'retrieve_object':
                 response = {
-                    'object': RUN_DATA.archive.retrieve_value(int(args['object_id']), args['object_type'], int(args['time']))}
+                    'object': RUN_DATA.archive.retrieve_value(int(args['object_id']), args['object_type'],
+                                                              int(args['time']))}
         return {'result': response}
 
     @route('/source_code.txt')
     def src_code(self):
-        return SOURCE_CODE
+        return ENGINE.source_code
 
     @staticmethod
     def _get_line_from_source_code(line_no: int) -> str:
         if line_no <= 0:
             return ''
 
-        return SOURCE_CODE.split('\n')[line_no - 1].strip()
+        return ENGINE.source_code.split('\n')[line_no - 1].strip()
 
     @route('/search', methods=['POST'])
     def search(self):

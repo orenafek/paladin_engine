@@ -236,7 +236,6 @@ class PaLaDiNEngine(object):
                 .transform_loops() \
                 .transform_assignments() \
                 .transform_function_def() \
-                .transform_paladin_post_condition() \
                 .transform_breaks()
 
         except BaseException as e:

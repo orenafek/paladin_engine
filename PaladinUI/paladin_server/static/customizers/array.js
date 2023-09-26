@@ -1,8 +1,7 @@
-class Customizer {
+class ArrayDisplayer {
 
     matches(data) {
-        return data !== null;
-
+        return data?.hasOwnProperty('arr');
     }
 
     format() {
@@ -23,14 +22,14 @@ class Customizer {
                     </tr>
                     <tr style="color: red">
                         <td v-for="(_, index) in data.arr">
-                            <span v-if="[data.high, (data.i > 0 ? data.i : undefined), data.j].includes(index)">
+                            <span v-if="[data.p, (data.i > 0 ? data.i : undefined), data.j].includes(index)">
                                 <span>&#8593;</span>
                             </span>
                         </td>
                     </tr>
                     <tr>
                         <td v-for="(_, index) in data.arr">
-                            <span v-if="index === (data.high ?? undefined)">
+                            <span v-if="index === (data.p ?? undefined)">
                                 p
                             </span>
                             <span v-if="index === (data.i ?? undefined) && data.i > 0">

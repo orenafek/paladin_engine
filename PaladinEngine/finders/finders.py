@@ -1,4 +1,3 @@
-import ast
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
@@ -283,84 +282,6 @@ class FinderByString(GenericFinder):
         return candidates[0].node
 
 
-class DecoratorFinder(GenericFinder):
-    """
-    A finder for function decorators.
-    """
-
-    def __init__(self) -> None:
-        """
-            Constructor.
-        """
-        # Call the super's constructor.
-        super().__init__()
-
-        # Create a list for all decorators
-        self.__decorators = {}
-
-    def visit_FunctionDef(self, node):
-        # Collect decorators.
-        decorators = []
-        for decorator in node.decorator_list:
-            if self._decorator_predicate(node, decorator):
-                decorators.append(DecoratorFinder.Decorator(node, decorator))
-        return self._generic_visit_with_extras(node, decorators)
-
-    def _should_store_entry(self, extra: Union[None, object]) -> bool:
-        return extra is not None and extra != []
-
-    # noinspection PyUnusedLocal, PyMethodMayBeStatic
-    def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
-        """
-            A predicate to filter found decorators.
-        :param decorator:  A decorator object.
-        :return: True if the decorator should be added.
-        """
-        return True
-
-    def types_to_find(self):
-        return ast.FunctionDef
-
-    def _extract_extra(self, node: ast.AST):
-        return self.__decorators[node]
-
-    class Decorator(object):
-        def __init__(self, func: ast.FunctionDef, decorator: ast.expr):
-            # Check decorator type.
-            if isinstance(decorator, ast.Call):
-                # The decorator name.
-                dec_name = decorator.func
-
-                # The decorator has params.
-                params = [arg.s for arg in decorator.args]
-
-            elif isinstance(decorator, ast.Name):
-                dec_name = decorator
-                # The decorator has no params.
-                params = []
-
-            else:
-                # The decorator is of an unfamiliar type.
-                raise AssertionError('An unfamiliar decorator.')
-
-            # Store containing function.
-            self.func = func
-
-            # Store decorator name.
-            self._name = dec_name.id
-
-            # Store decorator params.
-            self._params = params
-
-        @property
-        def name(self):
-            return self._name
-
-        @property
-        def params(self):
-            return self._params
-
-
 class PaladinLoopFinder(GenericFinder):
     """
     A finder for While & For loops.
@@ -470,7 +391,7 @@ class PaladinForLoopInvariantsFinder(GenericFinder):
         striped_node = PaladinForLoopInvariantsFinder.__expr_node_to_str(node).strip()
 
         return striped_node.startswith(PALADIN_INLINE_DEFINITION_HEADER) \
-               and striped_node.endswith(PALADIN_INLINE_DEFINITION_FOOTER)
+            and striped_node.endswith(PALADIN_INLINE_DEFINITION_FOOTER)
 
     @staticmethod
     def __expr_node_to_str(node) -> str:
@@ -577,19 +498,8 @@ class AssignmentFinder(GenericFinder):
         return extras
 
     def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
-        return super()._should_visit(node, child_node) and not (isinstance(child_node, ast.Assign) and ast2str(child_node).startswith('____'))
-
-
-class PaladinPostConditionFinder(DecoratorFinder):
-    """
-        Finds post conditions of functions in the form:
-        @PaladinPostCondition(...)
-        def <func_name>(...):
-            ...
-    """
-
-    def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
-        return DecoratorFinder.Decorator(func, decorator).name == PaladinPostCondition.__name__
+        return super()._should_visit(node, child_node) and not (
+                isinstance(child_node, ast.Assign) and ast2str(child_node).startswith('____'))
 
 
 class FunctionCallFinder(GenericFinder):
@@ -607,7 +517,7 @@ class FunctionCallFinder(GenericFinder):
 
     def _is_match_paladin_stub_call(self, function_name: str) -> bool:
         return function_name.startswith('__') or function_name == 'locals' or \
-               function_name == 'globals' or function_name == '__str__'
+            function_name == 'globals' or function_name == '__str__'
 
     def visit_Call(self, node: ast.Call):
         # return extras
@@ -639,7 +549,7 @@ class FunctionCallFinder(GenericFinder):
         if not isinstance(child_node.func, ast.Name):
             return True
 
-        return  child_node.func.id not in [s.__name__ for s in __STUBS__]
+        return child_node.func.id not in [s.__name__ for s in __STUBS__]
 
 
 class FunctionDefFinder(GenericFinder):
@@ -652,6 +562,7 @@ class FunctionDefFinder(GenericFinder):
         function_name: str
         args: list[str]
         line_no: int
+        decorators: List[Type]
 
         def __init__(self):
             self.args = []
@@ -661,6 +572,8 @@ class FunctionDefFinder(GenericFinder):
         extra.function_name = node.name
         extra.args = [arg.arg for arg in node.args.args]
         extra.line_no = node.lineno
+        extra.decorators = [(d.id if isinstance(d, ast.Name) else d.attr)
+                            for d in node.decorator_list if any(isinstance(d, t) for t in [ast.Name, ast.Attribute])]
         return self._generic_visit_with_extras(node, extra)
 
 
