@@ -29,9 +29,6 @@ RUN_DATA: Optional[PaLaDiNEngine.PaladinRunData] = None
 EVALUATOR: Optional[ArchiveEvaluator] = None
 PARSER: Optional[PaladinNativeParser] = None
 
-# FIXME: Currently for debugging purposes.
-THROWN_EXCEPTION: Optional[PaLaDiNEngine.PaladinRunExceptionData] = PaLaDiNEngine.PaladinRunExceptionData.empty()
-
 
 class PaladinServer(FlaskView):
     @dataclass
@@ -136,7 +133,8 @@ class PaladinServer(FlaskView):
 
     @route('/debug_info/thrown_exception')
     def thrown_exception(self):
-        return PaladinServer.create_response(THROWN_EXCEPTION.as_dict if THROWN_EXCEPTION is not None else {})
+        return PaladinServer.create_response(
+            ENGINE.run_data.thrown_exception.as_dict if ENGINE.run_data.thrown_exception is not None else {})
 
     @route('/debug_info/archive_entries/<int:line_no>')
     def archive_entries(self, line_no: int):

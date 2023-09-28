@@ -25,7 +25,7 @@
                             </div>
                         </pane>
                         <pane id="vuebook-pane" :size="55">
-                            <vuebook ref="vuebook" :completions="completions"></vuebook>
+                            <vuebook ref="vuebook" :completions="completions" :lastRunTime="lastRunTime"></vuebook>
                         </pane>
                     </splitpanes>
                 </pane>
