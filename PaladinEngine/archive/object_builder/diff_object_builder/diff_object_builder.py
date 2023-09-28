@@ -521,10 +521,25 @@ class DiffObjectBuilder(ObjectBuilder):
                         map(lambda x: x[0], value.keys())):
                     continue
             else:
-                if not isinstance(value[1], DiffObjectBuilder._Field):
+                if isinstance(value, tuple):
+                    _type, _field = value
+                    _value = value[1].value
+                elif isinstance(value, dict):
+                    changed_fields = list(
+                        filter(lambda i: isinstance(i[0], tuple) and isinstance(i[0][0], DiffObjectBuilder._Field),
+                               value.items()))
+                    if changed_fields:
+                        (_field, _type), _value = changed_fields[0]
+                    else:
+                        continue
+                else:
                     continue
-
+                if not isinstance(_field, DiffObjectBuilder._Field):
+                    continue
             change_times.extend([rng.start for rng in list(*range_set)])
+
+            if BuiltinCollectionsUtils.is_builtin_collection_type(_type):
+                change_times.extend(self.get_change_times(_value, line_no))
         return change_times
 
     def get_line_no_by_name_and_container_id(self, name: str, container_id: ContainerId = -1) -> LineNo:

@@ -39,6 +39,7 @@ class Vuebook extends Vue {
     readonly codeEditorType: ICodeEditor = PaladinCompletions
 
     @Prop completions: Completion[]
+    @Prop lastRunTime: number
 
     model: ModelImpl
     control: NotebookActions
@@ -107,7 +108,7 @@ class Vuebook extends Vue {
 
     private async runCell(cell: Model.Cell) {
         cell.loading = true;
-        let queryRunResult = await request_debug_info("query", ...[cell.input, 0, 500, ""]);
+        let queryRunResult = await request_debug_info("query", ...[cell.input, 0, this.lastRunTime, ""]);
         this.model.clearOutputs(cell);
         this.model.addResult(cell,
             {
