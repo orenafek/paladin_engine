@@ -34,6 +34,18 @@ class TestCommon(unittest.TestCase, ABC):
         TestCommon.__dump_to_csv(archive, cls.program_path())
         return archive
 
+    @classmethod
+    def all_examples(cls):
+        results = []
+        for pth in cls.EXAMPLES_PATH.iterdir():
+            if pth.is_dir():
+                if 'cache' in str(pth):
+                    continue
+                prog = pth.joinpath(pth.name).with_suffix('.py')
+                if prog.exists():
+                    results.append(prog)
+        return results
+
     @staticmethod
     def __write_paladinized_code(original_program_path: Path, paladinized_code: str):
         with open(str(original_program_path.with_suffix('')) + "_output.py", 'w+') as fo:
