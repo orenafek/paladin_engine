@@ -16,12 +16,13 @@ from dataclasses import dataclass, asdict
 from io import StringIO
 from pathlib import Path
 from types import CodeType
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from ast_common.ast_common import ast2str, get_arg_from_func_call
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
+from module_transformer.global_map import GlobalMap
 from module_transformer.module_transformator import ModuleTransformer
 from source_provider.source_provider import SourceProvider
 # DO NOT REMOVE!!!!
@@ -106,6 +107,7 @@ class PaLaDiNEngine(object):
         archive: Archive
         thrown_exception: Optional['PaLaDiNEngine.PaladinRunExceptionData']
 
+
     def __init__(self, source_path: Union[str, Path], timeout: int = -1, record: bool = True):
         self.source_path: Path = source_path if isinstance(source_path, Path) else Path(source_path)
         self.file_name: str = self.source_path.name
@@ -114,7 +116,7 @@ class PaLaDiNEngine(object):
         with open(source_path, 'r') as f:
             self.source_code: str = f.read()
 
-        self._paladinized_code: str = PaLaDiNEngine.transform(self.source_code)
+        self._paladinized_code, self._global_map = self.transform(self.source_code)
 
         self._run_data: Optional['PaLaDiNEngine.PaladinRunData'] = None
 
@@ -130,6 +132,14 @@ class PaLaDiNEngine(object):
     @paladinized_code.setter
     def paladinized_code(self, value: str):
         self._paladinized_code = value
+
+    @property
+    def global_map(self):
+        return self._global_map
+
+    @global_map.setter
+    def global_map(self, value):
+        self._global_map = value
 
     @property
     def run_data(self) -> Optional['PaLaDiNEngine.PaladinRunData']:
@@ -215,14 +225,14 @@ class PaLaDiNEngine(object):
             f.write(updated_source_code)
 
         self.source_code = updated_source_code
-        self.paladinized_code = PaLaDiNEngine.transform(self.source_code)
+        self.paladinized_code, self.global_map = self.transform(self.source_code)
 
     @staticmethod
     def __collect_imports_to_execution():
         return {module.__name__: module for module in [sys, inspect]}
 
     @staticmethod
-    def process_module(module: ast.AST) -> ast.AST:
+    def process_module(module: ast.AST) -> Tuple[ast.AST, GlobalMap]:
         """
             Activate all the transformers on a module.
         :param module:
@@ -240,7 +250,7 @@ class PaLaDiNEngine(object):
 
         except BaseException as e:
             print(e)
-        return t.module
+        return t.module, t.global_map
 
     @staticmethod
     def create_module(src_file) -> ast.AST:
@@ -251,17 +261,14 @@ class PaLaDiNEngine(object):
         """
         return ast.parse(src_file)
 
-    @staticmethod
-    def transform(code: str) -> str:
+    def transform(self, code: str) -> Tuple[str, GlobalMap]:
         """
             Transform a code into a code with PaLaDiN.
         :param code: (str) source code.
         :return: (str) The PaLaDiNized code.
         """
-        SourceProvider.set_code(code)
-        return ast2str(
-            PaLaDiNEngine.process_module(
-                PaLaDiNEngine.create_module(code)))
+        paladinized_module, global_map = PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code))
+        return ast2str(paladinized_module), global_map
 
     @staticmethod
     def transform_and_pickle(code: str) -> bytes:

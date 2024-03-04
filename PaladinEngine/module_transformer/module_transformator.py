@@ -11,6 +11,7 @@ from api.api import Paladin
 from ast_common.ast_common import ast2str, wrap_str_param, lit2ast
 from finders.finders import PaladinForLoopInvariantsFinder, AssignmentFinder, PaladinLoopFinder, FunctionCallFinder, \
     FunctionDefFinder, AttributeAccessFinder, AugAssignFinder, StubEntry, ReturnStatementsFinder, BreakFinder
+from module_transformer.global_map import GlobalMap
 from stubbers.stubbers import LoopStubber, AssignmentStubber, MethodStubber, \
     FunctionCallStubber, FunctionDefStubber, AttributeAccessStubber, AugAssignStubber, BreakStubber, Stubber
 from stubs.stubs import __FLI__, __POST_CONDITION__, __AS__, __ARG__, __DEF__, \
@@ -26,6 +27,11 @@ class ModuleTransformer(object):
         self._module = module
         self._store_original_line_no()
         self.__temp_var_counter = 0
+        self._global_map = GlobalMap()
+
+    @property
+    def global_map(self):
+        return self._global_map
 
     def transform_loop_invariants(self) -> 'ModuleTransformer':
         pidf = PaladinForLoopInvariantsFinder()
@@ -112,10 +118,15 @@ class ModuleTransformer(object):
 
         for function_def in function_defs:
             extra = cast(FunctionDefFinder.FunctionDefExtra, function_def.extra)
-            original_line_no = Stubber.get_original_line_no(function_def.node)
+            original_start_line_no = Stubber.get_original_line_no(function_def.node)
+            original_end_line_no = Stubber.get_original_end_line_no(function_def.node)
+
+            # Store function in global map.
+            self.global_map.functions[extra.function_name] = original_start_line_no, original_end_line_no
+
             function_def_stub = Stubber.create_ast_stub(__DEF__,
                                                         wrap_str_param(extra.function_name),
-                                                        line_no=f'{original_line_no}',
+                                                        line_no=f'{original_start_line_no}',
                                                         frame='__FRAME__()')
 
             # Create a stubber.
@@ -135,7 +146,7 @@ class ModuleTransformer(object):
                 init_prefix_stub = Stubber.create_ast_stub(__PIS__,
                                                            first_arg,
                                                            wrap_str_param(first_arg),
-                                                           line_no=f'{original_line_no}')
+                                                           line_no=f'{original_start_line_no}')
                 prefix_stubs.append(init_prefix_stub)
 
             # Create args prefix_stubs.
@@ -143,7 +154,7 @@ class ModuleTransformer(object):
                 ast.Expr(ast.Call(func=lit2ast(__ARG__.__name__),
                                   args=[lit2ast(wrap_str_param(extra.function_name)),
                                         Stubber._FRAME_CALL,
-                                        lit2ast(original_line_no)],
+                                        lit2ast(original_start_line_no)],
                                   keywords=[ast.keyword(arg=arg, value=lit2ast(arg)) for arg in extra.args])))
 
             # Create suffix stub.
@@ -338,5 +349,3 @@ class ModuleTransformer(object):
     @staticmethod
     def _resume_record_call():
         return ast.Expr(ast.Call(func=ast.Name(__RESUME__.__name__), args=[], keywords=[]))
-
-

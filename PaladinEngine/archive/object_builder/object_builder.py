@@ -18,8 +18,8 @@ class ObjectBuilder(ABC):
     def get_type(self, item: Identifier, time: Time, line_no: Optional[LineNo] = -1) -> Optional[Type]:
         raise NotImplementedError()
 
-    def find_events(self, line_no):
-        return self.archive.find_events(line_no)
+    def find_events(self, line_no: Time = -1, time_range: Iterable[Time] = None):
+        return self.archive.find_events(line_no, time_range)
 
     def get_loop_iterations(self, line_no: LineNo):
         return self.archive.get_loop_iterations(line_no)
@@ -48,3 +48,6 @@ class ObjectBuilder(ABC):
 
     def get_function_line_nos(self, func_name: str):
         return self.archive.get_function_line_nos(func_name)
+
+    def get_call_chain(self, include_builtins=True) -> Dict[Time, Tuple[str, str]]:
+        return self.archive.get_call_chain(include_builtins)

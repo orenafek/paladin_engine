@@ -15,6 +15,7 @@ import pandas as pd
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from common.common import ISP, IS_ITERABLE
+from module_transformer.global_map import GlobalMap
 
 Rk = 'Archive.Record.RecordKey'
 Rv = 'Archive.Record.RecordValue'
@@ -64,13 +65,14 @@ class Archive(object):
         AS_OR_BMFCS_FILTER = lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'}
         DEF_FILTER = lambda vv: vv.key.stub_name in {'__DEF__'}
         UNDEF_FILTER = lambda vv: vv.key.stub_name in {'__UNDEF__'}
+        FC_FILTER = lambda vv: vv.key.stub_name in {'__FC__'}
 
         @classmethod
         def OR(cls, *filters):
             return lambda vv: any([f(vv) for f in filters])
 
         @staticmethod
-        def TIME_RANGE_FILTER(time_range: range):
+        def TIME_RANGE_FILTER(time_range: range | Iterable[int]):
             return lambda vv: vv.time in time_range if time_range else lambda vv: True
 
         @staticmethod
@@ -185,8 +187,9 @@ class Archive(object):
 
     def __init__(self) -> None:
         self.records: Dict[Archive.Record.RecordKey, List[Archive.Record.RecordValue]] = {}
-        self._time = -1
-        self.should_record = True
+        self._time: Time = -1
+        self.should_record: bool = True
+        self.global_map: Optional[GlobalMap] = None
 
     @property
     def time(self):
@@ -255,9 +258,6 @@ class Archive(object):
         header, rows = self.to_table()
         data_frame = pd.DataFrame(columns=header, data=rows)
         return data_frame.to_markdown(index=True)
-
-    def build_object(self, object_id: int, rtype: type = Any, time: int = -1) -> Any:
-        return self.object_builder.build(object_id, rtype, time)
 
     def search_web(self, expression: str):
         raise NotImplementedError()
@@ -402,7 +402,7 @@ class Archive(object):
 
         entries = function_entrances_and_exits
         for func_entrance, func_exit in zip(function_entrances_and_exits[::2], function_entrances_and_exits[1::2]):
-            filters = [self._Filters.LINE_NOS_FILTER(range(func_entrance[1].line_no, func_exit[1].line_no + 1))] + \
+            filters = [self._Filters.LINE_NOS_FILTER(range(*self.global_map.functions[func_entrance[1].value]))] + \
                       [Archive._Filters.AS_OR_BMFCS_FILTER] if ass_and_bmfcs_only else []
             if func_exit is not None:
                 filters.append(self._Filters.TIME_RANGE_FILTER(range(func_entrance[1].time + 1, func_exit[1].time)))
@@ -411,6 +411,7 @@ class Archive(object):
 
             entries.extend(self.flatten_and_filter(filters))
 
+        entries = list(filter(lambda e: e is not None, entries))
         if not entrances:
             entries = filter(lambda r: r[0].stub_name != '__DEF__', entries)
 
@@ -419,11 +420,15 @@ class Archive(object):
 
         return sorted(entries, key=lambda r: r[1].time)
 
-    def find_events(self, line_no: int) -> List[Tuple[Rk, Rv]]:
-        return self.flatten_and_filter([
-            Archive._Filters.LINE_NO_FILTER(line_no),
-            lambda vv: vv.key.stub_name not in {'__SOLI__', '__EOLI__'}
-        ])
+    def find_events(self, line_no: int = -1, time_range: Iterable[int] = None) -> List[Tuple[Rk, Rv]]:
+        filters = [lambda vv: vv.key.stub_name not in {'__SOLI__', '__EOLI__'}]
+        if line_no > -1:
+            filters.append(Archive._Filters.LINE_NO_FILTER(line_no))
+
+        if time_range is not None:
+            filters.append(Archive._Filters.TIME_RANGE_FILTER(time_range))
+
+        return self.flatten_and_filter(filters)
 
     def get_print_events(self, output: str) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(lambda vv: vv.key.stub_name == '__PRINT__' and vv.value == output)
@@ -448,3 +453,40 @@ class Archive(object):
         func_end_line_no = max(func_undefs)
 
         return func_end_line_no, func_end_line_no
+
+    def get_call_chain(self, include_builtin=True) -> Dict[Time, Tuple[str, str]]:
+        out_format = lambda rv: (rv.extra, rv.expression)
+        if include_builtin:
+            return {rv.time: out_format(rv) for rk, rv in
+                    sorted(self.flatten_and_filter(self._Filters.FC_FILTER), key=lambda t: t[1].time)}
+
+        records = sorted(
+            self.flatten_and_filter(self._Filters.OR(self._Filters.FC_FILTER, self._Filters.DEF_FILTER)),
+            key=lambda t: t[1].time)
+
+        if len(records) == 0:
+            return {}
+
+        if len(records) == 1:
+            return {rv.time: out_format(rv) for rk, rv in records}
+
+        def records_match(rv1: Archive.Record.RecordValue, rv2: Archive.Record.RecordValue):
+            """
+            Should be looking for same function name in FC and DEF, but some functions are not stored the same.
+            E.g.: Constructors: for A(), the __FC__ is for "A" and the __DEF__ is for "A.__init__"
+            """
+            if not (rv1.key.stub_name == '__FC__' and rv2.key.stub_name == '__DEF__'):
+                return False
+
+            if rv1.expression == rv2.expression:
+                return True
+
+            # Deal with constructors.
+            if f'{rv1.expression}.__init__' == rv2.expression:
+                return True
+
+            return False
+
+        local_func_records = [records[i] for i in range(len(records) - 1) if
+                              records_match(records[i][1], records[i + 1][1])]
+        return {rv.time: (rv.extra, rv.expression) for rk, rv in local_func_records}

@@ -553,9 +553,12 @@ class FunctionCallFinder(GenericFinder):
 
 
 class FunctionDefFinder(GenericFinder):
+    def __init__(self) -> None:
+        super().__init__()
+        self.current_class: Optional[ast.ClassDef] = None
 
     def types_to_find(self):
-        return ast.FunctionDef
+        return [ast.FunctionDef, ast.ClassDef]
 
     @dataclass
     class FunctionDefExtra(object):
@@ -567,9 +570,14 @@ class FunctionDefFinder(GenericFinder):
         def __init__(self):
             self.args = []
 
+    def visit_ClassDef(self, node: ast.ClassDef) -> Any:
+        self.current_class = node
+        super().visit(node)
+        self.current_class = None
+
     def visit_FunctionDef(self, node: ast.FunctionDef):
         extra = FunctionDefFinder.FunctionDefExtra()
-        extra.function_name = node.name
+        extra.function_name = f'{self.current_class.name}.{node.name}' if self.current_class else node.name
         extra.args = [arg.arg for arg in node.args.args]
         extra.line_no = node.lineno
         extra.decorators = [(d.id if isinstance(d, ast.Name) else d.attr)
