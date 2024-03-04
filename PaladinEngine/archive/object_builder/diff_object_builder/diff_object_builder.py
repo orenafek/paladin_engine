@@ -167,7 +167,7 @@ class DiffObjectBuilder(ObjectBuilder):
         evaluated_object = DiffObjectBuilder.AttributedDict()
         to_evaluate = list(object_data.items())
         while to_evaluate:
-            (field, field_type), value = to_evaluate.pop(0)
+            (field_type, field), value = to_evaluate.pop(0)
 
             if isinstance(field, DiffObjectBuilder._Field):
                 field = field.value
@@ -270,12 +270,12 @@ class DiffObjectBuilder(ObjectBuilder):
             if time not in named_data:
                 value, named_type = None, NoneType
             else:
-                for field, _type in named_data[time].keys():
+                for _type, field in named_data[time].keys():
                     if field == DiffObjectBuilder._Field(name):
-                        value, named_type = named_data[time][(field, _type)], _type
+                        value, named_type = named_data[time][(_type, field)], _type
                         break
                     elif field == name:
-                        value, named_type = named_data[time][(field, _type)], _type
+                        value, named_type = named_data[time][[_type, field]], _type
                         break
                 else:
                     value, named_type = None, NoneType
@@ -410,15 +410,15 @@ class DiffObjectBuilder(ObjectBuilder):
             case Archive.Record.StoreKind.DICT_ITEM:
                 key_type, value_type = _type
                 if ISP(key_type):
-                    new_obj[(field, value_type)] = value
+                    new_obj[(value_type, field)] = value
                 else:
                     new_obj[
-                        DiffObjectBuilder._DictKeyResolve(key_type, field, _type,
-                                                          value), DiffObjectBuilder._DictKeyResolve] = None
+                        DiffObjectBuilder._DictKeyResolve, DiffObjectBuilder._DictKeyResolve(key_type, field, _type,
+                                                                                             value)] = None
             case Archive.Record.StoreKind.FUNCTION_CALL:
-                new_obj[(field, DiffObjectBuilder._FunctionCallFieldType(_type))] = value
+                new_obj[(DiffObjectBuilder._FunctionCallFieldType(_type), field)] = value
             case _:
-                new_obj[(field, _type)] = value
+                new_obj[(_type, field)] = value
         return new_obj
 
     @staticmethod
@@ -586,14 +586,14 @@ class DiffObjectBuilder(ObjectBuilder):
                     cleaned_dict_key_resolved.field = k.field.value
                     cleaned_obj[cleaned_dict_key_resolved] = v
                 case _:
-                    field, _type = k
+                    _type, field = k
                     if isinstance(field, DiffObjectBuilder._Field):
                         field = field.value
 
                     if field == new_field:
                         continue
 
-                    cleaned_obj[(field, _type)] = v
+                    cleaned_obj[(_type, field)] = v
 
         return cleaned_obj
 

@@ -18,6 +18,7 @@ from archive.object_builder.diff_object_builder.diff_object_builder import DiffO
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
+from module_transformer.module_transformator import ModuleTransformer
 from stubbers.stubbers import Stubber
 
 

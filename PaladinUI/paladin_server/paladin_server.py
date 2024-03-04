@@ -66,6 +66,7 @@ class PaladinServer(FlaskView):
         global ENGINE, RUN_DATA, EVALUATOR, PARSER
         ENGINE = engine
         RUN_DATA = engine.run_data
+        RUN_DATA.archive.global_map = ENGINE.global_map
         EVALUATOR = ArchiveEvaluator(RUN_DATA.archive)
         PARSER = PaladinNativeParser(RUN_DATA.archive)
 

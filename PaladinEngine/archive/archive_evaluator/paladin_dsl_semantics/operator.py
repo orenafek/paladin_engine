@@ -68,6 +68,11 @@ class Operator(ABC):
         return cls.__subclasses__()
 
 
+class NoArgOperator(Operator, ABC):
+    def _get_args(self) -> Collection['Operator']:
+        return []
+
+
 class UniLateralOperator(Operator, ABC):
     def __init__(self, times: Iterable[Time], first: Operator):
         super(UniLateralOperator, self).__init__(times)
@@ -75,6 +80,14 @@ class UniLateralOperator(Operator, ABC):
 
     def _get_args(self) -> Collection['Operator']:
         return [self.first]
+
+
+class OptionalArgOperator(UniLateralOperator, ABC):
+    def __init__(self, times: Iterable[Time], first: Optional[Operator] = None):
+        super().__init__(times, first)
+
+    def _get_args(self) -> Collection['Operator']:
+        return [self.first] if self.first else []
 
 
 class BiLateralOperator(Operator, ABC):
