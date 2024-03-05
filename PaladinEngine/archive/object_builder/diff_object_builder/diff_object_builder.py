@@ -510,37 +510,40 @@ class DiffObjectBuilder(ObjectBuilder):
             is_primitive = False
             rd: RangeDict = self._data[item] if item in self._data else []
 
-        if rd is None:
+        if rd is None or rd == []:
             return []
 
         change_times = []
         for range_set, value in rd.items():
             if is_primitive:
-                if DiffObjectBuilder._Field(item) not in filter(
-                        lambda f: type(f) is DiffObjectBuilder._Field,
-                        map(lambda x: x[0], value.keys())):
+                value = {k: v for (k, v) in value.items() if k[1] == DiffObjectBuilder._Field(item)}
+                if not value:
                     continue
-            else:
-                if isinstance(value, tuple):
-                    _type, _field = value
-                    _value = value[1].value
-                elif isinstance(value, dict):
-                    changed_fields = list(
-                        filter(lambda i: isinstance(i[0], tuple) and isinstance(i[0][0], DiffObjectBuilder._Field),
-                               value.items()))
-                    if changed_fields:
-                        (_field, _type), _value = changed_fields[0]
-                    else:
-                        continue
-                else:
-                    continue
-                if not isinstance(_field, DiffObjectBuilder._Field):
-                    continue
-            change_times.extend([rng.start for rng in list(*range_set)])
 
-            if BuiltinCollectionsUtils.is_builtin_collection_type(_type):
-                change_times.extend(self.get_change_times(_value, line_no))
+            if isinstance(value, tuple):
+                types = [value[0]]
+                fields = [value[1]]
+            elif isinstance(value, dict):
+                types = list(map(lambda k: k[0], value.keys()))
+                fields = list(map(lambda k: k[1], value.keys()))
+
+            for t, f in zip(types, fields):
+                if not isinstance(f, DiffObjectBuilder._Field):
+                    continue
+                if BuiltinCollectionsUtils.is_builtin_collection_type(t):
+                    change_times.extend(self.get_change_times(f.value))
+
+                change_times.extend([rng.start for rng in list(*range_set)])
+                break
+
         return change_times
+
+    def get_bmfcs_change_time(self, item: Identifier, line_no: LineNo = -1) -> Iterable[Time]:
+        if isinstance(item, str) or item not in self._data:
+            return []
+
+        rd: RangeDict = self._data[item]
+        pass
 
     def get_line_no_by_name_and_container_id(self, name: str, container_id: ContainerId = -1) -> LineNo:
         if name in self._named_primitives:
