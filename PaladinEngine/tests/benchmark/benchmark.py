@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from subprocess import Popen
 from time import time
-from typing import List, Optional
+from typing import List, Optional, Tuple, Callable
 
 from engine.engine import PaLaDiNEngine
 from tests.test_common.test_common import TestCommon
@@ -15,6 +15,8 @@ class Benchmarker(ABC):
     TIME_FACTOR = 10 ** 4
 
     def __init__(self, results_path: Path, should_output: bool = True):
+        self.header = []
+        self.rows = []
         self.results_path = results_path
         self.should_output = should_output
         self._fo = open(self.results_path, 'w+')
@@ -23,11 +25,17 @@ class Benchmarker(ABC):
         self.pdbrc_path: Optional[Path] = None
 
     def benchmark(self, progs: List[str | Path]):
-        self.writer.writerow(['test_name', *[f.__name__ for f in [self.clean, self.pdb, self.pdb_cond, self.paladin]]])
+        self.header = ['test_name',
+                       *[f.__name__ for f in [self.clean, self.pdb, self.pdb_cond, self.paladin]] + [
+                           f'{self.paladin.__name__}/{self.pdb_cond.__name__}']]
+        self.writer.writerow(self.header)
+
         for prog in progs:
             self.engine = PaLaDiNEngine(prog, record=False)
             self._measure(self.clean, self.pdb, self.pdb_cond, self.paladin)
 
+        self._post_process((self.paladin, self.pdb_cond))
+        self._finalize()
         self._fo.close()
 
     def pdb(self):
@@ -38,7 +46,7 @@ class Benchmarker(ABC):
 
     def _measure(self, *cb):
         try:
-            self.writer.writerow([self.engine.source_path.name, *[str(c() * Benchmarker.TIME_FACTOR) for c in cb]])
+            self.rows.append([self.engine.source_path.name, *[str(c() * Benchmarker.TIME_FACTOR) for c in cb]])
         except:
             return
 
@@ -76,9 +84,21 @@ class Benchmarker(ABC):
         end_time = time()
         return end_time - start_time
 
+    def _post_process(self, *calc_func_pairs: Tuple[Callable, Callable]):
+        for calc_over, calc_under in calc_func_pairs:
+            calc_over_col_index = self.header.index(calc_over.__name__)
+            calc_under_col_index = self.header.index(calc_under.__name__)
+
+            for r in self.rows:
+                r.append(str(float(r[calc_over_col_index]) / float(r[calc_under_col_index])))
+
+    def _finalize(self):
+        self.writer.writerows(self.rows)
+
 
 def main():
-    b = Benchmarker(Path.cwd().joinpath('benchmark.csv'), should_output=True)
+    b = Benchmarker(output_path := Path.cwd().joinpath('benchmark.csv'), should_output=True)
+    print(output_path)
     b.benchmark(TestCommon.all_examples())
 
 
