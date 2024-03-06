@@ -15,6 +15,7 @@ from contextlib import redirect_stdout
 from dataclasses import dataclass, asdict
 from io import StringIO
 from pathlib import Path
+from time import time
 from types import CodeType
 from typing import Optional, Union, Tuple
 
@@ -24,7 +25,6 @@ from ast_common.ast_common import ast2str, get_arg_from_func_call
 from conf.engine_conf import PALADIN_ERROR_FILE_PATH
 from module_transformer.global_map import GlobalMap
 from module_transformer.module_transformator import ModuleTransformer
-from source_provider.source_provider import SourceProvider
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
 from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
@@ -107,7 +107,6 @@ class PaLaDiNEngine(object):
         archive: Archive
         thrown_exception: Optional['PaLaDiNEngine.PaladinRunExceptionData']
 
-
     def __init__(self, source_path: Union[str, Path], timeout: int = -1, record: bool = True):
         self.source_path: Path = source_path if isinstance(source_path, Path) else Path(source_path)
         self.file_name: str = self.source_path.name
@@ -116,7 +115,7 @@ class PaLaDiNEngine(object):
         with open(source_path, 'r') as f:
             self.source_code: str = f.read()
 
-        self._paladinized_code, self._global_map = self.transform(self.source_code)
+        self._paladinized_code, self._global_map, self.transformation_time = self.transform(self.source_code)
 
         self._run_data: Optional['PaLaDiNEngine.PaladinRunData'] = None
 
@@ -225,7 +224,7 @@ class PaLaDiNEngine(object):
             f.write(updated_source_code)
 
         self.source_code = updated_source_code
-        self.paladinized_code, self.global_map = self.transform(self.source_code)
+        self.paladinized_code, self.global_map, _ = self.transform(self.source_code, False)
 
     @staticmethod
     def __collect_imports_to_execution():
@@ -261,14 +260,17 @@ class PaLaDiNEngine(object):
         """
         return ast.parse(src_file)
 
-    def transform(self, code: str) -> Tuple[str, GlobalMap]:
+    def transform(self, code: str, should_time_transformation: bool = True) -> Tuple[str, GlobalMap, Optional[float]]:
         """
             Transform a code into a code with PaLaDiN.
         :param code: (str) source code.
+        :param should_time_transformation: (bool) Should measure time of transformation
         :return: (str) The PaLaDiNized code.
         """
+        start_time = time()
         paladinized_module, global_map = PaLaDiNEngine.process_module(PaLaDiNEngine.create_module(code))
-        return ast2str(paladinized_module), global_map
+        end_time = time()
+        return ast2str(paladinized_module), global_map, end_time - start_time if should_time_transformation else None
 
     @staticmethod
     def transform_and_pickle(code: str) -> bytes:

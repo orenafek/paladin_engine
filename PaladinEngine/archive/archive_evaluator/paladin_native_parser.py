@@ -30,10 +30,11 @@ class PaladinNativeParser(object):
     FUNCTION_CALL_MAGIC = '$'
     _FUNCTION_CALL_MAGIC_REPLACE_SYMBOL = '__FC_RET_VAL__'
 
-    def __init__(self, archive: Archive):
+    def __init__(self, archive: Archive, should_time_builder_construction: bool = False):
         self.archive: Archive = archive
         self._line_no: int = -1
-        self.builder: ObjectBuilder = DiffObjectBuilder(archive)
+        self.builder: ObjectBuilder = DiffObjectBuilder(archive, should_time_builder_construction)
+        self.construction_time = self.builder.construction_time
         self.user_aux: Dict[str, Any] = {}
 
     class HasOperatorVisitor(ast.NodeVisitor):

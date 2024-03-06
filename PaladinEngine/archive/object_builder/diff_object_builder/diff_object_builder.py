@@ -2,6 +2,7 @@ import copy
 from abc import ABC
 from enum import Enum
 from functools import reduce
+from time import time
 from types import NoneType
 from typing import *
 
@@ -109,15 +110,17 @@ class DiffObjectBuilder(ObjectBuilder):
         FIRST = 0
         CLOSEST = 1
 
-    def __init__(self, archive: Archive):
+    def __init__(self, archive: Archive, should_time_construction: bool = False):
         ObjectBuilder.__init__(self, archive)
         self.archive = archive
+        self._should_time_construction = should_time_construction
         self._data: Dict[ObjectId, RangeDict] = {}
         self._last_range: Dict[ObjectId, Range] = {}
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
         self._named_primitives: _NAMED_PRIMITIVES_DATA_TYPE = {}
         self._named_objects: _NAMED_OBJECTS_DATA_TYPE = {}
         self._scopes: Dict[LineNo, Scope] = {}
+        self._construction_time: float = 0
         self._construct()
 
     def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
@@ -317,6 +320,9 @@ class DiffObjectBuilder(ObjectBuilder):
         return Range(t, t, include_end=True)
 
     def _construct(self):
+        if self._should_time_construction:
+            start_time = time()
+
         for rk, rv in sorted(
                 self.archive.flatten_and_filter(
                     [lambda vv: vv.key.stub_name in {__AS__.__name__, __BMFCS__.__name__, __FC__.__name__},
@@ -325,6 +331,11 @@ class DiffObjectBuilder(ObjectBuilder):
             object_data: RangeDict = self.__add_to_data(rk, rv)
             if rk.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.FUNCTION_CALL}:
                 self.__add_to_named(rv, object_data)
+
+        if self._should_time_construction:
+            end_time = time()
+
+        self._construction_time = end_time - start_time if self._should_time_construction else None
 
     def __add_to_data(self, rk: Archive.Record.RecordKey, rv: Archive.Record.RecordValue) -> RangeDict:
         t: Time = rv.time
@@ -620,3 +631,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def get_line_nos_by_container_ids(self, container_ids: Set[ContainerId]) -> Iterable[LineNo]:
         return list(map(lambda t: t[0], filter(lambda t: t[1] in container_ids, self._scopes.items())))
+
+    @property
+    def construction_time(self):
+        return self._construction_time

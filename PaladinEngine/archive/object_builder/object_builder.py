@@ -51,3 +51,7 @@ class ObjectBuilder(ABC):
 
     def get_call_chain(self, include_builtins=True) -> Dict[Time, Tuple[str, str]]:
         return self.archive.get_call_chain(include_builtins)
+
+    @property
+    def construction_time(self):
+        return 0
