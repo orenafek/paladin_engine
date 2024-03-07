@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
 
-from api.api import PaladinPostCondition
 from ast_common.ast_common import ast2str
 from conf.engine_conf import *
 from stubs.stubs import SubscriptVisitResult, __STUBS__
@@ -451,8 +450,15 @@ class AssignmentFinder(GenericFinder):
 
     def visit_Attribute(self, node):
         # Extract Name.
-        name = node.value.id
-        return self._add_to_assign(name, node.attr)
+        if isinstance(node.value, ast.Name):
+            return self._add_to_assign(node.value.id, node.attr)
+
+        # Continue visiting for more complex attributes.
+        if isinstance(node.value, ast.Attribute):
+            return self._add_to_assign(super(GenericFinder, self).visit(node.value), node.attr)
+
+        # TODO: Other cases?
+        return None
 
     def visit_Subscript(self, node):
         # Visit value (the object being subscripted) to extract extra.
