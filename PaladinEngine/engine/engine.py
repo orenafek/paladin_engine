@@ -27,9 +27,11 @@ from module_transformer.global_map import GlobalMap
 from module_transformer.module_transformator import ModuleTransformer
 # DO NOT REMOVE!!!!
 # noinspection PyUnresolvedReferences
-from stubs.stubs import __FLI__, __AS__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
+from stubs.stubs import __FLI__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
     __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__, __BREAK__, __EOLI__, __SOLI__, __BMFCS__, \
     __PRINT__, __STUBS__
+# noinspection PyUnresolvedReferences
+from api.api import PaladinPostCondition
 
 
 # noinspection PyRedeclaration

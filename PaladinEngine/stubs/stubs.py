@@ -78,7 +78,7 @@ def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str
         # Store args that are temporary objects.
         # E.g.: l.add(Animal(...))
         if not ISP(type(arg)) and not id(arg) in [id(x) for x in {**locals, **globals}.values()] and arg != EMPTY:
-            __store(frame, '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
+            __store(id(frame), '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
                     Archive.Record.StoreKind.UNAMED_OBJECT)
 
     return func_stub_wrapper

@@ -7,11 +7,12 @@ from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types i
 
 
 class ObjectBuilder(ABC):
-    def __init__(self, archive: Archive):
+    def __init__(self, archive: Archive, should_time_construction: bool = False):
         self.archive: Archive = archive
+        self._should_time_construction: bool = should_time_construction
 
     @abstractmethod
-    def build(self, item: Identifier, t: Time, line_no: Optional[LineNo] = -1) -> Any:
+    def build(self, item: Identifier, t: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
         raise NotImplementedError()
 
     @abstractmethod
@@ -55,3 +56,16 @@ class ObjectBuilder(ABC):
     @property
     def construction_time(self):
         return 0
+
+    def _build_iterator(self, obj: Identifier, line_no: Optional[LineNo] = -1) -> \
+            Optional[Iterator[Tuple[Time, Any]]]:
+        for t in range(0, self.archive.last_time):
+            yield t, self.build(obj, t, type(obj), line_no)
+
+        return None
+
+    @staticmethod
+    def _add_attributes(evaluated_object: Dict):
+        for f, v in evaluated_object.items():
+            if isinstance(f, str):
+                setattr(evaluated_object, f, v)
