@@ -1,5 +1,5 @@
 from api.api import PaladinPostCondition
-from tests.test_resources.examples.tetris.graphics import Window, Point, Rectangle, CanvasFrame, Text
+from tests.test_resources.ignored_examples.tetris.graphics import Window, Point, Rectangle, CanvasFrame, Text
 
 
 # from Examples.Tetris.graphics import Window, Point, Rectangle, CanvasFrame, Text

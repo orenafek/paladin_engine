@@ -1,5 +1,4 @@
 import ast
-import dataclasses
 import json
 import traceback
 from _ast import BinOp, AST
@@ -9,8 +8,8 @@ from typing import *  # DO NOT REMOVE!!!!
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, BAD_JSON_VALUES, \
-    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, ParseResults, Identifier, LineNo
-from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN, FUNCTION_CALL_MAGIC
+    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, ParseResults
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
 from archive.archive_evaluator.paladin_dsl_semantics import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
@@ -18,7 +17,6 @@ from archive.object_builder.diff_object_builder.diff_object_builder import DiffO
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
-from module_transformer.module_transformator import ModuleTransformer
 from stubbers.stubbers import Stubber
 
 
@@ -30,10 +28,11 @@ class PaladinNativeParser(object):
     FUNCTION_CALL_MAGIC = '$'
     _FUNCTION_CALL_MAGIC_REPLACE_SYMBOL = '__FC_RET_VAL__'
 
-    def __init__(self, archive: Archive, should_time_builder_construction: bool = False):
+    def __init__(self, archive: Archive, object_builder_type: Type = DiffObjectBuilder,
+                 should_time_builder_construction: bool = False):
         self.archive: Archive = archive
         self._line_no: int = -1
-        self.builder: ObjectBuilder = DiffObjectBuilder(archive, should_time_builder_construction)
+        self.builder: ObjectBuilder = object_builder_type(archive, should_time_builder_construction)
         self.construction_time = self.builder.construction_time
         self.user_aux: Dict[str, Any] = {}
 
@@ -183,6 +182,7 @@ class PaladinNativeParser(object):
             super().visit(node.value)
             node.lineno = node.value.lineno
             return node
+
         @property
         def _seed(self):
             self._lambda_var_seed += 1
@@ -464,3 +464,8 @@ class PaladinNativeParser(object):
             return {k: customizer_func(v) for k, v in results.items()} if customizer_func else results
         except BaseException as e:
             traceback.print_exception(e)
+
+    @classmethod
+    def docs(cls):
+        return '```' '\n' + '\n'.join(
+            sorted([op.__doc__.strip() for op in Operator.all() if op.__doc__])) + '\n' + '```'

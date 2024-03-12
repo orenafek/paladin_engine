@@ -9,9 +9,10 @@ from flask_cors import CORS
 
 from PaladinEngine.engine.engine import PaLaDiNEngine
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
-from archive.archive_evaluator.paladin_dsl_parser import PaladinDSLParser
 from archive.archive_evaluator.paladin_dsl_semantics import Operator
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
+from archive.object_builder.naive_object_builder.naive_object_builder import NaiveObjectBuilder
+from archive.object_builder.recursive_object_builder.recursive_object_builder import RecursiveObjectBuilder
 from common.common import ISP
 
 NAME = 'PaLaDiN - Time-travel Debugging with Semantic Queries'
@@ -69,6 +70,8 @@ class PaladinServer(FlaskView):
         RUN_DATA.archive.global_map = ENGINE.global_map
         EVALUATOR = ArchiveEvaluator(RUN_DATA.archive)
         PARSER = PaladinNativeParser(RUN_DATA.archive)
+        #PARSER = PaladinNativeParser(RUN_DATA.archive, object_builder_type=RecursiveObjectBuilder)
+        #PARSER = PaladinNativeParser(RUN_DATA.archive, object_builder_type=NaiveObjectBuilder)
 
     def __init__(self):
         self._app = Flask(NAME, template_folder=str(TEMPLATE_FOLDER), static_folder=str(STATIC_FOLDER))
@@ -227,7 +230,7 @@ class PaladinServer(FlaskView):
 
     @route('/debug_info/docs')
     def docs(self):
-        return PaladinServer.create_response(PaladinDSLParser.docs())
+        return PaladinServer.create_response(PaladinNativeParser.docs())
 
     @route('/debug_info/run_output')
     def run_output(self):

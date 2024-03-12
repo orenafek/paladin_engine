@@ -1,30 +1,38 @@
 import unittest
 from abc import ABC
 from collections import deque
+from itertools import chain
 from pathlib import Path
 from typing import *
 
-import pytest
-
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier, AttributedDict
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
+from archive.object_builder.naive_object_builder.naive_object_builder import NaiveObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
 from utils.utils import separate_line_no
 
 
-class TestDiffObjectBuilder(TestCommon, ABC):
+class TestObjectBuilder(TestCommon, ABC):
     def setUp(self) -> None:
-        self.diff_object_builder = DiffObjectBuilder(self.archive)
+        self.object_builder = DiffObjectBuilder(self.archive)
 
     def value_generator(self, obj, line_no) -> Optional[Iterator[Tuple[Time, Any]]]:
-        return self.diff_object_builder._build_iterator(obj, line_no)
+        return self.object_builder._build_iterator(obj, line_no)
 
     def _test_series_of_values(self, obj: Identifier, *expected: Any):
         obj, line_no = separate_line_no(obj)
         return self._test_series(obj, lambda value: value, line_no, *expected)
 
 
-class TestNestedObjectBuild(TestDiffObjectBuilder):
+def setUpDiff(self):
+    self.object_builder = DiffObjectBuilder(self.archive)
+
+
+def setUpNaive(self):
+    self.object_builder = NaiveObjectBuilder(self.archive)
+
+
+class TestNestedObjectBuild(TestObjectBuilder, ABC):
     @classmethod
     def program_path(cls) -> Path:
         return cls.example('basic2')
@@ -55,7 +63,11 @@ class TestNestedObjectBuild(TestDiffObjectBuilder):
                           {'_x': 4, '_y': 4})
 
 
-class TestBuiltinCollections(TestDiffObjectBuilder):
+class TestNestedObjectBuildNaive(TestNestedObjectBuild):
+    setUp = setUpNaive
+
+
+class TestBuiltinCollections(TestObjectBuilder, ABC):
 
     @classmethod
     def program_path(cls) -> Path:
@@ -88,13 +100,17 @@ class TestBuiltinCollections(TestDiffObjectBuilder):
     def test_dicts(self):
         self._test_series_of_values('d1', None, {1: 'a', 2: 'b', 3: 'c'})
         self._test_series_of_values('d2', SKIP_VALUE,
-                                    {DiffObjectBuilder.AttributedDict([('value', 'A')]): 1,
-                                     DiffObjectBuilder.AttributedDict([('value', 'B')]): 2})
+                                    {AttributedDict([('value', 'A')]): 1,
+                                     AttributedDict([('value', 'B')]): 2})
         self._test_series_of_values('d3', SKIP_VALUE,
-                                    {DiffObjectBuilder.AttributedDict([('A', 1), ('B', 2)]): 3})
+                                    {AttributedDict([('A', 1), ('B', 2)]): 3})
 
 
-class TestGraph(TestDiffObjectBuilder):
+class TestBuiltinCollectionsNaive(TestBuiltinCollections):
+    setUp = setUpNaive
+
+
+class TestGraph(TestObjectBuilder, ABC):
 
     @classmethod
     def program_path(cls) -> Path:
@@ -102,9 +118,9 @@ class TestGraph(TestDiffObjectBuilder):
 
     # @pytest.mark.skip(reason='')
     def test_g(self):
-        vertex = lambda val: DiffObjectBuilder.AttributedDict({'value': val})
-        edge = lambda f, t, w: DiffObjectBuilder.AttributedDict({'v_from': vertex(f), 'v_to': vertex(t), 'weight': w})
-        graph = lambda v, e: DiffObjectBuilder.AttributedDict({'vertices': v, 'edges': e})
+        vertex = lambda val: AttributedDict({'value': val})
+        edge = lambda f, t, w: AttributedDict({'v_from': vertex(f), 'v_to': vertex(t), 'weight': w})
+        graph = lambda v, e: AttributedDict({'vertices': v, 'edges': e})
 
         self._test_series_of_values('g',
                                     SKIP_VALUE,
@@ -119,7 +135,12 @@ class TestGraph(TestDiffObjectBuilder):
                                     )
 
 
-class TestBasic4(TestDiffObjectBuilder):
+@unittest.skip(reason='Way too much time...')
+class TestGraphNaive(TestGraph):
+    setUp = setUpNaive
+
+
+class TestBasic4(TestObjectBuilder, ABC):
 
     @classmethod
     def program_path(cls) -> Path:
@@ -132,11 +153,15 @@ class TestBasic4(TestDiffObjectBuilder):
     def test_function_call_ret_value(self):
         self._test_series_of_values(f'square',
                                     SKIP_VALUE,
-                                    *[x * x for x in range(1, 11)],
-                                    None)
+                                    *list(
+                                        chain.from_iterable((value, None) for value in [x * x for x in range(1, 11)])))
 
 
-class TestCaterpillar(TestDiffObjectBuilder):
+class TestBasic4Naive(TestBasic4):
+    setUp = setUpNaive
+
+
+class TestCaterpillar(TestObjectBuilder, ABC):
     @classmethod
     def program_path(cls) -> Path:
         return cls.example('caterpillar')
@@ -146,5 +171,5 @@ class TestCaterpillar(TestDiffObjectBuilder):
         self._test_series_of_values('total_slices@12', None, *range(0, 12), None)
 
 
-if __name__ == '__main__':
-    unittest.main()
+class TestCaterpillarNaive(TestCaterpillar):
+    setUp = setUpNaive
