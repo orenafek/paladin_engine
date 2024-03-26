@@ -38,7 +38,8 @@ class Settings extends Vue {
     builtinDisplayers = [
         {name: 'Array', icon: 'view_array', active: true, file: 'array.js'},
         {name: 'Graph', icon: 'share', active: false, file: 'graph.js'},
-        {name: 'Object', icon: 'data_object', active: false, file: 'object.js'}
+        {name: 'Object', icon: 'data_object', active: false, file: 'object.js'},
+        {name: 'UnionFind', icon:'forest', active: false, file:'union_find.js'}
     ]
 
     customizerSwitchChange() {
