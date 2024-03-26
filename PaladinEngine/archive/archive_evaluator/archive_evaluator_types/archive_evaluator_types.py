@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from collections import deque
 from dataclasses import dataclass, field
 from functools import reduce
@@ -55,7 +56,7 @@ class EvalResultPair(object):
         return isinstance(other, EvalResultPair) and self.key == other.key and self.value == other.value
 
 
-class EvalResultEntry(dict):
+class EvalResultEntry(OrderedDict):
 
     def __init__(self, time: Time, results: List[EvalResultPair],
                  replacements: Optional[List[Replacement]] = None) -> None:
@@ -84,7 +85,7 @@ class EvalResultEntry(dict):
 
     @property
     def keys(self) -> Iterable[str]:
-        return list({rr.key for rr in self.evaled_results})
+        return list(dict.fromkeys(map(lambda rr: rr.key, self.evaled_results)))
 
     @property
     def values(self) -> Iterable[Optional[object]]:
@@ -119,17 +120,16 @@ class EvalResultEntry(dict):
     def __join_evalued_results(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> List[EvalResultPair]:
 
         res = []
-        all_keys = {*e1.keys, *e2.keys}
+        all_keys = OrderedDict.fromkeys([*e1.keys, *e2.keys])
 
         # Add keys only from e1.
-        res.extend([e1[k] for k in all_keys.difference({*e2.keys})])
+        res.extend([e1[k] for k in all_keys.keys() if k not in e2.keys])
 
         # Add keys only from e2.
-        res.extend([e2[k] for k in all_keys.difference({*e1.keys})])
+        res.extend([e2[k] for k in all_keys.keys() if k not in e1.keys])
 
         # Add values from mutual keys.
-        pair = None
-        for k in {*e1.keys}.intersection({*e2.keys}):
+        for k in filter(lambda k: k in e1.keys and k in e2.keys, all_keys.keys()):
             if e1[k].value is e2[k].value is None:
                 pair = e1[k]
             elif e1[k].value is not None and e2[k].value is None:
@@ -237,7 +237,8 @@ class EvalResult(List[EvalResultEntry]):
         return str((min(entries), max(entries)))
 
     def all_keys(self) -> Iterable[str]:
-        return reduce(lambda s, keys: s.union(keys), map(lambda e: set(e.keys), self), set())
+        return reduce(lambda acc, new_keys: OrderedDict.fromkeys([*acc.keys(), *new_keys]),
+                      map(lambda e: list(OrderedDict.fromkeys(e.keys)), self), OrderedDict()).keys()
 
     def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
         return {k: e[k].value if e[k] else None for k in self.all_keys()}
