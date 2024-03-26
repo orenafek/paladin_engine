@@ -24,13 +24,16 @@
                                 <settings></settings>
                             </div>
                         </pane>
-                        <pane id="vuebook-pane" :size="55">
+                        <pane id="vuebook-pane" :size="55" style="overflow-y: auto">
                             <vuebook ref="vuebook" :completions="completions" :lastRunTime="lastRunTime"></vuebook>
                         </pane>
                     </splitpanes>
                 </pane>
             </splitpanes>
         </div> <!-- #main -->
+        <div id="spinner-container">
+            <screen-loading-spinner v-if="isRerunning"></screen-loading-spinner>
+        </div>
     </div> <!-- #app -->
 </template>
 
@@ -55,6 +58,9 @@ import {request, request_debug_info, upload} from "../request";
 //@ts-ignore
 import Settings from "./settings.vue";
 
+//@ts-ignore
+import ScreenLoadingSpinner from "./screen-loading-spinner.vue";
+
 type Exception = {
     line_no: number
     throwing_line_source: string
@@ -63,7 +69,7 @@ type Exception = {
 }
 
 @Component({
-    components: {Splitpanes, Pane, Vuebook, Slider, Settings, CodeEditor}
+    components: {Splitpanes, Pane, Vuebook, Slider, Settings, CodeEditor, ScreenLoadingSpinner}
 })
 class Main extends Vue {
 
@@ -74,6 +80,7 @@ class Main extends Vue {
     programOutput: string = ''
     thrownException: Exception = {} as Exception
     completions: Completion[] = []
+    isRerunning: Boolean = false
 
     @Ref vuebook: IVuebook
 
@@ -94,6 +101,7 @@ class Main extends Vue {
 
     mounted() {
         persistField(this.layout, 'panes', new LocalStore('main:layout.panes'));
+        this.isRerunning = false;
     }
 
     async fetchInitial() {
@@ -102,7 +110,6 @@ class Main extends Vue {
         this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
         this.thrownException = await request_debug_info('thrown_exception') as Exception;
         this.completions = await request_debug_info('completions') as Completion[];
-        console.log('main.vue: this.completions = ', this.completions);
         this.$forceUpdate();
         this.resetSlider();
     }
@@ -125,8 +132,10 @@ class Main extends Vue {
     }
 
     async rerun(_: any) {
+        this.isRerunning = true;
         await request('rerun');
         await this.fetchInitial();
+        this.isRerunning = false;
         this.$forceUpdate();
         /* TODO: Fixme!! */
         await (this.vuebook as IVuebook).runAllCells();
