@@ -1,7 +1,8 @@
 import copy
-from dataclasses import dataclass
+from abc import ABC
 from enum import Enum
 from functools import reduce
+from time import time
 from types import NoneType
 from typing import *
 
@@ -9,77 +10,108 @@ from ranges import Range, RangeDict, RangeSet
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ObjectId, LineNo, \
-    Identifier, ContainerId, Scope
+    Identifier, ContainerId, Scope, AttributedDict
 from archive.object_builder.object_builder import ObjectBuilder
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, Postpone, EMPTY, \
     EMPTY_COLLECTION
 from common.common import ISP
 from stubs.stubs import __AS__, __BMFCS__, __FC__
 
-_NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
-_NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
+INNER_COLLECTION_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
 
 
 class DiffObjectBuilder(ObjectBuilder):
     ObjectEntry = Tuple[Type, Any]
 
-    @dataclass
-    class _FunctionCallFieldType(object):
-        _type: Type
+    class _ComparableField(ABC):
+        def __init__(self, value: Any):
+            self.value = value
 
         def __eq__(self, other):
-            return isinstance(other, DiffObjectBuilder._FunctionCallFieldType) and self._type == other._type or \
-                isinstance(other, type) and other == self._type
+            return self._compare(other, lambda x, y: x == y)
+
+        def __ne__(self, other):
+            return not (self == other)
+
+        def __ge__(self, other):
+            return self._compare(other, lambda x, y: x >= y)
+
+        def __le__(self, other):
+            return self._compare(other, lambda x, y: x <= y)
+
+        def __gt__(self, other):
+            return not (self <= other)
+
+        def __lt__(self, other):
+            return not (self >= other)
 
         def __hash__(self):
-            return hash(self._type)
+            return hash(self.value)
 
-    class AttributedDict(Dict):
-        def __hash__(self) -> int:
-            return hash(str(self))
+        def _compare(self, other: Any, comparator: Callable[[Any, Any], bool]):
+            other_value = other.value if isinstance(other, DiffObjectBuilder._ComparableField) else other
 
-    @dataclass
-    class _DictKeyResolve(object):
+            if isinstance(self.value, type(other_value)) or isinstance(other_value, type(self.value)):
+                return comparator(self.value, other_value)
+
+            numeric_and_string = lambda x, y: any([isinstance(x, t) for t in [int, float]]) and isinstance(y, str)
+            if numeric_and_string(self.value, other_value):
+                # Here defining that any numeric value is greater than a string.
+                return comparator(1, 0)
+
+            if numeric_and_string(other_value, self.value):
+                return comparator(0, 1)
+
+            return False
+
+    class _Field(_ComparableField):
+        pass
+
+    class _FunctionCallFieldType(_ComparableField):
+        pass
+
+    class _DictKeyResolve(_ComparableField):
         field_type: Type
         field: Union[str, Any, ObjectId]
         value_type: Type
         value: Any
 
+        def __init__(self, field_type: Type, field: Union[str, Any, ObjectId], value_type: Type, value: Any):
+            super().__init__(value)
+            self.field_type: Type = field_type
+            self.field: Union[str, Any, ObjectId] = field
+            self.value_type: Type = value_type
+
         def __hash__(self) -> int:
             return hash(hash(self.field_type) + hash(self.field) + hash(self.value_type) + hash(self.value))
-
-    @dataclass
-    class _FieldChange(object):
-        value: Union[str, ObjectId, Any]
-
-        def __hash__(self) -> int:
-            return hash(self.value)
-
-        def __eq__(self, other):
-            return (isinstance(other,
-                               DiffObjectBuilder._FieldChange) and self.value == other.value) or self.value == other
 
     class _Mode(Enum):
         FIRST = 0
         CLOSEST = 1
+        EXACT = 2
 
-    def __init__(self, archive: Archive):
-        ObjectBuilder.__init__(self, archive)
+    def __init__(self, archive: Archive, should_time_construction: bool = False):
+        ObjectBuilder.__init__(self, archive, should_time_construction)
         self.archive = archive
         self._data: Dict[ObjectId, RangeDict] = {}
         self._last_range: Dict[ObjectId, Range] = {}
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
-        self._named_primitives: _NAMED_PRIMITIVES_DATA_TYPE = {}
-        self._named_objects: _NAMED_OBJECTS_DATA_TYPE = {}
-        self._scopes: Dict[LineNo, ContainerId] = {}
+        self._named_primitives: INNER_COLLECTION_DATA_TYPE = {}
+        self._named_objects: INNER_COLLECTION_DATA_TYPE = {}
+        self._scopes: Dict[LineNo, Scope] = {}
+        self._construction_time: float = 0
         self._construct()
 
     def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
         if isinstance(item, str):
-            object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.FIRST, time,
-                                                                         line_no)
-            if ISP(object_type) or object_type is NoneType:
-                return obj_data
+            try:
+                object_type, object_id, obj_data = self._get_data_from_named(item, DiffObjectBuilder._Mode.CLOSEST,
+                                                                             time,
+                                                                             line_no)
+                if ISP(object_type) or object_type is NoneType:
+                    return obj_data
+            except BaseException:
+                return None
         else:
             # If the object asked to be built is a primitive, or it's not an object in the data
             if ISP(_type) or item not in self._data:
@@ -95,7 +127,13 @@ class DiffObjectBuilder(ObjectBuilder):
         if not object_data:
             return None
 
-        # Build object and store if for future references.
+        try:
+            # Sort the object data by keys (important for collections whose keys are integers, such as lists).
+            object_data = dict(sorted(object_data.items()))
+        except TypeError as e:
+            pass
+
+        # Build an object and store it for future references.
         built_object = self._built_objects[(object_id, time)] = self._build_object(line_no, object_data, object_type,
                                                                                    time)
         return built_object
@@ -108,12 +146,12 @@ class DiffObjectBuilder(ObjectBuilder):
         return object_type
 
     def _build_object(self, line_no: LineNo, object_data: RangeDict, object_type: Type, time: Time):
-        evaluated_object = DiffObjectBuilder.AttributedDict()
+        evaluated_object = AttributedDict()
         to_evaluate = list(object_data.items())
         while to_evaluate:
-            (field, field_type), value = to_evaluate.pop(0)
+            (field_type, field), value = to_evaluate.pop(0)
 
-            if isinstance(field, DiffObjectBuilder._FieldChange):
+            if isinstance(field, DiffObjectBuilder._Field):
                 field = field.value
             if value == EMPTY_COLLECTION:
                 continue
@@ -152,13 +190,13 @@ class DiffObjectBuilder(ObjectBuilder):
 
         # Add fields also as attributes to allow extraction of fields using the "." operator (e.g.: "x.f")
         if isinstance(evaluated_object, Dict):
-            DiffObjectBuilder.__add_attributes(evaluated_object)
+            ObjectBuilder._add_attributes(evaluated_object)
 
         return evaluated_object
 
     def __build_postponed(self, evaluated_object, line_no, t, to_evaluate, value):
         manip_name = value.manip_name if not isinstance(value.manip_name,
-                                                        DiffObjectBuilder._FieldChange) else value.manip_name.value
+                                                        DiffObjectBuilder._Field) else value.manip_name.value
         col_type = value.builtin_type
         arg = value.arg_value
         arg_type = value.arg_type
@@ -175,20 +213,18 @@ class DiffObjectBuilder(ObjectBuilder):
         line_no_exist = line_no > -1
 
         if is_primitive:
-            named_collection: _NAMED_PRIMITIVES_DATA_TYPE = self._named_primitives
+            named_collection: INNER_COLLECTION_DATA_TYPE = self._named_primitives
         elif name in self._named_objects:
-            named_collection: _NAMED_OBJECTS_DATA_TYPE = self._named_objects
+            named_collection: INNER_COLLECTION_DATA_TYPE = self._named_objects
         else:
             return None, False
 
         if line_no_exist:
-            values_in_line_no = list(
-                map(lambda k: named_collection[name][k], filter(lambda k: k[0] == line_no, named_collection[name])))
-
-            if not values_in_line_no:
+            if line_no not in self._scopes:
                 return None, is_primitive
 
-            return values_in_line_no[0], is_primitive
+            return named_collection[name][self._scopes[line_no]], is_primitive
+
         else:
             match mode:
                 case DiffObjectBuilder._Mode.FIRST:
@@ -216,12 +252,12 @@ class DiffObjectBuilder(ObjectBuilder):
             if time not in named_data:
                 value, named_type = None, NoneType
             else:
-                for field, _type in named_data[time].keys():
-                    if field == DiffObjectBuilder._FieldChange(name):
-                        value, named_type = named_data[time][(field, _type)], _type
+                for _type, field in named_data[time].keys():
+                    if field == DiffObjectBuilder._Field(name):
+                        value, named_type = named_data[time][(_type, field)], _type
                         break
                     elif field == name:
-                        value, named_type = named_data[time][(field, _type)], _type
+                        value, named_type = named_data[time][[_type, field]], _type
                         break
                 else:
                     value, named_type = None, NoneType
@@ -237,7 +273,7 @@ class DiffObjectBuilder(ObjectBuilder):
             else:
                 named_type, object_id = named_data[time]
 
-            if isinstance(object_id, DiffObjectBuilder._FieldChange):
+            if isinstance(object_id, DiffObjectBuilder._Field):
                 object_id = object_id.value
 
             if object_id is None:
@@ -245,30 +281,27 @@ class DiffObjectBuilder(ObjectBuilder):
 
             return named_type, object_id, self._data[object_id]
 
-    def _find_closest(self, col, time):
-        in_specific_range = None
-        bigger_than = []
+    def _find_closest(self, col, time) -> Optional[RangeDict]:
+        _closest_time = lambda tt: min([abs(time - t) for t in tt if t <= time], default=float('inf'))
+        closest: Tuple[Union[Time, float], Optional[RangeDict]] = float('inf'), None
         for _, rd in col.items():
-            first, last = self.get_edge_times(rd)
-            if first <= time <= last:
-                in_specific_range = rd
+            times = self.get_all_ranges_edge_times(rd)
+            if time in times:
+                return rd
 
-            elif time >= first:
-                bigger_than.append(rd)
+            if (c := _closest_time(times)) < closest[0]:
+                closest = c, rd
 
-        if in_specific_range:
-            return in_specific_range
-
-        elif not bigger_than:
-            return None
-        else:
-            return sorted(bigger_than, key=lambda rd: self.get_edge_times(rd)[1], reverse=True)[0]
+        return closest[1]
 
     @staticmethod
     def __initial_range(t: Time):
         return Range(t, t, include_end=True)
 
     def _construct(self):
+        if self._should_time_construction:
+            start_time = time()
+
         for rk, rv in sorted(
                 self.archive.flatten_and_filter(
                     [lambda vv: vv.key.stub_name in {__AS__.__name__, __BMFCS__.__name__, __FC__.__name__},
@@ -277,6 +310,11 @@ class DiffObjectBuilder(ObjectBuilder):
             object_data: RangeDict = self.__add_to_data(rk, rv)
             if rk.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.FUNCTION_CALL}:
                 self.__add_to_named(rv, object_data)
+
+        if self._should_time_construction:
+            end_time = time()
+
+        self._construction_time = end_time - start_time if self._should_time_construction else None
 
     def __add_to_data(self, rk: Archive.Record.RecordKey, rv: Archive.Record.RecordValue) -> RangeDict:
         t: Time = rv.time
@@ -348,7 +386,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
         new_obj = DiffObjectBuilder.__clear_field_changes(obj, field)
 
-        field = DiffObjectBuilder._FieldChange(field)
+        field = DiffObjectBuilder._Field(field)
 
         match kind:
             case Archive.Record.StoreKind.BUILTIN_MANIP:
@@ -362,15 +400,15 @@ class DiffObjectBuilder(ObjectBuilder):
             case Archive.Record.StoreKind.DICT_ITEM:
                 key_type, value_type = _type
                 if ISP(key_type):
-                    new_obj[(field, value_type)] = value
+                    new_obj[(value_type, field)] = value
                 else:
                     new_obj[
-                        DiffObjectBuilder._DictKeyResolve(key_type, field, _type,
-                                                          value), DiffObjectBuilder._DictKeyResolve] = None
+                        DiffObjectBuilder._DictKeyResolve, DiffObjectBuilder._DictKeyResolve(key_type, field, _type,
+                                                                                             value)] = None
             case Archive.Record.StoreKind.FUNCTION_CALL:
-                new_obj[(field, DiffObjectBuilder._FunctionCallFieldType(_type))] = value
+                new_obj[(DiffObjectBuilder._FunctionCallFieldType(_type), field)] = value
             case _:
-                new_obj[(field, _type)] = value
+                new_obj[(_type, field)] = value
         return new_obj
 
     @staticmethod
@@ -386,13 +424,12 @@ class DiffObjectBuilder(ObjectBuilder):
         collection = self._named_primitives if is_primitive else self._named_objects
         self.__init_named_collection_for_expression(collection, rv)
 
-        scope: Scope = DiffObjectBuilder.__get_scope(collection, rv)
-        self._scopes[rv.line_no] = rv.key.container_id
+        scope: Scope = self.__add_scope(rv)
 
         if is_primitive:
             self._named_primitives[rv.expression][scope] = object_data
         else:
-            value_to_store = DiffObjectBuilder._FieldChange(rv.value)
+            value_to_store = DiffObjectBuilder._Field(rv.value)
             if scope not in self._named_objects[rv.expression]:
                 self._named_objects[rv.expression][scope] = RangeDict(
                     [(self.__initial_range(rv.time), (rv.rtype, value_to_store))])
@@ -402,8 +439,8 @@ class DiffObjectBuilder(ObjectBuilder):
 
     @staticmethod
     def __get_field_change_from_dict(d: Dict) -> Optional[
-        Tuple[Tuple['DiffObjectBuilder._FieldChange', Type], Any]]:
-        field_changes = list(filter(lambda k: isinstance(k[0], DiffObjectBuilder._FieldChange), d))
+        Tuple[Tuple['DiffObjectBuilder._Field', Type], Any]]:
+        field_changes = list(filter(lambda k: isinstance(k[0], DiffObjectBuilder._Field), d))
         if not field_changes:
             return None
 
@@ -412,17 +449,10 @@ class DiffObjectBuilder(ObjectBuilder):
 
     @staticmethod
     def __init_named_collection_for_expression(
-            named_collection: Union[_NAMED_PRIMITIVES_DATA_TYPE, _NAMED_OBJECTS_DATA_TYPE],
+            named_collection: Union[INNER_COLLECTION_DATA_TYPE, INNER_COLLECTION_DATA_TYPE],
             rv: Archive.Record.RecordValue):
         if rv.expression not in named_collection:
             named_collection[rv.expression] = {}
-
-    def _build_iterator(self, obj: Identifier, line_no: Optional[LineNo] = -1) -> \
-            Optional[Iterator[Tuple[Time, Any]]]:
-        for t in range(0, self.archive.last_time):
-            yield t, self.build(obj, t, type(obj), line_no)
-
-        return None
 
     @staticmethod
     def __get_latest_object_data(obj_data: RangeDict, time: Time, _type: Type = Any) -> Optional[RangeDict]:
@@ -442,6 +472,16 @@ class DiffObjectBuilder(ObjectBuilder):
         return min(all_ranges).start, max(all_ranges).end
 
     @staticmethod
+    def get_all_ranges_edge_times(rd: RangeDict) -> Set[Time]:
+        times = set()
+        for rs in rd.ranges():
+            for r in rs:
+                times.add(r.start)
+                times.add(r.end)
+
+        return times
+
+    @staticmethod
     def _get_all_time_ranges(rd: RangeDict) -> RangeSet:
         return reduce(lambda rr, r: rr + r, rd.ranges())
 
@@ -453,22 +493,40 @@ class DiffObjectBuilder(ObjectBuilder):
             is_primitive = False
             rd: RangeDict = self._data[item] if item in self._data else []
 
-        if rd is None:
+        if rd is None or rd == []:
             return []
 
         change_times = []
         for range_set, value in rd.items():
             if is_primitive:
-                if DiffObjectBuilder._FieldChange(item) not in filter(
-                        lambda f: type(f) is DiffObjectBuilder._FieldChange,
-                        map(lambda x: x[0], value.keys())):
-                    continue
-            else:
-                if not isinstance(value[1], DiffObjectBuilder._FieldChange):
+                value = {k: v for (k, v) in value.items() if k[1] == DiffObjectBuilder._Field(item)}
+                if not value:
                     continue
 
-            change_times.extend([rng.start for rng in list(*range_set)])
+            if isinstance(value, tuple):
+                types = [value[0]]
+                fields = [value[1]]
+            elif isinstance(value, dict):
+                types = list(map(lambda k: k[0], value.keys()))
+                fields = list(map(lambda k: k[1], value.keys()))
+
+            for t, f in zip(types, fields):
+                if not isinstance(f, DiffObjectBuilder._Field):
+                    continue
+                if BuiltinCollectionsUtils.is_builtin_collection_type(t):
+                    change_times.extend(self.get_change_times(f.value))
+
+                change_times.extend([rng.start for rng in list(*range_set)])
+                break
+
         return change_times
+
+    def get_bmfcs_change_time(self, item: Identifier, line_no: LineNo = -1) -> Iterable[Time]:
+        if isinstance(item, str) or item not in self._data:
+            return []
+
+        rd: RangeDict = self._data[item]
+        pass
 
     def get_line_no_by_name_and_container_id(self, name: str, container_id: ContainerId = -1) -> LineNo:
         if name in self._named_primitives:
@@ -484,7 +542,8 @@ class DiffObjectBuilder(ObjectBuilder):
             return -1
 
         if container_id != -1:
-            line_nos_of_container_id = list(map(lambda s: s[0], filter(lambda s: s[1] == container_id, scopes)))
+            line_nos_of_container_id = list(
+                map(lambda s: s.line_no, filter(lambda s: container_id in s.container_ids, scopes)))
             if not line_nos_of_container_id:
                 return -1
 
@@ -513,37 +572,37 @@ class DiffObjectBuilder(ObjectBuilder):
                     cleaned_dict_key_resolved.field = k.field.value
                     cleaned_obj[cleaned_dict_key_resolved] = v
                 case _:
-                    field, _type = k
-                    if isinstance(field, DiffObjectBuilder._FieldChange):
+                    _type, field = k
+                    if isinstance(field, DiffObjectBuilder._Field):
                         field = field.value
+
+                    if isinstance(_type, DiffObjectBuilder._FunctionCallFieldType):
+                        # Clear function calls from the last value as function has a return value once,
+                        # and it doesn't exist afterward (i.e. do not copy to new cleaned_object).
+                        continue
 
                     if field == new_field:
                         continue
 
-                    cleaned_obj[(field, _type)] = v
+                    cleaned_obj[(_type, field)] = v
 
         return cleaned_obj
 
-    @staticmethod
-    def __add_attributes(evaluated_object: Dict):
-        for f, v in evaluated_object.items():
-            if isinstance(f, str):
-                setattr(evaluated_object, f, v)
+    def __add_scope(self, rv: Archive.Record.RecordValue) -> Scope:
+        if rv.line_no not in self._scopes:
+            self._scopes[rv.line_no] = Scope(rv.line_no)
 
-    @staticmethod
-    def __get_scope(collection: Union[_NAMED_PRIMITIVES_DATA_TYPE, _NAMED_OBJECTS_DATA_TYPE],
-                    rv: Archive.Record.RecordValue) -> Tuple[LineNo, ContainerId]:
+        scope: Scope = self._scopes[rv.line_no]
+        scope.add_container_id(rv.key.container_id)
 
-        scopes = list(filter(lambda k: k[1] == rv.key.container_id, collection[rv.expression].keys()))
-        if not scopes:
-            return rv.line_no, rv.key.container_id
+        return scope
 
-        assert len(scopes) == 1
-
-        return scopes[0]
-
-    def get_container_id_by_line_no(self, line_no: LineNo) -> Optional[ContainerId]:
+    def get_container_ids_by_line_no(self, line_no: LineNo) -> Optional[ContainerId]:
         return self._scopes[line_no] if line_no in self._scopes else None
 
-    def get_line_nos_by_container_id(self, container_id: ContainerId) -> Iterable[LineNo]:
-        return list(map(lambda t: t[0], filter(lambda t: t[1] == container_id, self._scopes.items())))
+    def get_line_nos_by_container_ids(self, container_ids: Set[ContainerId]) -> Iterable[LineNo]:
+        return list(map(lambda t: t[0], filter(lambda t: t[1] in container_ids, self._scopes.items())))
+
+    @property
+    def construction_time(self):
+        return self._construction_time

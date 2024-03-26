@@ -60,34 +60,14 @@ class TestEngine:
 
     @staticmethod
     def _basic_test(test_file_path: str, verbose: bool, valid_exceptions: list):
-
-        # Execute the code.
         try:
-            # Read source file.
-            with open(test_file_path) as f:
-                # Read the source file.
-                source_code = f.read()
+            engine = PaLaDiNEngine(test_file_path)
 
-                # Transform into a PaLaDiN form.
-                paladinized_source_code = PaLaDiNEngine.transform(source_code)
+            # Reset the archive.
+            archive.reset()
 
-                # Print the code.
-                if verbose:
-                    # print(str(paladinized_source_code))
-                    with open(test_file_path.replace('.py', '_output.py'), 'w+') as f:
-                        f.write(
-                            f'from PaladinEngine.stubs import 'f'{", ".join([stub.__name__ for stub in __STUBS__])}')
-                        f.write('\n')
-                        f.write(paladinized_source_code)
-
-                # Compile it.
-                complied_code = PaLaDiNEngine.compile(paladinized_source_code)
-
-                # Reset the archive.
-                archive.reset()
-
-                # Execute it.
-                PaLaDiNEngine.execute_with_paladin(complied_code, test_file_path)
+            # Execute it.
+            engine.execute_with_paladin()
 
         except BaseException as e:
             traceback.print_exc()

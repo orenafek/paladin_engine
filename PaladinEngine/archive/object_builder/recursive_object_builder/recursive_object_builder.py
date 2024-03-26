@@ -5,8 +5,9 @@ from typing import *
 
 from frozendict import frozendict
 
-from archive.archive import Archive, Rk, Rv
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time
+from archive.archive import Archive
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo, Time, ContainerId, \
+    Identifier, Rk, Rv
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str
 from common.common import ISP
@@ -15,8 +16,9 @@ from common.common import ISP
 class RecursiveObjectBuilder(ObjectBuilder):
     SUPPOERTED_BUILTIN_COLLECTION_TYPES = {list, set, tuple}
 
-    def __init__(self, archive: 'Archive'):
-        self.archive = archive
+    def __init__(self, archive: 'Archive', should_time_construction: bool = False):
+        super().__init__(archive)
+        self._should_time_construction = should_time_construction
         self.built_objects = {}
         self.used_records = []
 
@@ -160,17 +162,22 @@ class RecursiveObjectBuilder(ObjectBuilder):
                     self.values[attr_str][t] = attr
 
             def visit_Name(self, node: Name) -> Any:
+                res = [rv.value if ISP(rv.rtype) else self.builder._build(rv.value, rv.rtype, time)
+                       for rv in (_find_by_name_and_container_id(node.id, scope)
+                                  if scope != -1 else _find_by_name(node.id))
+                       ]
                 # noinspection PyTypeChecker
-                self.values[node.id] = [rv.value if ISP(rv.rtype) else self.builder._build(rv.value, rv.rtype, time)
-                                        for rv in (_find_by_name_and_container_id(node.id, scope)
-                                                   if scope != -1 else _find_by_name(node.id))
-                                        ]
+                self.values[node.id] = res[-1] if res != [] else None
 
             def visit(self, node: AST) -> 'NodeFinder':
                 super(NodeFinder, self).visit(node)
                 return self
 
-        return list(NodeFinder(self).visit(parse(expression).body[0]).values)
+        results = list(NodeFinder(self).visit(parse(expression).body[0]).values.values())
+        if len(results) == 1:
+            return results[0]
+
+        return results
 
     def get_scope_by_line_no(self, line_no: int) -> int:
         """
@@ -202,3 +209,12 @@ class RecursiveObjectBuilder(ObjectBuilder):
 
         # TODO: Raise an error?
         return -1
+
+    def get_type(self, item: Identifier, time: Time, line_no: Optional[LineNo] = -1) -> Optional[Type]:
+        pass
+
+    def get_change_times(self, name: str, line_no: LineNo = -1):
+        pass
+
+    def get_line_no_by_name_and_container_id(self, name: str, container_id: ContainerId = -1) -> LineNo:
+        pass

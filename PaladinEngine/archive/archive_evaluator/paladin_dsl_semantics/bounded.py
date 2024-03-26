@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Dict
+from typing import Iterable, Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
 from archive.archive_evaluator.paladin_dsl_semantics.const import Const
@@ -12,13 +12,13 @@ class Bounded(TriLateralOperator):
     def __init__(self, times: Iterable[Time], name: Raw, value: Operator, rest: Operator):
         super(Bounded, self).__init__(times, Const(name.query, times), value, rest)
 
-    def eval(self, builder: ObjectBuilder,
-             query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
         # Eval name of first.
-        name = SemanticsUtils.get_first(self.times, self.first.eval(builder, query_locals))
+        name = SemanticsUtils.get_first(self.times, self.first.eval(builder, query_locals, user_aux))
 
         # Eval value of second.
-        value_result = self.second.eval(builder, query_locals)
+        value_result = self.second.eval(builder, query_locals, user_aux)
 
         # Eval rest.
         return self.third.eval(builder, {**query_locals, name: value_result})

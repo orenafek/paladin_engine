@@ -38,7 +38,8 @@ class Align(BiLateralOperator):
 
         return self._current_heuristic(r1, r2)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         r1 = self.first.eval(builder)
         r2 = self.second.eval(builder)
 
