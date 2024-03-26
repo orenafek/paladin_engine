@@ -10,7 +10,7 @@ class Customizer {
                 'weight' in obj && typeof obj.weight !== 'undefined'
         }
 
-        return Array.isArray(data) && data.every(obj => isEdge(obj));
+        return (Array.isArray(data) && data.every(obj => isEdge(obj))) || data && isEdge(data);
 
     }
 
@@ -23,11 +23,13 @@ class Customizer {
 
     renderD3Graph(data) {
         // Specify the dimensions of the chart.
-        const width = 200;
-        const height = 300;
+        const width = 300;
+        const height = 200;
 
         // Specify the color scale.
         const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+        data = Array.isArray(data) ? data : [data];
 
         const nodes = [...new Set(data.flatMap(edge => [edge.src, edge.dest]))].map(id => ({id}));
 
@@ -60,8 +62,7 @@ class Customizer {
             .selectAll("line")
             .data(links)
             .join("line")
-            .attr('stroke-width', d => Math.sqrt(d.value))
-            .attr('text', 'def');
+            .attr('stroke-width', d => Math.sqrt(d.value));
 
         const linkText = linkGroup.selectAll("text")
             .data(links)
@@ -71,11 +72,7 @@ class Customizer {
             .attr("x", d => (d.source.x + d.target.x) / 2) // Position text in the middle of the line
             .attr("y", d => (d.source.y + d.target.y) / 2) // Position text in the middle of the line
             .attr("dy", "-0.5em") // Adjust vertical position
-            .attr("text-anchor", "middle") // Center text horizontally
-            .attr("fill", "yellow");
-
-        // .attr("transform", d => `translate(${(d.source.y + d.target.y) / 2},${(d.source.x + d.target.x) / 2})`);
-
+            .attr("text-anchor", "middle"); // Center text horizontally
 
         const node = nodeGroup.selectAll("g")
             .data(nodes)
@@ -154,32 +151,25 @@ class Customizer {
 
         /* language=css */
         const cssStyles = `
-            svg {
-                width: ${width}px;
-                height: ${height}px;
-            }
-
             .graph-node {
-                fill: #5391e0;
-                stroke: #000;
+                fill: #eb6734;
+                stroke: #eb6734;
             }
 
             .graph-edge {
-                stroke: #16d235;
-                /*stroke-width: ;*/
-                stroke-opacity: 0.6;
+                stroke: #ffc66d;
             }
 
             .graph-node-text {
                 font-size: 12px;
                 text-anchor: middle;
                 dominant-baseline: central;
-                fill: red; /* Change text color to red */
+                fill: white; /* Change text color to red */
             }
 
             .graph-edge-text {
                 font-size: 10pt;
-                stroke: #e4a422
+                stroke: white;
             }
 
             .graph-rank {
