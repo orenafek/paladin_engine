@@ -1,5 +1,5 @@
 import ast
-from typing import Optional, Dict, Iterable, Any, cast
+from typing import Optional, Dict, Iterable, Any, cast, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Time
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
@@ -20,7 +20,8 @@ class Changed(UniLateralOperator, TimeOperator):
         UniLateralOperator.__init__(self, times, first)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         if not isinstance(self.first, Raw):
             return EvalResult.empty(self.times)
 

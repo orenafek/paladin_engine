@@ -1,5 +1,4 @@
 import ast
-import dataclasses
 import json
 import traceback
 from _ast import BinOp, AST
@@ -9,8 +8,8 @@ from typing import *  # DO NOT REMOVE!!!!
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, BAD_JSON_VALUES, \
-    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, ParseResults, Identifier, LineNo
-from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN, FUNCTION_CALL_MAGIC
+    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, ParseResults
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
 from archive.archive_evaluator.paladin_dsl_semantics import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
@@ -29,10 +28,13 @@ class PaladinNativeParser(object):
     FUNCTION_CALL_MAGIC = '$'
     _FUNCTION_CALL_MAGIC_REPLACE_SYMBOL = '__FC_RET_VAL__'
 
-    def __init__(self, archive: Archive):
+    def __init__(self, archive: Archive, object_builder_type: Type = DiffObjectBuilder,
+                 should_time_builder_construction: bool = False):
         self.archive: Archive = archive
         self._line_no: int = -1
-        self.builder: ObjectBuilder = DiffObjectBuilder(archive)
+        self.builder: ObjectBuilder = object_builder_type(archive, should_time_builder_construction)
+        self.construction_time = self.builder.construction_time
+        self.user_aux: Dict[str, Any] = {}
 
     class HasOperatorVisitor(ast.NodeVisitor):
         def visit(self, node: ast.AST):
@@ -149,18 +151,38 @@ class PaladinNativeParser(object):
         def _create_const_op_from_arg(self, arg: ast.AST):
             return Const(ast2str(arg), self.times)
 
+        def visit_Compare(self, node: ast.Compare) -> Any:
+            super().visit(node.left)
+            line_no = node.left.lineno
+            for comp in node.comparators:
+                super().visit(comp)
+                if line_no != -1 and comp.lineno != -1 and comp.lineno != line_no:
+                    # In case line_no is already a real line no (not -1), and one of the comparators has a line_no,
+                    # ignore all line_nos to not enforce the wrong line_no from both sides or cross-comparators.
+                    line_no = -1
+                elif line_no == -1 and comp.lineno != -1:
+                    # If there is no line_no yet, take the comp's one.
+                    line_no = comp.lineno
+
+            node.lineno = line_no
+            return node
+
         def visit_Name(self, node: ast.Name) -> Any:
             if PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL in node.id:
                 function_name = node.id.replace(PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL, '')
                 var_name = self.create_operator_lambda_var()
                 self._add_operator(var_name, node.id, Raw(function_name, node.lineno, self.times))
-                return ast.Name(id=function_name, lineno=node.lineno)
+                _id = function_name
+            else:
+                _id = node.id
 
-            return node
+            return ast.Name(id=_id, lineno=node.lineno)
 
         def visit_Attribute(self, node: ast.Attribute) -> Any:
+            super().visit(node.value)
             node.lineno = node.value.lineno
             return node
+
         @property
         def _seed(self):
             self._lambda_var_seed += 1
@@ -347,10 +369,16 @@ class PaladinNativeParser(object):
 
             raise e
 
+    def add_user_aux(self, f_content: str | bytes):
+        exec(f_content, self.user_aux)
+
+    def remove_user_aux(self):
+        self.user_aux.clear()
+
     def _eval_operators(self, visitor):
         operator_results = {}
         for var_name, (operator, operator_original_name) in visitor.operators.items():
-            eval_result = operator.eval(self.builder, operator_results)
+            eval_result = operator.eval(self.builder, operator_results, self.user_aux)
             if is_tuple(var_name):
                 operator_results.update({e: eval_result.by_key(e) for e in split_tuple(var_name)})
             else:
@@ -436,3 +464,8 @@ class PaladinNativeParser(object):
             return {k: customizer_func(v) for k, v in results.items()} if customizer_func else results
         except BaseException as e:
             traceback.print_exception(e)
+
+    @classmethod
+    def docs(cls):
+        return '```' '\n' + '\n'.join(
+            sorted([op.__doc__.strip() for op in Operator.all() if op.__doc__])) + '\n' + '```'

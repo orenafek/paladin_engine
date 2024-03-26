@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Iterable
+from typing import Optional, Dict, Iterable, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Time
 from archive.archive_evaluator.paladin_dsl_semantics import TimeOperator, Operator
@@ -15,7 +15,8 @@ class Next(UniLateralOperator, TimeOperator):
         UniLateralOperator.__init__(self, times, first)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         results: EvalResult = self.first.eval(builder)
 
         satisfaction_iterator = results.satisfies_iterator()

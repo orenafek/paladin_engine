@@ -19,7 +19,8 @@ class TimeOperator(Operator, ABC):
     def __init__(self, times: Iterable[Time]):
         super().__init__(times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         raise NotImplementedError()
 
     def _get_args(self) -> Collection['Operator']:
@@ -38,9 +39,10 @@ class BiTimeOperator(BiLateralOperator, TimeOperator, ABC):
         TimeOperator.__init__(self, times)
         self.bi_result_maker = bi_result_maker
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = TimeOperator.make(self.first).eval(builder, query_locals)
-        second = TimeOperator.make(self.second).eval(builder, query_locals)
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
+        first = TimeOperator.make(self.first).eval(builder, query_locals, user_aux)
+        second = TimeOperator.make(self.second).eval(builder, query_locals, user_aux)
 
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(e1.time, self._make_res(e1, e2),
@@ -57,12 +59,14 @@ class Whenever(VariadicLateralOperator, TimeOperator):
     Whenever(o): Convert any operator into a TimeOperator, by generating a result with a single output
                  of the satisfaction for each of o's entries.
     """
+
     def __init__(self, times: Iterable[Time], *args: Operator):
         VariadicLateralOperator.__init__(self, times, *args)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        evaled_args = list(map(lambda arg: arg.eval(builder, query_locals), self.args))
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
+        evaled_args = list(map(lambda arg: arg.eval(builder, query_locals, user_aux), self.args))
         arg_results = list(map(lambda er: lambda t: er[t].satisfies(), evaled_args))
 
         return EvalResult([
@@ -73,8 +77,9 @@ class Whenever(VariadicLateralOperator, TimeOperator):
 
 class FirstTime(UniLateralOperator, TimeOperator):
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first_satisfaction = self.first.eval(builder, query_locals).first_satisfaction()
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
+        first_satisfaction = self.first.eval(builder, query_locals, user_aux).first_satisfaction()
         if first_satisfaction == -1:
             return EvalResult.empty(self.times)
 

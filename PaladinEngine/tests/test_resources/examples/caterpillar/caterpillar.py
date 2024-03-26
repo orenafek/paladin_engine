@@ -74,8 +74,7 @@ def plus1over2(k):
 #     print(f'caterp = {c}')
 #     assert n == c
 
-
-if __name__ == '__main__':
+def main():
     sample = [3, 4, 3, 5, 4]
     sdn = super_duper_naive(sample)
     sn = super_naive(sample)
@@ -83,3 +82,7 @@ if __name__ == '__main__':
     c = caterp(sample)
     print(f'sdn = {sdn} sn = {sn} n = {n}, c = {c}')
     assert sdn == sn == n == c
+
+if __name__ == '__main__':
+    main()
+

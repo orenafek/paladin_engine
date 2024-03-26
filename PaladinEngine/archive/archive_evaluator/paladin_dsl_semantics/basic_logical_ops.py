@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Dict
+from typing import Iterable, Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, EvalResult
 from archive.archive_evaluator.paladin_dsl_semantics import BiTimeOperator, Operator, TimeOperator, Whenever
@@ -22,8 +22,9 @@ class Not(UniLateralOperator, TimeOperator):
         UniLateralOperator.__init__(self, times, first)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = Whenever(self.times, self.first).eval(builder, query_locals)
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
+        first = Whenever(self.times, self.first).eval(builder, query_locals, user_aux)
 
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(t, not first[t].satisfies(), first[t].replacements)

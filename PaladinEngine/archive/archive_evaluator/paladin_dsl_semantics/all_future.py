@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
 from archive.archive_evaluator.paladin_dsl_semantics.globally import Globally
@@ -8,5 +8,6 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class AllFuture(UniLateralOperator):
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         return Globally(self.times, Next(self.times, self.first))

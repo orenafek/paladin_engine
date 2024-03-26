@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Dict
+from typing import Iterable, Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, EvalResult, EvalResultEntry, \
     EvalResultPair, LineNo
@@ -17,7 +17,8 @@ class Type(UniLateralOperator):
         super().__init__(times, name)
         self.line_no = line_no
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
         if not isinstance(self.first, Raw):
             return EvalResult.empty(self.times)
 

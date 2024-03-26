@@ -47,7 +47,7 @@ class BuiltinCollectionsUtils(object):
             collection.__getattribute__(manip_name)(v)
         else:
             collection.__getattribute__(manip_name)()
-        return {(i, type(e)): e for i, e in enumerate(collection)}
+        return {(type(e), i): e for i, e in enumerate(collection)}
 
     @staticmethod
     def is_function_suspicious_as_builtin_collection_method(func_name: str) -> bool:
@@ -63,5 +63,5 @@ class BuiltinCollectionsUtils(object):
                                                                      arg_type: Type,
                                                                      arg_value: Any):
         d_new = copy(obj)
-        d_new[(len(obj.keys()), Postpone)] = Postpone(manipulation_function_name, builtin_type, arg_type, arg_value)
+        d_new[(Postpone, len(obj.keys()))] = Postpone(manipulation_function_name, builtin_type, arg_type, arg_value)
         return d_new

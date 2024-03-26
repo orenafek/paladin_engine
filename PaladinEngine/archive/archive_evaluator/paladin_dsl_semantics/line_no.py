@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
     EvalResultPair
@@ -11,8 +11,9 @@ class LineNo(UniLateralOperator):
     LineNo(o): Retrieve the line numbers in the program for each event that had happened in the entry's time if it has been satisfied.
     """
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
-        evaled = self.first.eval(builder, query_locals)
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
+        evaled = self.first.eval(builder, query_locals, user_aux)
 
         return EvalResult(
             [EvalResultEntry(e.time,
