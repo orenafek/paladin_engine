@@ -17,6 +17,7 @@ from tests.test_common.test_common import TestCommon
 
 TIME_FACTOR = 10 ** 4
 REPEAT_COUNT = 5
+TIMEOUT = 10
 
 
 def TimedTest(f):
@@ -43,7 +44,7 @@ class Benchmarker(ABC):
     def benchmark_tests(self) -> Iterable[Callable]:
         return [self.source_line_count, self.instrument, self.clean, self.pdb, self.pdb_cond,
                 self.paladin, self.log_queries_count,
-                self.log_construction_diff, self.log_query_diff, self.log_construction_recursive,
+                self.log_construction_diff, self.log_diff_size, self.log_query_diff, self.log_construction_recursive,
                 self.log_query_recursive]
 
     def benchmark(self, progs: List[str | Path]):
@@ -102,6 +103,9 @@ class Benchmarker(ABC):
     def log_query_diff(self):
         return self._query()
 
+    def log_diff_size(self):
+        return self.parser.builder.size
+
     @TimedTest
     def log_query_recursive(self):
         return self._query()
@@ -132,7 +136,7 @@ class Benchmarker(ABC):
         start_time = time()
         for _ in range(REPEAT_COUNT):
             if self.should_output:
-                            exec(self.engine.source_code, {})
+                exec(self.engine.source_code, {})
             else:
                 with redirect_stdout(open(os.devnull, 'w')):
                     exec(self.engine.source_code, {})
