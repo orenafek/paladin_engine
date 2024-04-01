@@ -10,15 +10,14 @@ from ranges import Range, RangeDict, RangeSet
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ObjectId, LineNo, \
-    Identifier, ContainerId, Scope
+    Identifier, ContainerId, Scope, AttributedDict
 from archive.object_builder.object_builder import ObjectBuilder
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, Postpone, EMPTY, \
     EMPTY_COLLECTION
 from common.common import ISP
 from stubs.stubs import __AS__, __BMFCS__, __FC__
 
-_NAMED_PRIMITIVES_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
-_NAMED_OBJECTS_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
+INNER_COLLECTION_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
 
 
 class DiffObjectBuilder(ObjectBuilder):
@@ -71,26 +70,6 @@ class DiffObjectBuilder(ObjectBuilder):
     class _FunctionCallFieldType(_ComparableField):
         pass
 
-    class AttributedDict(Dict):
-
-        def __init__(self, seq=None) -> None:
-            if seq:
-                super().__init__(seq)
-
-            for k, v in self.items():
-                self.__setattr__(str(k), v)
-
-        def __hash__(self) -> int:
-            return hash(str(self))
-
-        def __setitem__(self, key, value):
-            super().__setitem__(key, value)
-            self.__setattr__(str(key), value)
-
-        def __delitem__(self, key):
-            super().__delitem__(key)
-            self.__delattr__(key)
-
     class _DictKeyResolve(_ComparableField):
         field_type: Type
         field: Union[str, Any, ObjectId]
@@ -109,16 +88,16 @@ class DiffObjectBuilder(ObjectBuilder):
     class _Mode(Enum):
         FIRST = 0
         CLOSEST = 1
+        EXACT = 2
 
     def __init__(self, archive: Archive, should_time_construction: bool = False):
-        ObjectBuilder.__init__(self, archive)
+        ObjectBuilder.__init__(self, archive, should_time_construction)
         self.archive = archive
-        self._should_time_construction = should_time_construction
         self._data: Dict[ObjectId, RangeDict] = {}
         self._last_range: Dict[ObjectId, Range] = {}
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
-        self._named_primitives: _NAMED_PRIMITIVES_DATA_TYPE = {}
-        self._named_objects: _NAMED_OBJECTS_DATA_TYPE = {}
+        self._named_primitives: INNER_COLLECTION_DATA_TYPE = {}
+        self._named_objects: INNER_COLLECTION_DATA_TYPE = {}
         self._scopes: Dict[LineNo, Scope] = {}
         self._construction_time: float = 0
         self._construct()
@@ -154,7 +133,7 @@ class DiffObjectBuilder(ObjectBuilder):
         except TypeError as e:
             pass
 
-        # Build object and store if for future references.
+        # Build an object and store it for future references.
         built_object = self._built_objects[(object_id, time)] = self._build_object(line_no, object_data, object_type,
                                                                                    time)
         return built_object
@@ -167,7 +146,7 @@ class DiffObjectBuilder(ObjectBuilder):
         return object_type
 
     def _build_object(self, line_no: LineNo, object_data: RangeDict, object_type: Type, time: Time):
-        evaluated_object = DiffObjectBuilder.AttributedDict()
+        evaluated_object = AttributedDict()
         to_evaluate = list(object_data.items())
         while to_evaluate:
             (field_type, field), value = to_evaluate.pop(0)
@@ -211,7 +190,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
         # Add fields also as attributes to allow extraction of fields using the "." operator (e.g.: "x.f")
         if isinstance(evaluated_object, Dict):
-            DiffObjectBuilder.__add_attributes(evaluated_object)
+            ObjectBuilder._add_attributes(evaluated_object)
 
         return evaluated_object
 
@@ -234,9 +213,9 @@ class DiffObjectBuilder(ObjectBuilder):
         line_no_exist = line_no > -1
 
         if is_primitive:
-            named_collection: _NAMED_PRIMITIVES_DATA_TYPE = self._named_primitives
+            named_collection: INNER_COLLECTION_DATA_TYPE = self._named_primitives
         elif name in self._named_objects:
-            named_collection: _NAMED_OBJECTS_DATA_TYPE = self._named_objects
+            named_collection: INNER_COLLECTION_DATA_TYPE = self._named_objects
         else:
             return None, False
 
@@ -470,17 +449,10 @@ class DiffObjectBuilder(ObjectBuilder):
 
     @staticmethod
     def __init_named_collection_for_expression(
-            named_collection: Union[_NAMED_PRIMITIVES_DATA_TYPE, _NAMED_OBJECTS_DATA_TYPE],
+            named_collection: Union[INNER_COLLECTION_DATA_TYPE, INNER_COLLECTION_DATA_TYPE],
             rv: Archive.Record.RecordValue):
         if rv.expression not in named_collection:
             named_collection[rv.expression] = {}
-
-    def _build_iterator(self, obj: Identifier, line_no: Optional[LineNo] = -1) -> \
-            Optional[Iterator[Tuple[Time, Any]]]:
-        for t in range(0, self.archive.last_time):
-            yield t, self.build(obj, t, type(obj), line_no)
-
-        return None
 
     @staticmethod
     def __get_latest_object_data(obj_data: RangeDict, time: Time, _type: Type = Any) -> Optional[RangeDict]:
@@ -604,18 +576,17 @@ class DiffObjectBuilder(ObjectBuilder):
                     if isinstance(field, DiffObjectBuilder._Field):
                         field = field.value
 
+                    if isinstance(_type, DiffObjectBuilder._FunctionCallFieldType):
+                        # Clear function calls from the last value as function has a return value once,
+                        # and it doesn't exist afterward (i.e. do not copy to new cleaned_object).
+                        continue
+
                     if field == new_field:
                         continue
 
                     cleaned_obj[(_type, field)] = v
 
         return cleaned_obj
-
-    @staticmethod
-    def __add_attributes(evaluated_object: Dict):
-        for f, v in evaluated_object.items():
-            if isinstance(f, str):
-                setattr(evaluated_object, f, v)
 
     def __add_scope(self, rv: Archive.Record.RecordValue) -> Scope:
         if rv.line_no not in self._scopes:

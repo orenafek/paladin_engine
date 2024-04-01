@@ -1,7 +1,6 @@
 from typing import Iterable, Optional, Dict, List, Tuple, Callable
 
-from archive.archive import Rk, Rv
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Rk, Rv
 from archive.archive_evaluator.paladin_dsl_semantics.const import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
 from archive.archive_evaluator.paladin_dsl_semantics.semantic_utils import Time

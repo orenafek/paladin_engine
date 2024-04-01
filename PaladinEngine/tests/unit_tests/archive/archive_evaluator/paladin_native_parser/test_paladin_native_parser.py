@@ -1,14 +1,14 @@
 import re
 import unittest
 from abc import ABC
+from itertools import chain
 from pathlib import Path
-from typing import Tuple, Any, Iterator, Optional, Dict
+from typing import Tuple, Any, Iterator, Optional
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
-from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
-from tests.unit_tests.archive.object_builder.diff_object_builder.test_diff_object_builder import TestBasic4
+from tests.unit_tests.archive.object_builder.test_object_builder import TestBasic4
 
 
 class TestPaladinNativeParser(TestCommon, ABC):
@@ -75,11 +75,11 @@ class TestBasic4Parser(TestPaladinNativeParser):
     program_path = TestBasic4.program_path
 
     def test_function_call_ret_value(self):
-        self._test_series_of_values(f'$square',
+        self._test_series_of_values(f'square',
                                     SKIP_VALUE,
-                                    SKIP_VALUE,
-                                    *[x * x for x in range(1, 11)],
-                                    None)
+                                    None,
+                                    *list(
+                                        chain.from_iterable((value, None) for value in [x * x for x in range(1, 11)])))
 
 
 class TestKruskalLetAndAux(TestPaladinNativeParser):
