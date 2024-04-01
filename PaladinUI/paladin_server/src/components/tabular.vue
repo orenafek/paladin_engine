@@ -1,54 +1,123 @@
 <template>
     <table v-if="value?.columnHeaders">
-        <thead>
-        <td>Time</td>
-        <td v-for="h in value.columnHeaders"> {{ h }}</td>
+        <thead class="fixedHeader">
+        <tr>
+            <th>Time</th>
+            <th v-for="h in value.columnHeaders">
+                <div>{{ h }}</div>
+                <div>
+                    <visualizer-panel ref="visPanel" :visualizers="availableVisualizers(h)" :column="h"
+                                      @active-change="activeVisChanged"/>
+                </div>
+
+            </th>
+        </tr>
         </thead>
+        <tbody>
         <tr v-for="rowHead in value.rowHeaders">
             <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
             <td v-for="colKey in value.columnHeaders">
-                <runtime-component :column="colKey" v-bind="result(rowHead.key, colKey)"></runtime-component>
+                <runtime-component ref="rc" :column="colKey" v-bind="results[rowHead.key][colKey]">
+                </runtime-component>
             </td>
         </tr>
+        </tbody>
     </table>
 </template>
 
 <script lang="ts">
-import {Ref} from 'vue';
+
 import {Component, Prop, toNative, Vue} from "vue-facing-decorator";
-import {Displayer, Displayers} from "./displayers";
+import {Visualizer, Visualizers} from "./visualizers";
 
 //@ts-ignore
 import RuntimeComponent from "./runtime-component.vue";
 
+//@ts-ignore
+import VisualizerPanel from "./visualizer-panel.vue";
+
+interface TabularValue {
+    columnHeaders: string[]
+    rowHeaders: { key: string, display: string }[]
+    rowData: string[][]
+}
+
 @Component({
-    components: {RuntimeComponent},
+    components: {RuntimeComponent, VisualizerPanel},
     emits: ['row:select']
 })
 class Tabular extends Vue {
-    @Prop value: any
+    @Prop value: TabularValue
 
-    result(rowKey: string, colKey: string) {
-        let displayers: Ref<Displayer[]> = Displayers.instance.active;
-        let item = this.value.rowData[rowKey]?.[colKey];
+    results: { [row: string]: { [col: string]: any } } = {};
 
-        for (const displayer of displayers.value) {
-            try {
-                if (displayer.instance.matches(item)) {
-                    return {...displayer.instance.format(item), data: item};
-                }
-            } catch (error) {
-                console.log("Error: " + error);
-                this.$emit('customizedCodeError', error.toString());
-            }
+    $refs: { visPanel: VisualizerPanel[], rc: RuntimeComponent[] }
+
+    created() {
+        this.initializeResults();
+    }
+
+    activeVisChanged(column: string, active: Visualizer[]) {
+        this.value.rowHeaders.map(rh => rh.key).forEach((row, rowIndex) => {
+            this.updateResult(row, column, active);
+        })
+    }
+
+    updateResult(row: string, col: string, visualizers: Visualizer[]) {
+        if (!this.results[row]) {
+            this.results[row] = {}
         }
 
-        return {type: "text/plain", content: item, data: item};
+        let item = this.value.rowData[row]?.[col];
+        if (visualizers.length == 0) {
+            this.results[row][col] = this.plainResult(row, col);
+            return;
+        }
+
+        try {
+            let visualized = false;
+            for (const visualizer of visualizers.values()) {
+                if (visualizer.instance.matches(item)) {
+                    this.results[row][col] = {...visualizer.instance.format(item), data: item != null ? item : ''};
+                    visualized = true;
+                    /* For now, select the first active, available visualizer to prevent conflicts. */
+                    break;
+                }
+            }
+            if (!visualized) {
+                this.results[row][col] = this.plainResult(row, col);
+            }
+
+        } catch (error) {
+            console.log('error : ', error);
+            this.$emit('VisualizerError', error.toString());
+        }
+    }
+
+
+    private plainResult(row: string, col: string): any {
+        const item = this.value.rowData[row]?.[col];
+        return ({type: "text/plain", content: item, data: item != null ? item : ''});
+    }
+
+    initializeResults() {
+        for (const row of this.value.rowHeaders) {
+            this.results[row.key] = {};
+            for (const col of this.value.columnHeaders) {
+                this.results[row.key][col] = this.plainResult(row.key, col);
+            }
+        }
     }
 
     rowSelect($event, rowHead) {
         this.$emit('row:select', {$event, rowHead});
     }
+
+    availableVisualizers(column: string): Visualizer[] {
+        return [...new Set(this.value.rowHeaders.flatMap(
+            row => Visualizers.instance.matches(this.value.rowData[row.key]?.[column])))];
+    }
+
 }
 
 export default toNative(Tabular);
@@ -58,4 +127,12 @@ export default toNative(Tabular);
 table, th, thead, td {
     border: 1px solid;
 }
+
+th {
+    top: 0;
+    position: sticky;
+    z-index: 5;
+    justify-content: left;
+}
+
 </style>
