@@ -1,12 +1,11 @@
 import argparse
 import csv
 import traceback
-from io import StringIO
+from pathlib import *
 
 from PaladinUI.paladin_server.paladin_server import PaladinServer
 from archive.archive import Archive
 from engine.engine import PaLaDiNEngine
-from pathlib import *
 
 
 def parse_args():
@@ -50,52 +49,40 @@ def fill_defaults(args):
 
 def main():
     args = parse_args()
-    archive = None
-    thrown_exception = None
+
 
     if args.defaults:
         args = fill_defaults(args)
 
-    with open(args.input_file, 'r') as f:
-        source_code = f.read()
-        paladinized_code = PaLaDiNEngine.transform(source_code)
+        engine = PaLaDiNEngine(args.input_file, args.timeout, record=args.run)
 
         if args.print_code:
-            print(paladinized_code)
+            print(engine.paladinized_code)
 
         if args.output_file != '':
-            with open(args.output_file, 'w+') as fo:
-                fo.write(PaLaDiNEngine.import_line('stubs.stubs'))
-                fo.writelines('\n' * 3)
-                fo.write(paladinized_code)
+            engine.write_paladinized(args.output_file)
 
+        # noinspection PyBroadException
         try:
-            output_capture = StringIO() if args.run_debug_server else None
-
             if args.run:
-                result, archive, thrown_exception = PaLaDiNEngine.execute_with_paladin(source_code,
-                                                                                       paladinized_code,
-                                                                                       args.input_file,
-                                                                                       args.timeout,
-                                                                                       output_capture)
+                engine.execute_with_paladin()
 
-        except BaseException:  # Plot a graph.
+        except BaseException:
             traceback.print_exc()
 
         finally:
             if args.run_debug_server:
                 try:
-                    run_output = output_capture.getvalue()
-                    server = PaladinServer.create(source_code, archive, run_output, thrown_exception)
+                    server = PaladinServer.create(engine)
                     server.run(args.port)
                 except KeyboardInterrupt:
                     pass
                 except BaseException:
                     traceback.print_exc()
             if args.csv != '':
-                if archive:
+                if engine.run_data.archive:
                     print('Creating CSV')
-                    dump_to_csv(archive, args.csv)
+                    dump_to_csv(engine.run_data.archive, args.csv)
 
 
 def dump_to_csv(archive: Archive, csv_file_path: str) -> None:

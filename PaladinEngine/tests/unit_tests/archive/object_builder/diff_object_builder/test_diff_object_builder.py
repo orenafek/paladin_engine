@@ -4,6 +4,8 @@ from collections import deque
 from pathlib import Path
 from typing import *
 
+import pytest
+
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
@@ -98,6 +100,7 @@ class TestGraph(TestDiffObjectBuilder):
     def program_path(cls) -> Path:
         return cls.example('graphs')
 
+    # @pytest.mark.skip(reason='')
     def test_g(self):
         vertex = lambda val: DiffObjectBuilder.AttributedDict({'value': val})
         edge = lambda f, t, w: DiffObjectBuilder.AttributedDict({'v_from': vertex(f), 'v_to': vertex(t), 'weight': w})

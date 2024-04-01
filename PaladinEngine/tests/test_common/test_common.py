@@ -27,18 +27,12 @@ class TestCommon(unittest.TestCase, ABC):
 
     @classmethod
     def _run_program(cls) -> Archive:
-        with open(cls.program_path()) as f:
-            original_code = f.read()
-            paladinized_code = PaLaDiNEngine.transform(original_code)
-            TestCommon.__write_paladinized_code(cls.program_path(), paladinized_code)
-            result, archive, thrown_exception = PaLaDiNEngine.execute_with_paladin(original_code,
-                                                                                   paladinized_code,
-                                                                                   str(cls.program_path()),
-                                                                                   -1,
-                                                                                   StringIO())
-
-            TestCommon.__dump_to_csv(archive, cls.program_path())
-            return archive
+        engine = PaLaDiNEngine(cls.program_path())
+        engine.execute_with_paladin()
+        engine.write_paladinized(Path(f'{cls.program_path().with_suffix("")}_output.py'))
+        archive = engine.run_data.archive
+        TestCommon.__dump_to_csv(archive, cls.program_path())
+        return archive
 
     @staticmethod
     def __write_paladinized_code(original_program_path: Path, paladinized_code: str):
