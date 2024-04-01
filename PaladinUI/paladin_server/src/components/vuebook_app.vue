@@ -1,7 +1,8 @@
 <template>
     <div>
         <command-palette ref="cmd" :commands="commands" @command="onCommand"/>
-        <notebook ref="notebook" :model="model" @cell:action="onCellAction" :codeEditorType="codeEditorType" :completions="completions"/>
+        <notebook ref="notebook" :model="model" @cell:action="onCellAction" :codeEditorType="codeEditorType"
+                  :completions="completions"/>
     </div>
 </template>
 
@@ -30,6 +31,8 @@ import {request_debug_info} from "../request";
 //@ts-ignore
 import tabular from "./tabular.vue";
 
+//@ts-ignore
+import {builtinVisualizers} from "./settings.vue";
 
 @Component({
     components: {Notebook, CommandPalette, tabular}
@@ -51,6 +54,7 @@ class Vuebook extends Vue {
     created() {
         this.model = reactive(new ModelImpl()).load();
         this.model.clearAllOutputs();
+        this.model.resetLoading();
         window.addEventListener('beforeunload', () => this.model.save());
 
         const keys = useMagicKeys()
@@ -59,16 +63,7 @@ class Vuebook extends Vue {
         watch(keys['Down'], (v) => v && this.$refs.cmd.close());
     }
 
-    mounted() {
-        console.log('vuebook_app.vue: this.completions = ', this.completions);
-        console.log('vuebook_app.vue: this.completions.length = ', this.completions.length);
-        this.$watch(() => this.completions, v => {
-            console.log('vuebook_app.vue: $watch(this.completions), v = ', v);
-        });
-    }
-
     onCommand(command: { command: string }) {
-        console.log('vuebook_app.vue:: onCommand: this.completions = ', this.completions);
         this.$refs.notebook.command(command);
     }
 
@@ -114,7 +109,10 @@ class Vuebook extends Vue {
             {
                 'application/vue3': {
                     is: h(tabular),
-                    props: {"value": this.formatResults(JSON.parse(queryRunResult as string))}
+                    props: {
+                        "visualizers": builtinVisualizers,
+                        "value": this.formatResults(JSON.parse(queryRunResult as string))
+                    }
                 }
             });
 
@@ -131,16 +129,13 @@ class PaladinCompletions extends CodeEditor {
         this._completions = completions.map((c) => {
             return {...c, apply: this.applyCompletion}
         });
-        console.log('PaladinCompletions: completions = ', completions);
     }
 
     get completions(): Completion[] {
-        console.log('vuebook_app.vue:: PaladinCompletions::completions(), this._completions = ', this._completions);
         return this._completions;
     }
 
     applyCompletion(ev: EditorView, c: Completion, from: number, to: number) {
-        console.log('vuebook_app.vue: applyCompletion, c = ', c);
         const newText = c.label + '()';
         ev.dispatch(ev.state.update({
             changes: {
