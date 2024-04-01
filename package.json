@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "v-network-graph": "^0.9.15"
+  }
+}

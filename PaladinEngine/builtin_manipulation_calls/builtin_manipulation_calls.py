@@ -40,6 +40,10 @@ class BuiltinCollectionsUtils(object):
         return t in __BUILTIN_COLLECTIONS__
 
     @staticmethod
+    def is_builtin_collection(i: Any) -> bool:
+        return any([isinstance(i, t) for t in __BUILTIN_COLLECTIONS__])
+
+    @staticmethod
     def update_dict_object_with_builtin_method(d: Dict, col_type: Type, manip_name: str, v: Any) -> Dict[
         Tuple[int, Type], Any]:
         collection = col_type(d.values())

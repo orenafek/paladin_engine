@@ -25,9 +25,20 @@ class TestBasic5Changed(TestChanged):
         return cls.example('basic5')
 
     def test_changed_primitives(self):
-        self._test_times('x', [2, 10, 21])
-        self._test_times('y', [3, 11, 22])
-        self._test_times('z', [6, 7])
+        self._test_times('x', [1, 8, 18])
+        self._test_times('y', [2, 9, 19])
+        self._test_times('z', [4, 5])
+
+
+class TestBasic2Changed(TestChanged):
+
+    @classmethod
+    def program_path(cls) -> Path:
+        return cls.example('basic2')
+
+    def test_changed_objects(self):
+        self._test_times('p0', [3, 4, 6, 7, 10, 15, 94, 97])
+
 
 
 if __name__ == '__main__':

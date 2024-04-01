@@ -16,6 +16,7 @@ from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
+from common.common import TIME
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
 from stubbers.stubbers import Stubber
 
@@ -375,6 +376,7 @@ class PaladinNativeParser(object):
     def remove_user_aux(self):
         self.user_aux.clear()
 
+    @TIME
     def _eval_operators(self, visitor):
         operator_results = {}
         for var_name, (operator, operator_original_name) in visitor.operators.items():

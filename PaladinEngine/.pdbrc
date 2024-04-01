@@ -1,0 +1,4 @@
+catch Exception
+break 1, False
+continue
+quit

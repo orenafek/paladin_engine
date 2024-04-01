@@ -9,7 +9,6 @@ from common.common import ISP
 
 
 class NaiveObjectBuilder(ObjectBuilder):
-
     def build(self, item: Identifier, time: Time, _type: Type = Any, line_no: Optional[LineNo] = -1) -> Any:
         records = self._find_records(item, time, line_no)
 

@@ -56,6 +56,8 @@ class Benchmarker(ABC):
             self.writer.writerow(self.header)
 
             for prog in progs:
+                if 'kruskal' not in prog.name:
+                    continue
                 print(f'Running {prog.name}')
                 self.engine = PaLaDiNEngine(prog, record=False)
                 self._measure(*self.benchmark_tests)

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Type
 
-import pandas as pd
+from pandas import DataFrame
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ContainerId, Rk, Rv, Rvf
 from common.common import ISP, IS_ITERABLE
@@ -267,7 +267,7 @@ class Archive(object):
 
     def __repr__(self):
         header, rows = self.to_table()
-        data_frame = pd.DataFrame(columns=header, data=rows)
+        data_frame = DataFrame(columns=header, data=rows)
         return data_frame.to_markdown(index=True)
 
     def search_web(self, expression: str):

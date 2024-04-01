@@ -2,12 +2,14 @@ from collections import OrderedDict
 from collections import deque
 from dataclasses import dataclass, field
 from functools import reduce
+from time import time
 from typing import *
 from typing import Callable
 
 import frozendict
 
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
+from common.common import TIME
 
 ExpressionMapper = Mapping[str, Dict[int, object]]
 
@@ -256,6 +258,7 @@ class EvalResult(List[EvalResultEntry]):
     def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
         return {k: e[k].value if e[k] else None for k in self.all_keys()}
 
+    @TIME
     def group(self) -> ParseResults:
         if len(self) == 0:
             return {}

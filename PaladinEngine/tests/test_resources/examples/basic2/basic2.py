@@ -51,6 +51,9 @@ def main():
 
     r0.rt.setX(4)
 
+    r0.rt = p0
+    r0.rt.setX(9)
+
     print(r0)
 
 

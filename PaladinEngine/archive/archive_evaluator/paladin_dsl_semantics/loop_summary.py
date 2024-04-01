@@ -14,7 +14,7 @@ from archive.archive_evaluator.paladin_dsl_semantics.union import Union
 from archive.archive_evaluator.paladin_dsl_semantics.var_selector import VarSelectorByTimeAndLines, VarSelector
 from archive.archive_evaluator.paladin_dsl_semantics.where import Where
 from archive.object_builder.object_builder import ObjectBuilder
-from stubs.stubs import __SOLI__, __SOL__, __EOLI__
+from stubs.stubs import __SOLI__, __SOL__
 
 
 class LoopIteration(BiLateralOperator):
@@ -44,16 +44,18 @@ class LoopIteration(BiLateralOperator):
                                       ConstTime(self.times, loop_iteration_end[1].time - 1))
 
         return Union(self.times,
-                     *self._create_iteration_operators(iterator_values_times, builder, query_locals,
+                     *self._create_iteration_operators(iterator_values_times, builder, query_locals, user_aux,
                                                        range(loop_iteration_start[1].line_no,
                                                              loop_iteration_end[1].line_no + 1))) \
             .eval(builder, query_locals, user_aux)
 
     def _create_iteration_operators(self, time_range_operator: Range, builder: ObjectBuilder,
                                     query_locals: Optional[Dict[str, EvalResult]],
+                                    user_aux: Optional[Dict[str, Callable]],
                                     line_no_range: range) -> Iterable[Operator]:
         vars_selector_result = \
-            VarSelectorByTimeAndLines(self.times, time_range_operator, line_no_range).eval(builder, query_locals, user_aux)
+            VarSelectorByTimeAndLines(self.times, time_range_operator, line_no_range) \
+                .eval(builder, query_locals, user_aux)
 
         if len(vars_selector_result) == 0:
             return EvalResult.empty(self.times)
