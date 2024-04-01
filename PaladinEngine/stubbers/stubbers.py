@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from ast import *
 from typing import Union, List, cast
 
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo
 from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param, str2ast
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils
 from finders.finders import StubEntry
@@ -350,11 +351,11 @@ class Stubber(ABC, ast.NodeTransformer):
         return node
 
     @staticmethod
-    def get_original_line_no(node: ast.AST) -> int:
+    def get_original_line_no(node: ast.AST) -> LineNo:
         return getattr(node, Stubber.ORIGINAL_LINE_NO_ATTR)
 
     @staticmethod
-    def get_original_end_line_no(node: ast.AST) -> int:
+    def get_original_end_line_no(node: ast.AST) -> LineNo:
         return getattr(node, Stubber.ORIGINAL_END_LINE_NO_ATTR)
 
     @staticmethod

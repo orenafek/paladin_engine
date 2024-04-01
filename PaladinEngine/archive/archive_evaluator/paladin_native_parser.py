@@ -18,6 +18,7 @@ from archive.object_builder.diff_object_builder.diff_object_builder import DiffO
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
+from module_transformer.module_transformator import ModuleTransformer
 from stubbers.stubbers import Stubber
 
 
@@ -29,10 +30,11 @@ class PaladinNativeParser(object):
     FUNCTION_CALL_MAGIC = '$'
     _FUNCTION_CALL_MAGIC_REPLACE_SYMBOL = '__FC_RET_VAL__'
 
-    def __init__(self, archive: Archive):
+    def __init__(self, archive: Archive, should_time_builder_construction: bool = False):
         self.archive: Archive = archive
         self._line_no: int = -1
-        self.builder: ObjectBuilder = DiffObjectBuilder(archive)
+        self.builder: ObjectBuilder = DiffObjectBuilder(archive, should_time_builder_construction)
+        self.construction_time = self.builder.construction_time
         self.user_aux: Dict[str, Any] = {}
 
     class HasOperatorVisitor(ast.NodeVisitor):
