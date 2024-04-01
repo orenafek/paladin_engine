@@ -175,6 +175,14 @@ class EvalResultEntry(OrderedDict):
 
 class EvalResult(List[EvalResultEntry]):
 
+    def __init__(self, seq=()):
+        super().__init__(seq)
+        self._last_hash = -1
+        self._all_keys = []
+
+    def __hash__(self) -> int:
+        return hash(sum([hash(x for x in self)]))
+
     @classmethod
     def create_const_copy(cls, r: 'EvalResult', c: object):
         return [EvalResultEntry.create_const_copy(e, c) for e in r]
@@ -237,8 +245,13 @@ class EvalResult(List[EvalResultEntry]):
         return str((min(entries), max(entries)))
 
     def all_keys(self) -> Iterable[str]:
-        return reduce(lambda acc, new_keys: OrderedDict.fromkeys([*acc.keys(), *new_keys]),
-                      map(lambda e: list(OrderedDict.fromkeys(e.keys)), self), OrderedDict()).keys()
+        if hash(self) == self._last_hash:
+            return self._all_keys
+
+        self._last_hash = hash(self)
+        self._all_keys = reduce(lambda acc, new_keys: OrderedDict.fromkeys([*acc.keys(), *new_keys]),
+                                map(lambda e: list(OrderedDict.fromkeys(e.keys)), self), OrderedDict()).keys()
+        return self._all_keys
 
     def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
         return {k: e[k].value if e[k] else None for k in self.all_keys()}
