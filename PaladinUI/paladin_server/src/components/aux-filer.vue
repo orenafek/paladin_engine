@@ -1,6 +1,6 @@
 <template>
     <input id="aux_file" type="file">
-    <loading-spinner :is-loading="auxFileSendingInProcess" @loading-button-click="sendAuxFile">
+    <loading-spinner :is-loading="auxFileSending" @loading-button-click="sendAuxFile">
         Send Aux File
     </loading-spinner>
 </template>
