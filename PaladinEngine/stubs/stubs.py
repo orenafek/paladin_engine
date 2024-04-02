@@ -13,7 +13,7 @@ from archive.archive import Archive
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 from ast_common.ast_common import separate_to_container_and_field
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, EMPTY, EMPTY_COLLECTION
-from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
+from common.common import POID, ISP
 
 archive = Archive()
 
@@ -51,6 +51,7 @@ def __ARG__(func_name: str, frame, line_no: int, **kwargs):
             .key(id(frame), arg, __AS__.__name__) \
             .value(type(value), POID(value), arg, line_no, time)
         time = rv.time
+
 
 def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
     if not archive.should_record:
@@ -118,9 +119,6 @@ def __FC__(expression: str, function,
     :return: None.
     """
 
-    # Store the time before the function call.
-    time_before_function_call = archive.time
-
     # Call the function.
     ret_exc = None
     try:
@@ -141,7 +139,6 @@ def __FC__(expression: str, function,
     if archive.should_record:
         # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
         __store(container_id, function.__name__, line_no, function.__name__, ret_value, locals, globals, __FC__,
-                _time=time_before_function_call,
                 kind=Archive.Record.StoreKind.FUNCTION_CALL,
                 extra=extra)
 

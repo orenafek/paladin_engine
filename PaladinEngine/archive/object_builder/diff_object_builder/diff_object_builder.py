@@ -1,4 +1,5 @@
 import copy
+import sys
 from abc import ABC
 from enum import Enum
 from functools import reduce
@@ -64,8 +65,16 @@ class DiffObjectBuilder(ObjectBuilder):
 
             return False
 
+        def __repr__(self) -> str:
+            return f'{self.__class__.__name__}({self.value})'
+
     class _Field(_ComparableField):
-        pass
+        def __init__(self, value: Any, kind: Optional[Archive.Record.StoreKind] = Archive.Record.StoreKind.VAR):
+            super().__init__(value)
+            self.kind = kind
+
+        def __repr__(self) -> str:
+            return f'{super().__repr__()}({self.kind})'
 
     class _FunctionCallFieldType(_ComparableField):
         pass
@@ -92,7 +101,6 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def __init__(self, archive: Archive, should_time_construction: bool = False):
         ObjectBuilder.__init__(self, archive, should_time_construction)
-        self.archive = archive
         self._data: Dict[ObjectId, RangeDict] = {}
         self._last_range: Dict[ObjectId, Range] = {}
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
@@ -114,7 +122,8 @@ class DiffObjectBuilder(ObjectBuilder):
                 return None
         else:
             # If the object asked to be built is a primitive, or it's not an object in the data
-            if ISP(_type) or item not in self._data:
+            # if ISP(_type) or item not in self._data:
+            if ISP(_type) or BuiltinCollectionsUtils.is_builtin_collection(item) or item not in self._data:
                 return item
 
             object_type, object_id, obj_data = _type, item, self._data[item]
@@ -253,11 +262,8 @@ class DiffObjectBuilder(ObjectBuilder):
                 value, named_type = None, NoneType
             else:
                 for _type, field in named_data[time].keys():
-                    if field == DiffObjectBuilder._Field(name):
-                        value, named_type = named_data[time][(_type, field)], _type
-                        break
-                    elif field == name:
-                        value, named_type = named_data[time][[_type, field]], _type
+                    if field == DiffObjectBuilder._Field(name) or field == name:
+                        value, named_type = named_data[time][_type, field], _type
                         break
                 else:
                     value, named_type = None, NoneType
@@ -329,24 +335,17 @@ class DiffObjectBuilder(ObjectBuilder):
         key: Tuple[str, Type] = field, rv.rtype
         last_object_value = object_id_data[last_range]
 
-        # New field for the same time as the last insertion.
-        if key not in last_object_value and t == last_range.end:
-            object_id_data[last_range] = DiffObjectBuilder.__update_value(last_object_value, field, rv.value, rv.rtype,
-                                                                          rv.key.kind)
-
-        # New field in a new time, create a different value for object id in new time t.
-        else:
-            # Finalize last range if needed.
+        # Either a new value for an existing field or a new field in a new time.
+        if key in last_object_value or t != last_range.end:
+            # Finalize the last range if needed.
             if t - 1 not in object_id_data:
                 DiffObjectBuilder.__extend_range(object_id_data, last_range, t - 1)
 
             # Create a new range.
-            rng: Range = DiffObjectBuilder.__initial_range(t)
+            self._last_range[object_id] = (last_range := DiffObjectBuilder.__initial_range(t))
 
-            # Update the object.
-            object_id_data[rng] = DiffObjectBuilder.__update_value(last_object_value, field, rv.value,
-                                                                   rv.rtype, rv.key.kind)
-            self._last_range[object_id] = rng
+        object_id_data[last_range] = DiffObjectBuilder.__update_value(last_object_value, field, rv.value, rv.rtype,
+                                                                      rv.key.kind)
 
         return object_id_data
 
@@ -386,7 +385,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
         new_obj = DiffObjectBuilder.__clear_field_changes(obj, field)
 
-        field = DiffObjectBuilder._Field(field)
+        field = DiffObjectBuilder._Field(field, kind)
 
         match kind:
             case Archive.Record.StoreKind.BUILTIN_MANIP:
@@ -506,18 +505,19 @@ class DiffObjectBuilder(ObjectBuilder):
             if isinstance(value, tuple):
                 types = [value[0]]
                 fields = [value[1]]
+                values = [fields[0].value]
             elif isinstance(value, dict):
                 types = list(map(lambda k: k[0], value.keys()))
                 fields = list(map(lambda k: k[1], value.keys()))
-
-            for t, f in zip(types, fields):
-                if not isinstance(f, DiffObjectBuilder._Field):
+                values = value.values()
+            for t, f, v in zip(types, fields, values):
+                if not isinstance(f, DiffObjectBuilder._Field) or f.kind == Archive.Record.StoreKind.FUNCTION_CALL:
                     continue
-                if BuiltinCollectionsUtils.is_builtin_collection_type(t):
-                    change_times.extend(self.get_change_times(f.value))
 
-                change_times.extend([rng.start for rng in list(*range_set)])
-                break
+                if ISP(t):
+                    change_times.extend([rng.start for rng in list(*range_set)])
+                else:
+                    change_times.extend(self.get_change_times(v))
 
         return change_times
 
@@ -606,3 +606,9 @@ class DiffObjectBuilder(ObjectBuilder):
     @property
     def construction_time(self):
         return self._construction_time
+
+    @property
+    def size(self) -> int:
+        return super().size + sum(map(lambda o: sys.getsizeof(o),
+                                      [self._data, self._last_range, self._named_primitives, self._named_objects,
+                                       self._scopes]))
