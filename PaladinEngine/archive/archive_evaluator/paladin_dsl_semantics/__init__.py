@@ -4,6 +4,7 @@ from .basic_logical_ops import And, Not
 from .and_then import AndThen
 from .after import After
 from .align import Align
+from .before import Before
 from .bounded import Bounded
 from .call_stack import CallStack
 from .changed import Changed
