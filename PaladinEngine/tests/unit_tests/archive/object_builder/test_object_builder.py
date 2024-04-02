@@ -47,6 +47,8 @@ class TestNestedObjectBuild(TestObjectBuilder, ABC):
                                     {'lb': {'_x': 1, '_y': 2}, 'rt': {'_x': 2, '_y': 3}},
                                     {'lb': {'_x': 1, '_y': 2}, 'rt': {'_x': 3, '_y': 4}},
                                     {'lb': {'_x': 1, '_y': 2}, 'rt': {'_x': 4, '_y': 4}},
+                                    {'lb': {'_x': 1, '_y': 2}, 'rt': {'_x': 1, '_y': 2}},
+                                    {'lb': {'_x': 1, '_y': 2}, 'rt': {'_x': 9, '_y': 2}},
                                     )
 
     def test_field_access(self):
@@ -60,7 +62,10 @@ class TestNestedObjectBuild(TestObjectBuilder, ABC):
                           {'_x': 1, '_y': 2},
                           {'_x': 2, '_y': 3},
                           {'_x': 3, '_y': 4},
-                          {'_x': 4, '_y': 4})
+                          {'_x': 4, '_y': 4},
+                          {'_x': 1, '_y': 2},
+                          {'_x': 9, '_y': 2})
+
 
 
 class TestNestedObjectBuildNaive(TestNestedObjectBuild):

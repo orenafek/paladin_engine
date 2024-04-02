@@ -49,7 +49,8 @@ class Locals(UniLateralOperator):
                                                     ass_and_bmfcs_only=True)
         var_selector = _VarSelectorByEntries(self.times, func_entries)
         vars = getattr(var_selector.eval(builder, query_locals)[0], VarSelector.VARS_KEY)
-
+        if not vars:
+            return EvalResult.empty(self.times)
 
         selectors = [Raw(var_name, line_no, self.times) for (var_name, line_no), times in vars.items()
                      if self._valid_var(var_name)]

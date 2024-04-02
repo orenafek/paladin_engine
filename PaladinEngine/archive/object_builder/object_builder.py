@@ -1,3 +1,4 @@
+import sys
 from abc import ABC, abstractmethod
 from typing import *
 
@@ -56,6 +57,10 @@ class ObjectBuilder(ABC):
     @property
     def construction_time(self):
         return 0
+
+    @property
+    def size(self) -> int:
+        return sys.getsizeof(self.archive)
 
     def _build_iterator(self, obj: Identifier, line_no: Optional[LineNo] = -1) -> \
             Optional[Iterator[Tuple[Time, Any]]]:
