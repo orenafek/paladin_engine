@@ -15,7 +15,7 @@
         </thead>
         <tbody>
         <tr v-for="rowHead in value.rowHeaders">
-            <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
+            <td @click="rowSelect($event, rowHead)" class="hover-underline"> {{ rowHead.display }}</td>
             <td v-for="colKey in value.columnHeaders">
                 <div style="display: inline-flex;">
                     <runtime-component ref="rc" :column="colKey" v-bind="results[rowHead.key][colKey]" />
@@ -31,7 +31,7 @@
 
 import {Component, Prop, toNative, Vue} from "vue-facing-decorator";
 import {Visualizer, Visualizers} from "./visualizers";
-
+import {toEntries} from "../infra/common"
 //@ts-ignore
 import RuntimeComponent from "./runtime-component.vue";
 
@@ -115,20 +115,36 @@ class Tabular extends Vue {
 
     private plainResult(row: string, col: string): any {
         const item = this.value.rowData[row]?.[col];
-        return ({type: "text/plain", content: item, data: item != null ? item : ''});
+        return ({type: "text/plain", content: item, data: item != null ? item : '', color: this.COLOR_CLEAR});
     }
 
     initializeResults() {
-        for (const row of this.value.rowHeaders) {
-            this.results[row.key] = {};
-            for (const col of this.value.columnHeaders) {
-                this.results[row.key][col] = this.plainResult(row.key, col);
+        let lastRow = [];
+        for (const [row_index, row] of toEntries(this.value.rowHeaders)) {
+            this.results[row.key] = {}
+            for (const [col_index, col] of toEntries(this.value.columnHeaders)) {
+                let cell = this.results[row.key][col] = this.plainResult(row.key, col);
+                if (row_index != 0) {
+                    if (lastRow[col_index] !== cell.data) {
+                        cell.color = this.COLOR_CHANGE;
+                    }
+                }
+                lastRow[col_index] = cell.data;
             }
         }
     }
 
-    rowSelect($event, rowHead) {
-        this.$emit('row:select', {$event, rowHead});
+     rowSelect($event, rowHead) {
+        const regex = /\((\d+),\s*\d+\)/;
+        const match = regex.exec(rowHead.key);
+
+        // Execute the regular expression on the string
+        if (!match) {
+            console.error('Tabular row key is not in an appropriate format.');
+        }
+
+        const leftTime = parseInt(match[1]);
+        this.emitEvent('row:select', leftTime);
     }
 
     availableVisualizers(column: string): Visualizer[] {
@@ -151,6 +167,10 @@ th {
     position: sticky;
     z-index: 5;
     justify-content: left;
+}
+
+td.hover-underline:hover {
+    text-decoration: underline;
 }
 
 </style>

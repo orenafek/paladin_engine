@@ -1,40 +1,42 @@
 <template>
-  <div id="app">
-    <div id="header">
-      <h1 style="position: center">PaLaDiN - Time-travel Debugging with Semantic Queries</h1>
-    </div>
-    <div id="main">
-      <splitpanes class="default-theme" ref="mainSplit" @resize="storeLayoutPanes">
-        <pane :size="layout.panes[0].size">
-          <splitpanes horizontal class="default-theme" :push-other-panes="false">
-            <pane :size="85">
-              <code-editor :source-code="sourceCode.join('\n')" :actions="actions" lang="python"></code-editor>
-            </pane>
-            <pane id="program-output-pane" :size="15">
-              <h3 class="section"> Output </h3>
-              <pre class="output" v-text="programOutput"></pre>
-              <div v-if="thrownException.line_no > 0" style="color: red;">
-                {{
-                  `The Program has stopped on line ${thrownException.line_no} with the message: ${thrownException.msg}, on time: ${thrownException.time}`
-                }}
-              </div>
-            </pane>
-          </splitpanes>
-        </pane>
-        <pane>
-          <splitpanes horizontal class="default-theme" :push-other-panes="false">
-            <pane id="vuebook-pane" :size="100" style="overflow-y: auto">
-              <cheat-sheet :completions="docs"></cheat-sheet>
-              <vuebook ref="vuebook" :completions="completions" :lastRunTime="lastRunTime"></vuebook>
-            </pane>
-          </splitpanes>
-        </pane>
-      </splitpanes>
-    </div> <!-- #main -->
-    <div id="spinner-container">
-      <screen-loading-spinner v-if="isRerunning"></screen-loading-spinner>
-    </div>
-  </div> <!-- #app -->
+    <div id="app">
+        <div id="header">
+            <h1 style="position: center">PaLaDiN - Time-travel Debugging with Semantic Queries</h1>
+        </div>
+        <div id="main">
+            <splitpanes class="default-theme" ref="mainSplit" @resize="storeLayoutPanes">
+                <pane :size="layout.panes[0].size">
+                    <splitpanes horizontal class="default-theme" :push-other-panes="false">
+                        <pane :size="85">
+                            <code-editor :source-code="sourceCode.join('\n')" :actions="actions"
+                                         lang="python" ref="editor"></code-editor>
+                        </pane>
+                        <pane id="program-output-pane" :size="15">
+                            <h3 class="section"> Output </h3>
+                            <pre class="output" v-text="programOutput"></pre>
+                            <div v-if="thrownException.line_no > 0" style="color: red;">
+                                {{
+                                    `The Program has stopped on line ${thrownException.line_no} with the message: ${thrownException.msg}, on time: ${thrownException.time}`
+                                }}
+                            </div>
+                        </pane>
+                    </splitpanes>
+                </pane>
+                <pane>
+                    <splitpanes horizontal class="default-theme" :push-other-panes="false">
+                        <pane id="vuebook-pane" :size="100" style="overflow-y: auto">
+                            <cheat-sheet :completions="docs"></cheat-sheet>
+                            <vuebook ref="vuebook" :completions="completions" :lastRunTime="lastRunTime"
+                                     @highlight="highlightCodeLine"></vuebook>
+                        </pane>
+                    </splitpanes>
+                </pane>
+            </splitpanes>
+        </div> <!-- #main -->
+        <div id="spinner-container">
+            <screen-loading-spinner v-if="isRerunning"></screen-loading-spinner>
+        </div>
+    </div> <!-- #app -->
 </template>
 
 <script lang="ts">
@@ -65,85 +67,91 @@ import ScreenLoadingSpinner from "./screen-loading-spinner.vue";
 import CheatSheet from "./cheat_sheet.vue";
 
 type Exception = {
-  line_no: number
-  throwing_line_source: string
-  msg: string
-  time: number
+    line_no: number
+    throwing_line_source: string
+    msg: string
+    time: number
 }
 
 @Component({
-  components: {Splitpanes, Pane, Vuebook, Slider, Settings, CodeEditor, ScreenLoadingSpinner, CheatSheet}
+    components: {Splitpanes, Pane, Vuebook, Slider, Settings, CodeEditor, ScreenLoadingSpinner, CheatSheet}
 })
 class Main extends Vue {
 
-  layout = {panes: [{size: 30}]}
-  lastRunTime: number = 0
-  timeRange: Array<number> = [0, 0]
-  sourceCode: Array<string> = []
-  programOutput: string = ''
-  thrownException: Exception = {} as Exception
-  completions: Completion[] = []
-  isRerunning: Boolean = false
+    layout = {panes: [{size: 30}]}
+    lastRunTime: number = 0
+    timeRange: Array<number> = [0, 0]
+    sourceCode: Array<string> = []
+    programOutput: string = ''
+    thrownException: Exception = {} as Exception
+    completions: Completion[] = []
+    isRerunning: Boolean = false
     docs: string = ''
-  @Ref vuebook: IVuebook
+    @Ref vuebook: IVuebook
+    @Ref editor: CodeEditor
 
-  readonly actions = [
-    {name: 'Save', icon: 'save', action: this.updateCode},
-    {name: 'Rerun', icon: 'replay', action: this.rerun},
-    {
-      name: 'Save&Rerun', icon: 'cloud_sync', action: async (uc) => {
-        await this.updateCode(uc);
-        await this.rerun(null);
-      }
+    readonly actions = [
+        {name: 'Save', icon: 'save', action: this.updateCode},
+        {name: 'Rerun', icon: 'replay', action: this.rerun},
+        {
+            name: 'Save&Rerun', icon: 'cloud_sync', action: async (uc) => {
+                await this.updateCode(uc);
+                await this.rerun(null);
+            }
+        }
+    ]
+
+    async created() {
+        await this.fetchInitial();
     }
-  ]
 
-  async created() {
-    await this.fetchInitial();
-  }
+    mounted() {
+        persistField(this.layout, 'panes', new LocalStore('main:layout.panes'));
+        this.isRerunning = false;
+    }
 
-  mounted() {
-    persistField(this.layout, 'panes', new LocalStore('main:layout.panes'));
-    this.isRerunning = false;
-  }
+    async fetchInitial() {
+        this.sourceCode = await request_debug_info('source_code') as Array<string>;
+        this.programOutput = await request_debug_info('run_output') as string;
+        this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
+        this.thrownException = await request_debug_info('thrown_exception') as Exception;
+        this.completions = await request_debug_info('completions') as Completion[];
+        this.docs = await request_debug_info('docs') as string;
+        this.$forceUpdate();
+        this.resetSlider();
+    }
 
-  async fetchInitial() {
-    this.sourceCode = await request_debug_info('source_code') as Array<string>;
-    this.programOutput = await request_debug_info('run_output') as string;
-    this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
-    this.thrownException = await request_debug_info('thrown_exception') as Exception;
-    this.completions = await request_debug_info('completions') as Completion[];
-    this.docs = await request_debug_info('docs') as string;
-    this.$forceUpdate();
-    this.resetSlider();
-  }
+    storeLayoutPanes(ev) {
+        this.layout.panes = ev.map(x => ({size: x.size}));
+    }
 
-  storeLayoutPanes(ev) {
-    this.layout.panes = ev.map(x => ({size: x.size}));
-  }
+    sliderChange(sliderValue) {
+        this.timeRange[0] = sliderValue[0];
+        this.timeRange[1] = sliderValue[1];
+    }
 
-  sliderChange(sliderValue) {
-    this.timeRange[0] = sliderValue[0];
-    this.timeRange[1] = sliderValue[1];
-  }
+    private resetSlider() {
+        this.timeRange = [0, this.lastRunTime];
+    }
 
-  private resetSlider() {
-    this.timeRange = [0, this.lastRunTime];
-  }
+    async updateCode(updatedCode: string) {
+        await upload(updatedCode, 'upload/source_code');
+    }
 
-  async updateCode(updatedCode: string) {
-    await upload(updatedCode, 'upload/source_code');
-  }
+    async rerun(_: any) {
+        this.isRerunning = true;
+        await request('rerun');
+        await this.fetchInitial();
+        this.isRerunning = false;
+        this.$forceUpdate();
+        /* TODO: Fixme!! */
+        await (this.vuebook as IVuebook).runAllCells();
+    }
 
-  async rerun(_: any) {
-    this.isRerunning = true;
-    await request('rerun');
-    await this.fetchInitial();
-    this.isRerunning = false;
-    this.$forceUpdate();
-    /* TODO: Fixme!! */
-    await (this.vuebook as IVuebook).runAllCells();
-  }
+    highlightCodeLine(lineNumber: number) {
+        (this.editor as CodeEditor).highlightRow(lineNumber);
+    }
+
 
 }
 
