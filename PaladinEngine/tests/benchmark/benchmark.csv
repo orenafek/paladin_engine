@@ -1,0 +1,2 @@
+test_name,source_line_count,instrument,clean,pdb,pdb_cond,paladin,log_queries_count,log_construction_diff,log_diff_size,log_query_diff,log_construction_recursive,log_query_recursive,paladin/pdb_cond,log_query_recursive/log_query_diff
+kruskal.py,89,0.1835651397705078,3.0841827392578125,278.30982208251953,292.74988174438477,1346.724033355713,342,242.6300048828125,3784,281.0020446777344,0.0,3589.3378257751465,4.600254747606041,12.773351275402849

@@ -1,0 +1,614 @@
+%%
+%% This is file `sample-sigconf.tex',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% samples.dtx  (with options: `sigconf')
+%%
+%% IMPORTANT NOTICE:
+%%
+%% For the copyright see the source file.
+%%
+%% Any modified versions of this file must be renamed
+%% with new filenames distinct from sample-sigconf.tex.
+%%
+%% For distribution of the original source see the terms
+%% for copying and modification in the file samples.dtx.
+%%
+%% This generated file may be distributed as long as the
+%% original source files, as listed above, are part of the
+%% same distribution. (The sources need not necessarily be
+%% in the same archive or directory.)
+%%
+%% Commands for TeXCount
+%TC:macro \cite [option:text,text]
+%TC:macro \citep [option:text,text]
+%TC:macro \citet [option:text,text]
+%TC:envir table 0 1
+%TC:envir table* 0 1
+%TC:envir tabular [ignore] word
+%TC:envir displaymath 0 word
+%TC:envir math 0 word
+%TC:envir comment 0 0
+%%
+%%
+%% The first command in your LaTeX source must be the \documentclass command.
+\documentclass[sigconf,review]{acmart}
+\acmConference[ESEC/FSE 2023]{The 31st ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering}{11 - 17 November, 2023}{San Francisco, USA}
+%% NOTE that a single column version may be required for
+%% submission and peer review. This can be done by changing
+%% the \doucmentclass[...]{acmart} in this template to
+%% \documentclass[manuscript,screen]{acmart}
+%%
+%% To ensure 100% compatibility, please check the white list of
+%% approved LaTeX packages to be used with the Master Article Template at
+%% https://www.acm.org/publications/taps/whitelist-of-latex-packages
+%% before creating your document. The white list page provides
+%% information on how to submit additional LaTeX packages for
+%% review and adoption.
+%% Fonts used in the template cannot be substituted; margin
+%% adjustments are not allowed.
+%%
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+    \providecommand\BibTeX{{%
+        \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+
+%% Rights management information.  This information is sent to you
+%% when you complete the rights form.  These commands have SAMPLE
+%% values in them; it is your responsibility as an author to replace
+%% the commands and values with those provided to you when you
+%% complete the rights form.
+\setcopyright{acmcopyright}
+\copyrightyear{2023}
+\acmYear{2023}
+\acmDOI{XXXXXXX.XXXXXXX}
+
+%% These commands are for a PROCEEDINGS abstract or paper.
+\acmConference[Conference acronym 'XX]{Make sure to enter the correct
+conference title from your rights confirmation emai}{June 03--05,
+    2018}{Woodstock, NY}
+%
+%  Uncomment \acmBooktitle if th title of the proceedings is different
+%  from ``Proceedings of ...''!
+%
+%\acmBooktitle{Woodstock '18: ACM Symposium on Neural Gaze Detection,
+%  June 03--05, 2018, Woodstock, NY}
+\acmPrice{15.00}
+\acmISBN{978-1-4503-XXXX-X/18/06}
+
+
+%%
+%% Submission ID.
+%% Use this when submitting an article to a sponsored event. You'll
+%% receive a unique submission ID from the organizers
+%% of the event, and this ID should be used as the parameter to this command.
+%%\acmSubmissionID{123-A56-BU3}
+
+%%
+%% For managing citations, it is recommended to use bibliography
+%% files in BibTeX format.
+%%
+%% You can then either use BibTeX with the ACM-Reference-Format style,
+%% or BibLaTeX with the acmnumeric or acmauthoryear sytles, that include
+%% support for advanced citation of software artefact from the
+%% biblatex-software package, also separately available on CTAN.
+%%
+%% Look at the sample-*-biblatex.tex files for templates showcasing
+%% the biblatex styles.
+%%
+
+%%
+%% The majority of ACM publications use numbered citations and
+%% references.  The command \citestyle{authoryear} switches to the
+%% "author year" style.
+%%
+%% If you are preparing content for an event
+%% sponsored by ACM SIGGRAPH, you must use the "author year" style of
+%% citations and references.
+%% Uncommenting
+%% the next command will enable that style.
+%%\citestyle{acmauthoryear}
+
+\usepackage{hyperref}
+\usepackage{listings}
+
+
+\definecolor{python_string_green}{rgb}{0.0, 0.5, 0.0}
+\definecolor{python_bg}{HTML}{F2F2F2}
+
+\lstdefinestyle{python_code}{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle = {\bfseries\color{black}},
+    keywordstyle = [2]{\bfseries\color{black}},
+    stringstyle=\color{python_string_green},
+    commentstyle=\color{green},
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single,
+    breaklines=true,
+    breakatwhitespace=true,
+    morekeywords={match, case, None},
+    morekeywords=[2]{self}
+}
+
+\lstdefinestyle{python_code_short}{
+    language=Python,
+    backgroundcolor=\color{python_bg},
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle = {\bfseries\color{black}},
+    keywordstyle = [2]{\bfseries\color{black}},
+    stringstyle=\color{python_string_green},
+    commentstyle=\color{green},
+    numbers=none,
+    numberstyle=\tiny,
+    frame=none,
+    breaklines=true,
+    breakatwhitespace=true,
+    morekeywords={match, case, None},
+    morekeywords=[2]{self},
+    showstringspaces=false
+}
+
+\lstdefinestyle{query}{
+    language=Python,
+    backgroundcolor=\color{python_bg},
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle = {\bfseries\color{black}},
+    keywordstyle = [2]{\bfseries\color{black}},
+    stringstyle=\color{python_string_green},
+    commentstyle=\color{green},
+    numbers=none,
+    numberstyle=\tiny,
+    frame=none,
+    breaklines=true,
+    breakatwhitespace=true,
+    morekeywords={None, Union, @},
+    morekeywords=[2]{self},
+    showstringspaces=false
+}
+
+
+%%
+%% end of the preamble, start of the body of the document source.
+\begin{document}
+
+
+%%
+%% The "title" command has an optional parameter,
+%% allowing the author to define a "short title" to be used in page headers.
+    \title{PaLaDiN - Time-travel Debugging with Semantic Queries}
+
+%%
+%% The "author" command and its associated commands are used to define
+%% the authors and their affiliations.
+%% Of note is the shared affiliation of the first two authors, and the
+%% "authornote" and "authornotemark" commands
+%% used to denote shared contribution to the research.
+    \author{Oren Afek}
+    \email{oren.afek@cs.technion.ac.il}
+    \affiliation{%
+        \institution{Technion, Israel Institute of Technology}
+        \city{Haifa}
+        \country{Israel}
+    }
+
+    \author{Prof. Schahar Itzhaky}
+    \email{shachari@cs.technion.ac.il}
+    \affiliation{%
+        \institution{Technion, Israel Institute of Technology}
+        \city{Haifa}
+        \country{Israel}
+    }
+
+
+%%
+%% By default, the full list of authors will be used in the page
+%% headers. Often, this list is too long, and will overlap
+%% other information printed in the page headers. This command allows
+%% the author to define a more concise list
+%% of authors' names for this purpose.
+    \renewcommand{\shortauthors}{Trovato and Tobin, et al.}
+
+%%
+%% The abstract is a short summary of the work to be presented in the
+%% article.
+    \begin{abstract}
+        The process of debugging software can be a time-consuming and tedious task, often requiring developers to guess which lines of code to set breakpoints on in order to gather more information. While time travel debuggers have reduced the time required to re-run a program, they still require developers to view the program in a linear timeline, jumping through different time points. To address these challenges, we have developed a new debugging tool called PaLaDiN. PaLaDiN offers several advantages over traditional debugging methods, including a short, high-leveled yet complex query-DSL for retrieving data, the ability to show summary information for entire program sections, and the ability to focus on a specific slice of the program's run by running high-leveled predicates. PaLaDiN also allows developers to connect different, possibly unrelated, fragments of the program, run queries with alternative states, analyze variable lifetimes throughout the program's run, and compare different implementations of the same function. Overall, PaLaDiN provides a comprehensive and flexible approach to debugging that can significantly reduce the time and effort required to identify and fix software bugs.
+    \end{abstract}
+
+%%
+%% The code below is generated by the tool at http://dl.acm.org/ccs.cfm.
+%% Please copy and paste the code instead of the example below.
+%%
+    \begin{CCSXML}
+        <ccs2012>
+        <concept>
+        <concept_id>10011007.10011074.10011099.10011102.10011103</concept_id>
+        <concept_desc>Software and its engineering~Software testing and debugging</concept_desc>
+        <concept_significance>500</concept_significance>
+        </concept>
+        <concept>
+        <concept_id>10011007.10011006.10011050.10011017</concept_id>
+        <concept_desc>Software and its engineering~Domain specific languages</concept_desc>
+        <concept_significance>500</concept_significance>
+        </concept>
+        </ccs2012>
+    \end{CCSXML}
+
+    \ccsdesc[500]{Software and its engineering~Software testing and debugging}
+    \ccsdesc[500]{Software and its engineering~Domain specific languages}
+
+%%
+%% Keywords. The author(s) should pick words that accurately describe
+%% the work being presented. Separate the keywords with commas.
+    \keywords{debugging, time-travel debugging}
+
+%%
+%% This command processes the author and affiliation and title
+%% information and builds the first part of the formatted document.
+    \maketitle
+
+
+    \section{Introduction}
+    Debugging is a critical but notoriously difficult task in software development. Finding the source of a bug can be a tedious, time-consuming process that often involves adding debug prints or setting breakpoints. The traditional debugging process usually consists of one of these two strategies, sometimes even combined. Debug prints involve adding more information to the program, which can make it produce more output than the programmer had initially planned to. This changes the original program, sometimes alters its behavior and can also hide the bug in extreme cases. On the other hand, breakpoints involve locating where the wrong output or a rising exception has happened and setting a breakpoint around the position. The program then stops at the breakpoint, and the user can see the data available around the breakpoint position. This process is repeated constantly until the right place is found.
+
+    In recent years, Time Travel Debuggers have emerged as a way to deal with the traditional approach. These tools allow the user to run the program once while recording its state during the run, and then letting the user go over the execution at any time point. However, these tools mainly focus on the program's flow, with traces and actions as the primary subjects to inquire. They let the user look at the data in the scope of a single point in time, and still make it regenerate the interesting flow to find its bug. The way a programmer usually thinks is focused on the data and what happened to it throughout the run, instead of at a certain time point.
+
+    One of the greatest difficulties with Time Travel Debugging is the space consumption of recording a program's state. As a result, current work on Time Travel Debugging is focused on making it more efficient, or making the interaction with the debuggers more scriptable, but merely try to improve the essence of communicating with these TDD's nor set the data as the primary subject. To tackle this issue, we have developed PaLaDiN, a tool that aims to make the debugging process closer to the programmer's way of thinking and to shorten the debugging process. PaLaDiN focuses on the variables and data as the main subject of inquiry and lets the user query the log with refined queries that regard the lifetime of the variables and its different values and changes throughout the time. PaLaDiN allows the user to focus on the interesting times in which key events have happened and refine the times/places of search. Moreover, the tool lets the user retrieve a summary of a code fragment, such as loops or functions in its line of codes only, and run queries that produce alternative states, such as searching for "x + 2" throughout the program.
+
+
+    \section{Architecture}
+    PaLaDiN's architecture is built around a powerful pythonic engine that leverages the abstract syntax tree (AST) of the
+    code to provide a comprehensive debugging solution.
+    Figure \ref{paladin_flow} gives an overview of PaLaDiN’s architecture and flow.
+    The engine performs an initial analysis of the program's AST to
+    identify the code fragments that require monitoring, including assignments, function calls, function definitions, loops,
+    and built-in collections manipulation methods. Using this information, PaLaDiN creates a "PaLaDiNized Code," which is an
+    instrumented version of the original code with stubs added before and after the selected code fragments, and sometimes
+    replacing entire code fragments with equivalent structures that maintain the program's functionality and flow.
+
+    PaLaDiN then runs the newly created code, with each stub logging the event that has occurred during the run and
+    assigning it a unique time stamp. This log of events is used to reconstruct the program's state at any point in time,
+    with a representation of each variable and object throughout the flow of the run. PaLaDiN provides an interactive web
+    server, where the user can run queries using PaLaDiN's comprehensive queries DSL to debug the code after it has ended.
+    This architecture enables PaLaDiN to provide a unique and comprehensive approach to debugging, which is both
+    user-friendly and effective.
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=\linewidth]{paladin_flow_figure.pdf}
+        \caption{
+            PaLaDiN architecture.
+        }
+        \Description{}
+        \label{paladin_flow}
+    \end{figure}
+
+
+    \section{The Query Language}
+
+    PaLaDiN's main feature is its Query-DSL, which allows the user to retrieve data from the program's state and evaluate expressions containing that data. The debug process using PaLaDiN is made by sending it queries that retrieves data from the vivid log. The goal is to let the user go through the program's state and retrieve values of interesting variables and objects, throughout the time with the ability to focus on specific time ranges of events that have happened in the program's run.
+
+    \subsection{Structure}
+    A query is a series of compound operators. Each operator has a `Time Range`, in which it evaluates a result for any time stamp in that range. An operator (or a query) is evaluated into an `EvalResult` which is a list of entries. Each entry (of type `EvalResultEntry`) for a time stamp in the time range. The entry includes its time and a mapping between the input and output of the operator. An entry is said to be "satisfied" if none of its inputs have been evaluated to either `None` or `False`.
+
+    There are three types of operators:
+
+    \begin{itemize}
+        \item Data Operators: An operator that retrieves data from the log or evaluates expressions that contain data from
+        \item Time Operators: A boolean operator, that returns its satisfaction for any time stamp in its range.
+        \item Compositor Operators: Operators that combine either data and time operators or a group of operators with a logical connection.
+    \end{itemize}
+
+    \subsection{Supported Operators}
+
+    Here is a list of the supported operators in PaLaDiN's Query-DSL:
+
+    \subsubsection{Data Operators}
+
+    \paragraph{Value Data Operators}
+
+    \begin{enumerate}
+        \item \texttt{\textbf{Raw(expr)}}: The basic operator to retrieve data and evaluate expressions with data from the log.
+        For example, \texttt{Raw(x)} or \texttt{Raw(x + 42 * y)} or \texttt{Raw([i for i in range(r)])}, where \texttt{x}, \texttt{y}, and \texttt{r} are variables that existed in the program's run.
+        The \texttt{expr} can be any valid Python expression, with the addition of two special notations:
+        \begin{itemize}
+            \item Scope Notation (\texttt{@}): Use the \texttt{@} notation (\texttt{Name@LineNumber}) to indicate that a variable that its name is used in multiple places, should be bounded in the query to a specific line number. For example, in order to retrieve the value of \texttt{i} from line 13, use \texttt{i@13}.
+            \item Return Value Notation (\texttt{\$}): Use the \texttt{\$} notation to indicate that the return value of a function is needed. For example, in order to retrieve the value that has been returned from the function \texttt{func}, use \texttt{\$func}.
+        \end{itemize}
+        This is a special operator because it can be used in an implied form: \texttt{Raw(x) <==> x}.
+        \item \texttt{\textbf{Type(var/var@ln)}}: Retrieve the type of the variable(s) named \texttt{var} from the log.
+        \item \texttt{\textbf{VarSelector(o1, o2)}}: Retrieves the name of variables that have been changed in either a time range, a range of line numbers (aka "scope") or both.
+        \item \texttt{\textbf{LineNo(o)}}: Retrieve the line numbers in the program for each event that had happened in the entry's time if it has been satisfied.
+    \end{enumerate}
+
+    \paragraph{Summary Data Operators}
+    \begin{enumerate}
+        \item \texttt{\textbf{LoopIteration(ln, i)}}: Retrieve any events that have happened in the loop's code's line numbers in the \texttt{i}`th iteration of the loop that starts in line \texttt{ln}.
+        \item \texttt{\textbf{LoopSummary(ln)}}: Retrieve any events that have happened in the loop's code's line numbers of the loop that starts in line \texttt{ln}, i.e. runs \texttt{LoopIteration} for each iteration of the loop.
+        \item \texttt{\textbf{FunctionSummary(f)}}: Retrieve any events that have happened throughout a call to a function, in the code lines in \texttt{f}'s boundaries.
+    \end{enumerate}
+
+    \subsubsection{Time Operators}
+
+    \paragraph{Sliders \& Logical-Connector Time Operators}
+    \begin{enumerate}
+        \item \texttt{\textbf{And/Or/Xor(o1, o2)}}, \texttt{\textbf{Not(o)}}: Basic logical operators that satisfy with respect to its logical boolean connector.
+        \item \texttt{\textbf{First}/\textbf{Last(o)}}: Satisfies only for the first/last time of \texttt{o}.
+        \item \texttt{\textbf{Next(o)}}: Satisfies for the second time of \texttt{o} ("first after first").
+        \item \texttt{\textbf{XTime(o, n)}}: Satisfies for the \texttt{n}'th time that \texttt{o} has been satisfied (eqv. to \texttt{Next(Next(...(o)))} for \texttt{n} times).
+        \item \texttt{\textbf{AndThan(c, o)}}: Satisfies on the first satisfaction of \texttt{o} after each satisfaction of \texttt{c}.
+        \item \texttt{\textbf{Range(o1, o2)}}: Satisfies on each time in between the first satisfaction of \texttt{o1} and the last satisfaction of \texttt{o2}.
+    \end{enumerate}
+
+    \paragraph{Event-Focused Time Operators}
+    \begin{enumerate}
+        \item \texttt{\textbf{InFunction(f)}/\textbf{InFunction(f@ln)}}: Satisfied for each time in which the program has run the code of \texttt{f}.
+        \item \texttt{\textbf{LineHit(ln)}}: Satisfied for each time in which the program has hit line numbered \texttt{ln}.
+        \item \texttt{\textbf{WhenPrinted(s)}}: Satisfied for each time in which the program has printed \texttt{s} to its standard output.
+        \item \texttt{\textbf{Changed(e/e@ln)}}: Satisfied for each time in which \texttt{e} has been changed, either assigned to or internally (as for objects).
+        \item \texttt{\textbf{ChangedInto(e/e@ln, v)}}: Satisfied for each time in which \texttt{e} has been changed into a value \texttt{v}.
+    \end{enumerate}
+
+    \subsubsection{Compositors}
+    \begin{enumerate}
+        \item \texttt{\textbf{Where(s, c)}}: Slice the time range of a query by running \texttt{s} operator only on the times in which \texttt{c} has been satisfied.
+        \item \texttt{\textbf{Whenever(o)}}: Convert any operator into a \texttt{TimeOperator}, by generating an \texttt{EvalResult} with a single output of the satisfaction for each of \texttt{o}'s entries.
+        \item \texttt{\textbf{Union(o1, ..., on)}}: Joins any number of operators together in the form of "Full-Join".
+    \end{enumerate}
+
+
+    \section{Conclusion}
+
+
+    \section{Citations and Bibliographies}
+
+
+    \section{Acknowledgments}
+
+    \clearpage
+    \appendix
+
+    \section*{Appendix: PaLaDiN Demo Walkthrough}
+    In this section, we walk through how the major part of our demo for PaLaDiN is conducted
+    by using illustrative screenshots to show the usage of the tool.
+
+    \subsection{Setup PaLaDiN}
+    Here we present the procedure on how to setup PaLaDiN.
+
+    \begin{itemize}
+        \item PaLaDiN is well tested with Python3.10+ on MacOS 11.2 and Ubuntu 20.04.
+        \item Clone PaLaDiN repo from \href{https://github.com/orenafek/paladin_engine/tree/demo}{here}.
+        \item Follow the instructions on the \texttt{README.md} file and follow the instructions.
+    \end{itemize}
+
+    \subsection{Use PaLaDiN}
+    In this section, we demonstrate how to run PaLaDiN on a program.
+    \begin{itemize}
+        \item Open a terminal window and run \newline
+        \lstinline{run_paladin.sh <program_file_path> -d}
+        \item When PaLaDiN finishes analyzing and instrumenting the program and running the PaLaDiNized code, a web server is opened in \texttt{\href{http://127.0.0.1:9999}}.
+        \item On the left side of the web page, you can see the code of the original program, and on the right side, at the top, the program's run output (if any).
+        \item Below, you can see the \texttt{Run Query} text box and the documentation of all supported operators.
+        \item On the side, the time range slider that configures on which times should the queries run on.
+    \end{itemize}
+
+    \subsection{The Demo Program}
+
+    In this demo program there is a server that handles jobs from clients.
+    The jobs can be of one of the four types(text, image, audio and video).
+    There is a variety of workers which inherit from an abstract Worker type.
+    Each worker is able to operate On some (or all) of job types.
+    For each job in the server’s todo list, a worker, in its turn, takes a job and operates on it.
+    If it's able to do so, it pushes a summary for that job, otherwise, it pushes the job back to the todo list of the server.
+    For this demo the simple degenerated \texttt{main} function simply creates a server, a worker of each kind and a shuffled list of random jobs, with a random kind, than as long as there are jobs in the server's todo list, it picks a random worker and let it consume a job.
+    At the end, the server verifies that there are as many summaries as there were jobs at the beginning.
+    In Listing \ref{lst:demo_program}
+
+    \subsection{The Debug process}
+    When opening the web server, the user can see that an exception has risen is:
+
+
+    \begin{verbatim}
+The Program has stopped on line 76:
+    raise AssertionError('Mismatch between no.
+                         of summaries and jobs.')
+with the message: Mismatch between no. of
+                  summaries and jobs., time: 476
+    \end{verbatim}
+
+    First, the user should understand why the exception has risen, so he goes to line 76.
+
+    \begin{lstlisting}[style={python_code_short}]
+    if len(jobs) != len(server.summaries):
+        raise AssertionError('Mismatch between no. of summaries and jobs.')
+    \end{lstlisting}
+
+    To do so, he asks PaLaDiN to show him what were the lengths of the two lists by running the query:
+    \begin{lstlisting}[style={query},label={query:query1}]
+    Union(len(server.summaries), len(jobs))
+    \end{lstlisting}
+
+    PaLaDiN evaluates the query by retrieving the values of \texttt{sever.summaries}
+    and \texttt{jobs} from the log and evaluating its length. A part of the results are shown in Table \ref{tab:q1res}
+    \begin{table}[htbp]
+        \centering
+        \begin{tabular}{|c|c|c|}
+            \hline
+            \textbf{Range} & \textbf{len(server.summaries)} & \textbf{len(jobs)} \\
+            \hline
+            (0, 13)        & null                           & null               \\ \hline
+            (14, 273)      & 0                              & null               \\ \hline
+            (274, 291)     & 0                              & 20                 \\ \hline
+            (292, 364)     & 1                              & 20                 \\ \hline
+            (365, 382)     & 2                              & 20                 \\ \hline
+            ...            & ...                            &                    \\ \hline
+            (788, 790)     & 19                             & 20                 \\ \hline
+        \end{tabular}
+        \caption{The results of Query \protect\ref{query:query1}}
+        \label{tab:q1res}
+    \end{table}
+
+    The user can now understand that the lengths differ due to missing summaries in the server.
+    to find the jobs that have no summaries, the user runs:
+    \begin{lstlisting}[style={query},label={query:query2}]
+    set(jobs) - set(server.summaries)
+    \end{lstlisting}
+
+    The results are shown in Table \ref{tab:q2res}.
+
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{|c|p{5cm}|}
+            \hline
+            \textbf{Range} & \textbf{set(jobs) - set(server.summaries)} \\
+            (0, 273)       & None                                                                                  \\ \hline
+            (274, 291)     & [ \{id: 13, type: IMAGE\}, \{id: 16, type: IMAGE\}, ... \{id: 15, type: TEXT\}, ... ] \\ \hline
+            (292, 364)     & [ \{id: 13, type: IMAGE\}, \{id: 16, type: IMAGE\}, ... \{id: 15, type: TEXT\}, ... ] \\ \hline
+            ...            & ...                                                                                   \\ \hline
+        \end{tabular}
+        \caption{The results of Query \protect\ref{query:query2}}
+        \label{tab:q2res}
+    \end{table}
+
+    As this result is too verbose for the user to follow on which jobs has moved from the \texttt{jobs} and \texttt{server.summaries} lists, he checks the \texttt{Customize} checkbox and writes a customizer to shorten the results. The Customizer can alter the results right before they are returned to the web server.
+    The used customizer is shown on Listing \ref{lst:customizer}.
+
+    \begin{lstlisting}[style=python_code_short, label={lst:customizer}]
+def customizer(d: Dict[str, Any]) -> Dict[str, Any]:
+  def job(d: Dict):
+    return f'({d["id"]}, {d["type"][0]})'
+  res = {}
+  for k, v in d.items():
+    if isinstance(v, dict):
+        res[k] = job(v)
+    elif isinstance(v, set):
+        res[k] = {job(j) for j in v}
+    else:
+        res[k] = v
+
+  return res
+    \end{lstlisting}
+
+    The customized results can be seen in Table \ref{tab:q2rescus}
+
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{|c|p{5cm}|}
+            \hline
+            \textbf{Range} & \textbf{set(jobs) - set(server.summaries)}                                                 \\ \hline
+            (0, 273)       & -                                                                                          \\ \hline
+            (274, 291)     & [17T, 18I, 10I, 11I, 12T, 1V, 15T, 4A, 6T, 19I, 3A, 7A, 16I, 5T, 14A, 2V, 0V, 8A, 9I, 13I] \\ \hline
+            (292, 364)     & [17T, 18I, 10I, 11I, 12T, 1V, 4A, 6T, 19I, 3A, 7A, 16I, 5T, 14A, 2V, 0V, 8A, 9I, 13I]      \\ \hline
+            (365, 382)     & [12T, 1V, 2V, 0V, 4A, 18I, 3A, 7A, 10I, 8A, 16I, 5T, 9I, 6T, 19I, 14A, 11I, 13I]           \\ \hline
+            ...            & ...                                                                                        \\ \hline
+            (705, 722)     & [14A, 13I, 6T, 19I]                                                                        \\ \hline
+            (723, 744)     & [14A, 6T, 19I]                                                                             \\ \hline
+            (745, 762)     & [14A, 6T]                                                                                  \\ \hline
+            (763, 790)     & [14A]                                                                                      \\ \hline
+        \end{tabular}
+        \caption{The results of Query \protect\ref{query:query2} running with a customizer}
+        \label{tab:q2rescus}
+    \end{table}
+
+    After reading the code and, the user understands that the normal lifetime of a job, is going through:
+    \begin{verbatim}
+    jobs -> server.todo -> <Some worker>.ongonig ->
+    <In Worker::operate>> -> server.summaries
+    \end{verbatim}
+    If a jobs is missing from \texttt{server.summaries}, it means that the invariant in which a job is always in either \texttt{jobs}/\texttt{worker.onging}/\texttt{server.summaries} has been broken.
+    In order to observe on when was the first time that is has been broken, meaning, when was the first time that a job is "nowhere" the user runs the query:
+    \begin{lstlisting}[style={query},label={query:query3}]
+    set(jobs) - (set(server.summaries + server.todo + [w.ongoing for w in workers]))
+    \end{lstlisting}
+
+    The partial results are shown in Table \ref{tab:q3res}
+
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{|c|p{5cm}|}
+            \hline
+            \textbf{Range} & \textbf{set(jobs) - (set(server.summaries + server.todo + [w.ongoing for w in workers]))} \\ \hline
+            (277, 286)     & -                                                                                         \\ \hline
+            (287, 287)     & [15T]                                                                                     \\ \hline
+            (288, 304)     & -                                                                                         \\ \hline
+            (305, 305)     & [14A]                                                                                     \\ \hline
+            (306, 322)     & -                                                                                         \\ \hline
+            (323, 323)     & [14A]                                                                                     \\ \hline
+            (324, 328)     & -                                                                                         \\ \hline
+            (329, 337)     & [14A]                                                                                     \\ \hline
+            (338, 338)     & [14A, 17T]                                                                                \\ \hline
+            (339, 359)     & [14A]                                                                                     \\ \hline
+            (360, 360)     & [14A, 17T]                                                                                \\ \hline
+            (361, 377)     & [14A]                                                                                     \\ \hline
+            (378, 378)     & [14A, 10I]                                                                                \\ \hline
+            (379, 395)     & [14A]                                                                                     \\ \hline
+            ...            & ...                                                                                       \\ \hline
+            (740, 740)     & [14A, 19I]                                                                                \\ \hline
+            (741, 757)     & [14A]                                                                                     \\ \hline
+            (758, 758)     & [14A, 6T]                                                                                 \\ \hline
+            (759, 790)     & [14A]                                                                                     \\ \hline
+        \end{tabular}
+        \caption{The results of Query \protect\ref{query:query3}}
+        \label{tab:q3res}
+    \end{table}
+
+    As can be seen from the results in Table \ref{tab:q3res}, a normal job appears only once, and this is probably in the exact time that the job has been popped from the \texttt{todo} list and before it has been assigned into a \texttt{worker.ongoing} variable. Afterwards it is moved into \texttt{server.summaries} or back into \texttt{server.todo} and disappears from the table.
+    For any "missing" job, such as #1, once it appears but doesn't disappear right afterwards, such as in \texttt{(161, 169)} -> \texttt{(170, 171)}, the user understands that job \texttt{14A} haven't been put in \texttt{server.summaries}.
+    The user then clicks on the cell of the time range in which \texttt{14A} has appeared before it has disappeared, \texttt{(329, 337)}. This sets the time range slider to evaluate queries only within this time range.
+    The code fragment that normally puts the jobs back is in \texttt{operate} function.
+    The next step is to understand in which worker is the problematic \texttt{operate} function.
+    To do so, it is enough to check what was the type of \texttt{self} in the selected time range when the program was in any of the \texttt{operate} functions, the user runs:
+
+    \begin{lstlisting}[style={query},label={query:query4}]
+    Where(Type(self), InFunction("operate"))
+    \end{lstlisting}
+
+    This query uses the \texttt{Where} operator in which the condition \texttt{InFunction("operate")} is run, and then whenever it has been satisfied, its runs the selector, \texttt{InFunction(Type(self))}.
+
+    The results of can be seen in Table \ref{tab:q4res}.
+
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{|c|p{5cm}|}
+            \hline
+            (327, 340) & VisualWorker \\ \hline
+        \end{tabular}
+        \caption{The results of Query \protect\ref{query:query4}}
+        \label{tab:q4res}
+    \end{table}
+
+    By looking at the code of \texttt{operate} of \texttt{VisualWorker}:
+
+    \begin{lstlisting}[style={python_code_short}]
+class VisualWorker(Worker):
+    def operate(self):
+        match Job.Type[self.ongoing.type]:
+            case Job.Type.IMAGE | Job.Type.VIDEO:
+                self.server.summaries.append(self.ongoing)
+            case Job.Type.TEXT:
+                self.server.todo.append(self.ongoing)
+    \end{lstlisting}
+
+    it is easy to see that the \texttt{VisualWorker} can't operate on a job of type \texttt{AUDIO} but not as the other workers, it fails to re-put it in the \texttt{todo} list.
+    Therefore the bug in this case is a missing case in \texttt{VisualWorker}. The fix is easy and should be:
+    \begin{lstlisting}[style={python_code_short}]
+...
+                case Job.Type.TEXT | Job.Type.AUDIO:
+                    self.server.todo.append(self.ongoing)
+    \end{lstlisting}
+
+
+% in other debugging tools it is almost impossible which is the "problematic" \texttt{operate} function without setting breakpoints on each of the workers. With PaLaDiN
+
+
+    \lstinputlisting[frame=single, language=python, float=*, label={lst:demo_program}, style={python_code}, caption={The program's code run in the demo}]{demo.py}
+
+\end{document}
+\endinput
+%%
+%% End of file `sample-sigconf.tex'.
