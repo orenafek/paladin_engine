@@ -1,5 +1,7 @@
 import itertools
 
+from stubs.stubs import archive, __PAUSE__, __RESUME__
+
 
 class UnionFind:
     def __init__(self, size):
@@ -25,14 +27,14 @@ class UnionFind:
         root_y = self.find(y)
 
         if root_x != root_y:
-            if self.rank[root_x] < self.rank[root_y]:
-                self.parent[root_x] = root_y
-            elif self.rank[root_x] > self.rank[root_y]:
+            if self.rank[root_x] == self.rank[root_y]:
                 self.parent[root_y] = root_x
-            else:
-                self.parent[root_y] = root_x
-                # self.parent[root_y] = root_y  # BUG
                 self.rank[root_x] += 1
+            elif self.rank[root_x] < self.rank[root_y]:
+                self.parent[root_x] = root_y
+            else:
+                self.parent[root_y] = root_y  # BUG
+
 
 
 class Edge:
@@ -53,10 +55,11 @@ def kruskal(graph, num_vertices):
     for edge in sorted_edges:
         src = edge.src
         dest = edge.dest
-
-        if uf.find(src) != uf.find(dest):
-            mst.append(edge)
+        uff_s = uf.find(src)
+        uff_d = uf.find(dest)
+        if uff_s != uff_d:
             uf.union(src, dest)
+            mst.append(edge)
 
     return mst
 
@@ -94,10 +97,10 @@ if __name__ == "__main__":
     # Example graph represented as a list of edges
     graph = [
              Edge(0, 1, 9),
-             Edge(0, 2, 6),
+             Edge(2, 0, 6),
              Edge(0, 3, 2),
              Edge(1, 2, 7),
-             Edge(1, 3, 6),
+             Edge(3, 1, 6),
              Edge(2, 3, 8),
           ]
 
@@ -108,10 +111,10 @@ if __name__ == "__main__":
     mst = kruskal(graph, num_vertices)
     mst_weight = st_weight(mst)
 
-#  #__PAUSE__()
-#  all_st = find_all_spanning_trees(graph, num_vertices)
-# # __RESUME__()
-#  min_st_weight = min([st_weight(st) for st in all_st])
-#
-#  if min_st_weight < mst_weight:
-#      raise RuntimeError(f"weight(minimal st)[{min_st_weight}] < weight(found mst)[{mst_weight}]")
+#    __PAUSE__()
+    all_st = find_all_spanning_trees(graph, num_vertices)
+#    __RESUME__()
+    min_st_weight = min([st_weight(st) for st in all_st])
+
+    if min_st_weight < mst_weight:
+        raise RuntimeError(f"weight(minimal st)[{min_st_weight}] < weight(found mst)[{mst_weight}]")
