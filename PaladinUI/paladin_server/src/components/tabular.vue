@@ -17,8 +17,10 @@
         <tr v-for="rowHead in value.rowHeaders">
             <td @click="rowSelect($event, rowHead)"> {{ rowHead.display }}</td>
             <td v-for="colKey in value.columnHeaders">
-                <runtime-component ref="rc" :column="colKey" v-bind="results[rowHead.key][colKey]">
-                </runtime-component>
+                <div style="display: inline-flex;">
+                    <runtime-component ref="rc" :column="colKey" v-bind="results[rowHead.key][colKey]" />
+                    <span :style="'color: '+ results[rowHead.key][colKey].color + '; font-size: 8pt'">*</span>
+                </div>
             </td>
         </tr>
         </tbody>
@@ -42,14 +44,26 @@ interface TabularValue {
     rowData: string[][]
 }
 
+type CellData = {
+    type: string
+    content: any
+    data: any
+    color: string
+}
+
+
 @Component({
     components: {RuntimeComponent, VisualizerPanel},
     emits: ['row:select']
 })
 class Tabular extends Vue {
-    @Prop value: TabularValue
+    COLOR_CLEAR = 'rgba(0, 0, 0, 0)';
+    COLOR_CHANGE = '#ffc66d';
 
-    results: { [row: string]: { [col: string]: any } } = {};
+    @Prop value: TabularValue
+    @Prop emitEvent: any
+
+    results: { [row: string]: { [col: string]: CellData } } = {};
 
     $refs: { visPanel: VisualizerPanel[], rc: RuntimeComponent[] }
 
@@ -78,7 +92,11 @@ class Tabular extends Vue {
             let visualized = false;
             for (const visualizer of visualizers.values()) {
                 if (visualizer.instance.matches(item)) {
-                    this.results[row][col] = {...visualizer.instance.format(item), data: item != null ? item : ''};
+                    this.results[row][col] = {
+                        ...visualizer.instance.format(item),
+                        data: item != null ? item : '',
+                        color: this.COLOR_CLEAR
+                    };
                     visualized = true;
                     /* For now, select the first active, available visualizer to prevent conflicts. */
                     break;
