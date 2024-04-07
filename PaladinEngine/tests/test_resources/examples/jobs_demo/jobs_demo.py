@@ -70,6 +70,36 @@ class VisualWorker(Worker):
                 self.server.todo.append(self.ongoing)
 
 
+class EvenWorker(Worker):
+
+    def __init__(self, server: Server):
+        super(EvenWorker, self).__init__(server)
+        self.counter = 0
+
+    def operate(self) -> None:
+        if self.counter % 2 == 0:
+            self.server.summaries.append(self.ongoing)
+        else:
+            self.server.todo.append(self.ongoing)
+
+        self.counter += 1
+
+
+class OddWorker(Worker):
+
+    def __init__(self, server: Server):
+        super(OddWorker, self).__init__(server)
+        self.counter = 0
+
+    def operate(self) -> None:
+        if self.counter % 2 == 1:
+            self.server.summaries.append(self.ongoing)
+        else:
+            self.server.todo.append(self.ongoing)
+
+        self.counter += 1
+
+
 class AllTypesWorker(Worker):
 
     def operate(self) -> None:

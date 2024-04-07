@@ -463,11 +463,6 @@ class PaladinNativeParser(object):
     def _restore_original_operator_keys(query_ast: ast.AST, visitor: OperatorLambdaReplacer, result: EvalResult) -> \
             Tuple[str, EvalResult]:
         for var_name, (operator, operator_original_name) in reversed(visitor.operators.items()):
-            # if {var_name} == result.all_keys():
-            #     # If the result is in the form of "lambda_var: EvalResult(...)", remove the lambda var.
-            #     result = EvalResult([e[var_name].value if e[var_name] else e for e in result])
-            # else:
-            #     result = EvalResult.rename_key(result, operator_original_name, var_name)
             result = EvalResult.rename_key(result, operator_original_name, var_name)
 
         return visitor.operators[ast2str(query_ast)][1], result
