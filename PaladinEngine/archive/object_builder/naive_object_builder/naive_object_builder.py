@@ -1,8 +1,9 @@
 from typing import Optional, Type, Any, Dict
 
+from common.attributed_dict import AttributedDict
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import ContainerId, LineNo, Identifier, \
-    Time, AttributedDict
+    Time
 from archive.object_builder.object_builder import ObjectBuilder
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, EMPTY, EMPTY_COLLECTION
 from common.common import ISP

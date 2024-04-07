@@ -5,6 +5,7 @@
     :since: 05/04/2019
 """
 import dataclasses
+import re
 from ast import *
 from collections import deque
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Type
 from pandas import DataFrame
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ContainerId, Rk, Rv, Rvf
+from ast_common.ast_common import split_attr
 from common.common import ISP, IS_ITERABLE
 from module_transformer.global_map import GlobalMap
 
@@ -82,6 +84,10 @@ class Archive(object):
         @staticmethod
         def VALUE_FILTER(value: Any):
             return lambda vv: vv.value == value
+
+        @staticmethod
+        def REGEX_VALUE_FILTER(regex: str):
+            return lambda vv: re.match(regex, str(vv.value))
 
         @staticmethod
         def TIME_EQUAL_OR_LATER_FILTER(time: int):
@@ -387,7 +393,11 @@ class Archive(object):
                              in_func: bool = True, exits: bool = True, ass_and_bmfcs_only: bool = False):
 
         def_or_undef = Archive.Filters.OR(Archive.Filters.DEF_FILTER, Archive.Filters.UNDEF_FILTER)
-        filters = [Archive.Filters.VALUE_FILTER(func_name)]
+        split_func_name = split_attr(func_name)
+        if len(split_func_name) > 1:
+            filters = [Archive.Filters.VALUE_FILTER(func_name)]
+        else:
+            filters = [Archive.Filters.REGEX_VALUE_FILTER(fr'.*\.{func_name}')]
 
         if line_no is not None and line_no > 0:
             filters.append(Archive.Filters.LINE_NO_FILTER(line_no))

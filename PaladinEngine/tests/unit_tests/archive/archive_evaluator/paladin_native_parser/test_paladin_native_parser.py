@@ -59,7 +59,7 @@ class TestCaterpillarParser(TestPaladinNativeParser):
     def test_left_join(self):
         query = \
             '[(e1.total_slices, ' \
-            '{e2.total_slices for e2 in ''Where(Union(total_slices@12, i@13, j@14), LineHit(16))' \
+            '{e2.total_slices for e2 in Where(Union(total_slices@12, i@13, j@14), LineHit(16))' \
             ' if e1.i == e2.i and e1.j and (e1.j + 1 == e2.j)}) ' \
             'for e1 in Where(Union(total_slices@26, i@25, j@25), LineHit(30))]'
         self._test_series_of_values(
@@ -94,9 +94,8 @@ class TestKruskalLetAndAux(TestPaladinNativeParser):
 
     def test_find_with_aux(self):
         query = "Let({'x': {0, 1, 2}}, Where(list(map(lambda i: uf_find(uf@51, i), [0, 1, 2])), " \
-                "And(src@54 in x, dest@55 in x)))"
+                "And(src@56 in x, dest@57 in x)))"
 
-        self.remove_symbols_from_key = lambda _: 'list(map(lambda i: uf_find(uf, i), [0, 1, 2]))'
         self._test_series_of_values(query,
                                     SKIP_VALUE,
                                     SKIP_VALUE,

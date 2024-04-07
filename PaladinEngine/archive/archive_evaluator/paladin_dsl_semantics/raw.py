@@ -4,7 +4,7 @@ from typing import Optional, Iterable, Dict, Set, Collection, Union, List, Any, 
 
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EVAL_BUILTIN_CLOSURE, \
-    EvalResultEntry, EvalResultPair, ExpressionMapper, LineNo
+    EvalResultEntry, EvalResultPair, ExpressionMapper, LineNo, AttributedDict
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 from archive.archive_evaluator.paladin_dsl_semantics.let import Let
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
@@ -47,7 +47,7 @@ class Raw(Operator):
             resolved_names = self._resolve_names(builder, extractor.names, self.line_no, t, query_locals, user_aux)
             try:
                 # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                result = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **resolved_names})
+                result = eval(self.query, {**resolved_names, **EVAL_BUILTIN_CLOSURE})
             except (IndexError, KeyError, NameError, AttributeError, TypeError):
                 result = [None] * len(queries) if len(queries) > 1 else None
             results.append(self._create_evald_result(queries, result, t))
@@ -55,11 +55,15 @@ class Raw(Operator):
 
     def _evaluate_comprehension(self, queries, query_locals):
         try:
-            evald = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **{n: query_locals[n] for n in query_locals}})
+            evald = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **Raw.query_locals_for_compr(query_locals)})
         except (IndexError, KeyError, NameError, AttributeError, TypeError):
             evald = [None] * len(self.times)
         results = [self._create_evald_result(queries, evald[t], t) for t in self.times]
         return EvalResult(results)
+
+    @staticmethod
+    def query_locals_for_compr(query_locals: Dict[str, EvalResult]) -> Dict[str, Any]:
+        return {qk: [AttributedDict(e.items_no_scope_signs) for e in qv] for qk, qv in query_locals.items()}
 
     def _create_evald_result(self, queries: Union[List[str], str], result: Any, t: Time):
         return EvalResultEntry(t,
@@ -94,6 +98,14 @@ class Raw(Operator):
                         val = vals_for_name[0]
                         if Let.LET_BOUNDED_KEY in val:
                             res = val[Let.LET_BOUNDED_KEY].value
+                        elif isinstance(val, EvalResultEntry):
+                            if len(val.keys) == 0:
+                                res = EvalResultEntry.empty(time)
+                            elif len(val.keys) > 1:
+                                # res = val.items_no_scope_signs
+                                res = val
+                            else:
+                                res = val.values[0]
                         else:
                             res = val
                     else:
@@ -104,5 +116,6 @@ class Raw(Operator):
             resolved.update({k: v for k, v in user_aux.items() if v is not None})
 
         return resolved
+
     def _get_args(self) -> Collection['Operator']:
         return []

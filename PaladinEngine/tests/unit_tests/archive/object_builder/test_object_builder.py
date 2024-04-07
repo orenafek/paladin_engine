@@ -5,7 +5,8 @@ from itertools import chain
 from pathlib import Path
 from typing import *
 
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier, AttributedDict
+from common.attributed_dict import AttributedDict
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.naive_object_builder.naive_object_builder import NaiveObjectBuilder
 from tests.test_common.test_common import TestCommon, SKIP_VALUE

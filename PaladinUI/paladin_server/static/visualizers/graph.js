@@ -1,16 +1,14 @@
-// noinspection DuplicatedCode
-
-class Customizer {
+class Visualizer {
 
     matches(data) {
         function isEdge(obj) {
-            return typeof obj === 'object' &&
+            return typeof obj === 'object' && obj != null &&
                 'dest' in obj && typeof obj.dest !== 'undefined' &&
                 'src' in obj && typeof obj.src !== 'undefined' &&
                 'weight' in obj && typeof obj.weight !== 'undefined'
         }
 
-        return (Array.isArray(data) && data.every(obj => isEdge(obj))) || data && isEdge(data);
+        return (Array.isArray(data) && data.length >= 1 && data.every(obj => isEdge(obj))) || data && isEdge(data);
 
     }
 
@@ -170,13 +168,6 @@ class Customizer {
             .graph-edge-text {
                 font-size: 10pt;
                 stroke: white;
-            }
-
-            .graph-rank {
-                font-size: 10px;
-                text-anchor: middle;
-                dominant-baseline: middle;
-                fill: hotpink; /* Change rank text color to blue */
             }
         `
 

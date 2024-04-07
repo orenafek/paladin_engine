@@ -1,6 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass
-from typing import Optional, Iterable, Dict, Collection, List, Type, Callable
+from typing import Optional, Iterable, Dict, Collection, List, Type, Callable, Any
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Time
 from archive.object_builder.object_builder import ObjectBuilder
@@ -66,6 +66,10 @@ class Operator(ABC):
     @classmethod
     def _all(cls):
         return cls.__subclasses__()
+
+    @classmethod
+    def is_operator(cls, name: Any) -> bool:
+        return any(map(lambda o: o.name() == name, cls.all()))
 
 
 class NoArgOperator(Operator, ABC):

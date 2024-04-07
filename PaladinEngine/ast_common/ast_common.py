@@ -135,3 +135,6 @@ def separate_to_container_and_field(expression: str, frame, locals: dict, global
     field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
 
     return id(container), field, container, False, False
+
+def split_attr(expression: str):
+    return expression.split(".")
