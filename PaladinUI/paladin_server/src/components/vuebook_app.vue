@@ -37,7 +37,8 @@ import {builtinVisualizers} from "./settings.vue";
 import {Visualizers} from "./visualizers"
 
 @Component({
-    components: {Notebook, CommandPalette, tabular}
+    components: {Notebook, CommandPalette, tabular},
+    emits: ['highlight']
 })
 class Vuebook extends Vue {
 
@@ -73,11 +74,12 @@ class Vuebook extends Vue {
     }
 
     formatResults(queryResult) {
+        let qr = JSON.parse(queryResult as string);
         return {
-            columnHeaders: queryResult['keys'],
-            rowHeaders: Object.keys(queryResult).filter(k => k != 'keys')
+            columnHeaders: qr['keys'],
+            rowHeaders: Object.keys(qr).filter(k => k != 'keys')
                 .map(key => ({key, display: this.formatTimeInterval(key)})),
-            rowData: queryResult
+            rowData: qr
         };
     }
 
@@ -116,12 +118,34 @@ class Vuebook extends Vue {
                     is: h(tabular),
                     props: {
                         "visualizers": builtinVisualizers,
-                        "value": this.formatResults(JSON.parse(queryRunResult as string))
+                        "value": this.formatResults(queryRunResult),
+                        "emit-event": this.emitEvent
                     }
                 }
             });
 
         cell.loading = false;
+    }
+
+    async findCausingLineByTime(time: number): Promise<number> {
+        const query = "LineNo(ConstTime(" + time + "))";
+        const queryRunResult = await request_debug_info("query", ...[query, time, time, ""]);
+        const results = this.formatResults(queryRunResult);
+        try {
+            return parseInt(results.rowData[results.rowHeaders[0].key][results.columnHeaders[0]]);
+        } catch(error){
+            console.error("vuebook_app: wrong lineNumber.");
+        }
+
+        return -1;
+    }
+
+
+    async emitEvent(name: string, data: any){
+        if (name.includes("row:select")){
+            const lineNumber = await this.findCausingLineByTime(data as number);
+            this.$emit("highlight", lineNumber);
+        }
     }
 }
 
