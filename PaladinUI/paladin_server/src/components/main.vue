@@ -23,11 +23,6 @@
         </pane>
         <pane>
           <splitpanes horizontal class="default-theme" :push-other-panes="false">
-<!--            <pane id="settings-pane" :size="30">-->
-<!--              <div class="range-spec" style="max-width: 30%">-->
-<!--                <settings></settings>-->
-<!--              </div>-->
-<!--            </pane>-->
             <pane id="vuebook-pane" :size="100" style="overflow-y: auto">
               <cheat-sheet :completions="docs"></cheat-sheet>
               <vuebook ref="vuebook" :completions="completions" :lastRunTime="lastRunTime"></vuebook>

@@ -34,6 +34,8 @@ import tabular from "./tabular.vue";
 //@ts-ignore
 import {builtinVisualizers} from "./settings.vue";
 
+import {Visualizers} from "./visualizers"
+
 @Component({
     components: {Notebook, CommandPalette, tabular}
 })
@@ -63,6 +65,9 @@ class Vuebook extends Vue {
         watch(keys['Down'], (v) => v && this.$refs.cmd.close());
     }
 
+    async mounted(){
+        await Visualizers.instance.loadBuiltinVisualizers(builtinVisualizers);
+    }
     onCommand(command: { command: string }) {
         this.$refs.notebook.command(command);
     }
