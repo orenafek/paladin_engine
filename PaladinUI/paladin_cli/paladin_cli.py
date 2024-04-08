@@ -79,6 +79,8 @@ def main():
                     pass
                 except BaseException:
                     traceback.print_exc()
+                finally:
+                    server.finalize()
             if args.csv != '':
                 if engine.run_data.archive:
                     print('Creating CSV')

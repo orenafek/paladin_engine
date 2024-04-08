@@ -1,3 +1,4 @@
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,8 +12,6 @@ from PaladinEngine.engine.engine import PaLaDiNEngine
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
 from archive.archive_evaluator.paladin_dsl_semantics import Operator
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
-from archive.object_builder.naive_object_builder.naive_object_builder import NaiveObjectBuilder
-from archive.object_builder.recursive_object_builder.recursive_object_builder import RecursiveObjectBuilder
 from common.common import ISP
 
 NAME = 'PaLaDiN - Time-travel Debugging with Semantic Queries'
@@ -29,7 +28,7 @@ ENGINE: Optional[PaLaDiNEngine] = None
 RUN_DATA: Optional[PaLaDiNEngine.PaladinRunData] = None
 EVALUATOR: Optional[ArchiveEvaluator] = None
 PARSER: Optional[PaladinNativeParser] = None
-
+RECORDER: Optional['PaladinServer.Recorder'] = None
 
 class PaladinServer(FlaskView):
     @dataclass
@@ -51,11 +50,27 @@ class PaladinServer(FlaskView):
         expression: str
         time: int
 
+    class Recorder(object):
+        def __init__(self, session_output_path: Path, program_name: str):
+            self.session_output_path = session_output_path
+            self.program_name = program_name
+            self.data = {'program': self.program_name, 'queries': []}
+
+        def record_query(self, query: str, result: str, **kwargs):
+            self.data['queries'].append({'request': {'query': query, **kwargs}, 'response': json.loads(result)})
+
+        def dump(self):
+            with open(str(self.session_output_path), 'w+') as f:
+                f.write(json.dumps(self.data))
+
     @classmethod
     def create(cls, engine: PaLaDiNEngine) -> 'PaladinServer':
-        global ENGINE, RUN_DATA, EVALUATOR, PARSER
+        global ENGINE, RUN_DATA, EVALUATOR, PARSER, RECORDER
         server = PaladinServer()
         server._reset(engine)
+        RECORDER = PaladinServer.Recorder(
+            engine.source_path.parent.joinpath(Path(engine.source_path.name + '_session')).with_suffix('.json'),
+            engine.source_path.name)
         return server
 
     def run(self, port: int = 9999):
@@ -70,8 +85,8 @@ class PaladinServer(FlaskView):
         RUN_DATA.archive.global_map = ENGINE.global_map
         EVALUATOR = ArchiveEvaluator(RUN_DATA.archive)
         PARSER = PaladinNativeParser(RUN_DATA.archive)
-        #PARSER = PaladinNativeParser(RUN_DATA.archive, object_builder_type=RecursiveObjectBuilder)
-        #PARSER = PaladinNativeParser(RUN_DATA.archive, object_builder_type=NaiveObjectBuilder)
+        # PARSER = PaladinNativeParser(RUN_DATA.archive, object_builder_type=RecursiveObjectBuilder)
+        # PARSER = PaladinNativeParser(RUN_DATA.archive, object_builder_type=NaiveObjectBuilder)
 
     def __init__(self):
         self._app = Flask(NAME, template_folder=str(TEMPLATE_FOLDER), static_folder=str(STATIC_FOLDER))
@@ -209,12 +224,11 @@ class PaladinServer(FlaskView):
             [{'label': op.name(), 'type': 'keyword', 'info': op.__doc__} for op in Operator.all()]
         )
 
-    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/', defaults={'customizer': ''})
-    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/<string:customizer>')
-    def query(self, select_query: str, start_time: int, end_time: int, customizer: str):
-        return PaladinServer.create_response(
-            PARSER.parse(select_query.replace('<br>', '\n'), start_time, end_time,
-                         customizer=customizer.replace('<br>', '\n')))
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/')
+    def query(self, select_query: str, start_time: int, end_time: int):
+        result = PARSER.parse(select_query.replace('<br>', '\n'), start_time, end_time)
+        self.record(select_query, result, **{'start_time': start_time, 'end_time': end_time})
+        return PaladinServer.create_response(result)
 
     @route('/uploader', methods=['GET', 'POST'])
     def upload_file(self):
@@ -284,3 +298,11 @@ class PaladinServer(FlaskView):
     @staticmethod
     def _run_time_window():
         return {'TIME_WINDOW': (0, RUN_DATA.archive.last_time)}
+
+    def record(self, _request: str, response: str, **kwargs):
+        global RECORDER
+        RECORDER.record_query(_request, response, **kwargs)
+
+    def finalize(self):
+        global RECORDER
+        RECORDER.dump()

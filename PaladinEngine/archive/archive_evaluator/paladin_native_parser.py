@@ -356,8 +356,7 @@ class PaladinNativeParser(object):
 
         return PaladinNativeParser._remove_bad_json_values(json.dumps(obj, cls=_encoder))
 
-    def parse(self, query: str, start_time: int, end_time: int, jsonify: bool = True, customizer: str = '') -> \
-            Union[str, EvalResult]:
+    def parse(self, query: str, start_time: int, end_time: int, jsonify: bool = True) -> Union[str, EvalResult]:
         try:
             times = range(start_time, end_time + 1)
 
@@ -393,9 +392,6 @@ class PaladinNativeParser(object):
                 return results
 
             grouped = results.group()
-
-            if customizer != '':
-                grouped = PaladinNativeParser.customize(customizer, grouped)
 
             # Add the keys in the first row.
             # noinspection PyTypeChecker
@@ -496,17 +492,6 @@ class PaladinNativeParser(object):
             raise RuntimeError('Secret magic found in query :(')
 
         return query.replace(FUNCTION_CALL_MAGIC, PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL)
-
-    @staticmethod
-    def customize(customizer_str: str, results: ParseResults) -> ParseResults:
-        try:
-            exec(customizer_str)
-            customizer_func: PaladinNativeParser.Customizer = locals()[
-                'customizer'] if 'customizer' in locals() else None
-            # Customize.
-            return {k: customizer_func(v) for k, v in results.items()} if customizer_func else results
-        except BaseException as e:
-            traceback.print_exception(e)
 
     @classmethod
     def docs(cls):
