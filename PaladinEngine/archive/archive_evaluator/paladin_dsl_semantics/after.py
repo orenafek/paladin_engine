@@ -8,7 +8,7 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class After(UniLateralOperator, TimeOperator):
     """
-        After(<time_op>): Returns true for all times on the first time <time_op> has been satisfied and later.
+        After(o): Satisfies on the first time o has been satisfied and later.
     """
 
     def __init__(self, times: Iterable[Time], first: TimeOperator):

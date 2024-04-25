@@ -8,10 +8,6 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Meld(BiLateralOperator):
-    """
-        Meld(<c1>, <c2>): Align <c1> and <c2> using meld algorithm
-    """
-
     @dataclass
     class _MeldData(object):
         data: Tuple[Any]

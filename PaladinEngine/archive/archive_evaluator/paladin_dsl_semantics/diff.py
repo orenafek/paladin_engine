@@ -8,10 +8,6 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Diff(BiLateralOperator):
-    """
-          Diff(<selector>, <cond>): Selects <selector> when <cond> and t-1 before <cond>
-    """
-
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
              user_aux: Optional[Dict[str, Callable]] = None):
         time_range = self.second.eval(builder)

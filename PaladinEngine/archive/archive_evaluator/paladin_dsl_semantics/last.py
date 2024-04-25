@@ -8,7 +8,7 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class Last(UniLateralOperator, TimeOperator):
     """
-        Last(o): Satisfies only for the last time of o.
+        Last(o): Satisfies only for the last time that o has been satisfied.
     """
 
     def __init__(self, times: Iterable[Time], first: Operator):

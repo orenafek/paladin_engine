@@ -10,10 +10,13 @@ from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, BAD_JSON_VALUES, \
     EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, EvalResultEntry
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
-from archive.archive_evaluator.paladin_dsl_semantics import Const
+from archive.archive_evaluator.paladin_dsl_semantics import Const, TimeOperator
+from archive.archive_evaluator.paladin_dsl_semantics.aux_op import AuxOp
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.type_op import Type as TypeOp
+from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
+from archive.archive_evaluator.paladin_dsl_semantics.summary_op import SummaryOp
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
@@ -495,6 +498,14 @@ class PaladinNativeParser(object):
         return query.replace(FUNCTION_CALL_MAGIC, PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL)
 
     @classmethod
-    def docs(cls):
-        return '```' '\n' + '\n'.join(
-            sorted([op.__doc__.strip() for op in Operator.all() if op.__doc__])) + '\n' + '```'
+    def docs(cls) -> List[Dict]:
+        doc_repr = lambda ops: '\n'.join(sorted([op.__doc__.strip() for op in ops if op.__doc__])) + '\n'
+        time_ops = filter(lambda op: issubclass(op, TimeOperator), Operator.all())
+        selectors = filter(lambda op: issubclass(op, Selector), Operator.all())
+        summaries = filter(lambda op: issubclass(op, SummaryOp), Operator.all())
+        aux = filter(lambda op: issubclass(op, AuxOp), Operator.all())
+
+        return [{'type': 'Time Operators', 'doc': doc_repr(time_ops), 'exp': TimeOperator.explanation()},
+                {'type': 'Selectors', 'doc': doc_repr(selectors), 'exp': Selector.explanation()},
+                {'type': 'Summaries', 'doc': doc_repr(summaries), 'exp': SummaryOp.explanation()},
+                {'type': 'Auxiliaries', 'doc': doc_repr(aux), 'exp': AuxOp.explanation()}]

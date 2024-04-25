@@ -7,17 +7,25 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class And(BiTimeOperator):
+    """
+        And(o1, o2): Satisfied for each time that satisfies both o1 and o2.
+    """
     def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
         super().__init__(times, first, second, lambda r1, r2: r1 and r2)
 
 
 class Or(BiTimeOperator):
+    """
+        Or(o1, o2): Satisfies for each time that satisfies either o1 or o2.
+    """
     def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
         super().__init__(times, first, second, lambda r1, r2: r1 or r2)
 
 
 class Not(UniLateralOperator, TimeOperator):
-
+    """
+        Not(o): Satisfies for each time that doesn't satisfy o.
+    """
     def __init__(self, times: Iterable[Time], first: Operator):
         UniLateralOperator.__init__(self, times, first)
         TimeOperator.__init__(self, times)

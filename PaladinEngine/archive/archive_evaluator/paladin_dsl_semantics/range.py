@@ -9,7 +9,7 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class Range(BiLateralOperator, TimeOperator):
     """
-    Range(o1, o2): Satisfies on each time in between the first satisfaction of o1 and the last satisfaction of o2.
+        Range(o1, o2): Satisfies on each time in between the first satisfaction of o1 and the last satisfaction of o2.
     """
 
     def __init__(self, times: Iterable[Time], first: Operator, second: Operator):

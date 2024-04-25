@@ -8,10 +8,6 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Align(BiLateralOperator):
-    """
-        Align(<c1>, <c2>): Selects <c1> and <c2> by aligning them using heuristics.
-    """
-
     @dataclass
     class AlignmentHeuristic(object):
         func: Callable
