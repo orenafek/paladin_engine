@@ -32,6 +32,9 @@ import {request_debug_info} from "../request";
 import tabular from "./tabular.vue";
 
 //@ts-ignore
+import QueryError from "./query_error.vue"
+
+//@ts-ignore
 import {builtinVisualizers} from "./settings.vue";
 
 import {Visualizers} from "./visualizers"
@@ -111,21 +114,34 @@ class Vuebook extends Vue {
 
     private async runCell(cell: Model.Cell) {
         cell.loading = true;
-        let queryRunResult = await request_debug_info("query", ...[cell.input, 0, this.lastRunTime]);
+        let queryRunResult = await request_debug_info("query", ...[cell.input, 0, this.lastRunTime, ""]) as string;
         this.model.clearOutputs(cell);
         this.model.addResult(cell,
-            {
-                'application/vue3': {
-                    is: h(tabular),
-                    props: {
-                        "visualizers": builtinVisualizers,
-                        "value": this.formatResults(queryRunResult),
-                        "emit-event": this.emitEvent
+            !this.isError(queryRunResult) ?
+                {
+                    'application/vue3': {
+                        is: h(tabular),
+                        props: {
+                            "visualizers": builtinVisualizers,
+                            "value": this.formatResults(queryRunResult),
+                            "emit-event": this.emitEvent
+                        }
                     }
-                }
-            });
+                } :
+                {
+                    'application/vue3': {
+                        is: h(QueryError),
+                        props: {"error": JSON.parse(queryRunResult)['error']}
+                    }
+                });
 
         cell.loading = false;
+    }
+
+    private isError(result: string): boolean {
+        console.log('r = ', result);
+        console.log('JS(r) = ', JSON.parse(result));
+        return JSON.parse(result)['error'] != undefined
     }
 
     async findCausingLineByTime(time: number): Promise<number> {

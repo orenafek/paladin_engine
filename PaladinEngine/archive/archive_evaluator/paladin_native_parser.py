@@ -8,7 +8,7 @@ from typing import *  # DO NOT REMOVE!!!!
 
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, BAD_JSON_VALUES, \
-    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, EvalResultEntry, ParseResults
+    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, EvalResultEntry
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
 from archive.archive_evaluator.paladin_dsl_semantics import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
@@ -403,7 +403,8 @@ class PaladinNativeParser(object):
         except BaseException as e:
             traceback.print_exc()
             if jsonify:
-                return json.dumps("")
+                return json.dumps(
+                    {'error': 'Syntax Error: ' + str(e.msg) if isinstance(e, SyntaxError) else 'Internal Error'})
 
             raise e
 
