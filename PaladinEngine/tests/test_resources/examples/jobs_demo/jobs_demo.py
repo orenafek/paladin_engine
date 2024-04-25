@@ -107,10 +107,10 @@ class AllTypesWorker(Worker):
 
 
 def main():
-    random.seed(2023)
+    random.seed(2024)
     server = Server()
     workers = [worker_type(server) for worker_type in Worker.__subclasses__()]
-    jobs = [Job(i, choice(list(Job.Type))) for i in range(20)]
+    jobs = [Job(i, choice(list(Job.Type))) for i in range(40)]
     shuffle(jobs)
     server.todo = jobs.copy()
 

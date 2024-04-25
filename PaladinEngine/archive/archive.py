@@ -14,7 +14,8 @@ from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Type
 
 from pandas import DataFrame
 
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ContainerId, Rk, Rv, Rvf
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ContainerId, Rk, Rv, Rvf, \
+    ObjectId
 from ast_common.ast_common import split_attr
 from common.common import ISP, IS_ITERABLE
 from module_transformer.global_map import GlobalMap
@@ -386,7 +387,7 @@ class Archive(object):
                 Archive.Filters.AS_OR_BMFCS_FILTER,
                 Archive.Filters.TIME_RANGE_FILTER(time_range),
                 Archive.Filters.LINE_NOS_FILTER(line_nos),
-                lambda vv: vv.key.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.BUILTIN_MANIP}
+                lambda vv: vv.key.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.BUILTIN_MANIP, Archive.Record.StoreKind.OBJ_ITEM}
             ])
 
     def get_function_entries(self, func_name: str, line_no: Optional[int] = -1, entrances: bool = True,
@@ -511,3 +512,6 @@ class Archive(object):
         local_func_records = [records[i] for i in range(len(records) - 1) if
                               records_match(records[i][1], records[i + 1][1])]
         return {rv.time: (rv.extra, rv.expression) for rk, rv in local_func_records}
+
+    def exists(self, value: ObjectId):
+        return len(self.filter(lambda vv: vv.value == value)) > 0

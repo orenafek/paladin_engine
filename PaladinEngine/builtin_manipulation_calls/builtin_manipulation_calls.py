@@ -50,7 +50,8 @@ class BuiltinCollectionsUtils(object):
         if v != EMPTY:
             collection.__getattribute__(manip_name)(v)
         else:
-            collection.__getattribute__(manip_name)()
+            if d:
+                collection.__getattribute__(manip_name)()
         return {(type(e), i): e for i, e in enumerate(collection)}
 
     @staticmethod

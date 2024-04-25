@@ -6,17 +6,18 @@ from collections import deque
 from dataclasses import dataclass
 from typing import *  # DO NOT REMOVE!!!!
 
-from common.attributed_dict import AttributedDict
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, BAD_JSON_VALUES, \
-    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, ParseResults
+    EVAL_BUILTIN_CLOSURE, BUILTIN_SPECIAL_FLOATS, Time, EvalResultEntry, ParseResults
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
 from archive.archive_evaluator.paladin_dsl_semantics import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
+from archive.archive_evaluator.paladin_dsl_semantics.type_op import Type as TypeOp
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
+from common.attributed_dict import AttributedDict
 from finders.finders import GenericFinder, StubEntry, ContainerFinder
 from stubbers.stubbers import Stubber
 
@@ -107,6 +108,8 @@ class PaladinNativeParser(object):
             return visit_result
 
         def visit_Call(self, node: ast.Call) -> Any:
+            node = self._handle_type_call(node)
+
             if not PaladinNativeParser._is_operator_call(node):
                 return self.generic_visit(node)
 
@@ -129,6 +132,11 @@ class PaladinNativeParser(object):
                                PaladinNativeParser.OPERATORS[node.func.id](self.times, *arg_vars))
 
             return ast.Name(id=var_name, lineno=node.lineno)
+
+        def _handle_type_call(self, node: ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id == type.__name__:
+                node.func.id = TypeOp.__name__
+            return node
 
         def visit_Slice(self, node: ast.Slice) -> Any:
             parts = []
@@ -155,6 +163,9 @@ class PaladinNativeParser(object):
 
         def _create_const_op_from_arg(self, arg: ast.AST):
             return Const(ast2str(arg), self.times)
+
+        def _create_type_op_from_arg(self, arg: ast.AST):
+            return TypeOp(self.times, Raw(ast2str(arg)), arg.lineno)
 
         def visit_Compare(self, node: ast.Compare) -> Any:
             node.left = super().visit(node.left)
@@ -463,7 +474,12 @@ class PaladinNativeParser(object):
     def _restore_original_operator_keys(query_ast: ast.AST, visitor: OperatorLambdaReplacer, result: EvalResult) -> \
             Tuple[str, EvalResult]:
         for var_name, (operator, operator_original_name) in reversed(visitor.operators.items()):
-            result = EvalResult.rename_key(result, operator_original_name, var_name)
+            if {var_name} == result.all_keys() and all(
+                    [isinstance(e[var_name].value, EvalResultEntry) for e in result]):
+                # If the result is in the form of "lambda_var: EvalResult(...)", remove the lambda var.
+                result = EvalResult([e[var_name].value if e[var_name] else e for e in result])
+            else:
+                result = EvalResult.rename_key(result, operator_original_name, var_name)
 
         return visitor.operators[ast2str(query_ast)][1], result
 

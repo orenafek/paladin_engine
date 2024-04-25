@@ -25,12 +25,21 @@ class Changed(UniLateralOperator, TimeOperator):
         if not isinstance(self.first, Raw):
             return EvalResult.empty(self.times)
 
-        expr_components = self.separate(self.first.query)
-        if not expr_components:
+        res = self.first.eval(builder, query_locals, user_aux)
+        not_none_times = [i.time for i in res if not all(x is None for x in i.values)]
+
+        if len(res) == 0 or not not_none_times:
             return EvalResult.empty(self.times)
 
-        base: str = expr_components[0]
-        change_times: Iterable[Time] = builder.get_change_times(base, self.first.line_no)
+        res_iter = iter(filter(lambda i: i.time in not_none_times, res))
+        last = next(res_iter)
+        change_times = [not_none_times[0]]
+        for curr in res_iter:
+            if curr.items != last.items:
+                change_times.append(curr.time)
+
+            last = curr
+
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(t, t in change_times, []) for t in self.times
         ])

@@ -36,7 +36,7 @@ class Raw(Operator):
 
         # Check for a comprehension.
         if any([isinstance(str2ast(self.query).value, t) for t in {ast.ListComp, ast.SetComp, ast.DictComp}]):
-            return self._evaluate_comprehension(queries, query_locals)
+            pass
 
         return self._evaluate_raw_by_time(builder, extractor, queries, query_locals, user_aux)
 

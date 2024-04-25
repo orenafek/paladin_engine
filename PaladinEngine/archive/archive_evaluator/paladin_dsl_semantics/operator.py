@@ -116,9 +116,10 @@ class TriLateralOperator(Operator, ABC):
 
 
 class VariadicLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], *args: List[Operator]):
+    def __init__(self, times: Iterable[Time], *args: Operator, **kwargs: Operator):
         super(VariadicLateralOperator, self).__init__(times)
-        self.args: List[Operator] = args
+        self.args: List[Operator] = list(args)
+        self.kwargs: Dict[str, Operator] = kwargs
 
     def _get_args(self) -> Collection['Operator']:
         return self.args

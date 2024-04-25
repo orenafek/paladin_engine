@@ -337,6 +337,8 @@ def __store(container_id, field, line_no, target, value, locals, globals,
     stored_objects = set()
 
     value_to_store = POID(value)
+    value_exists = archive.exists(value_to_store)
+
     rv = archive.store_new \
         .key(container_id, field, stub.__name__, kind) \
         .value(type(value), value_to_store, str(target), line_no, extra=extra)
@@ -389,5 +391,5 @@ def __store(container_id, field, line_no, target, value, locals, globals,
             _store_inner(k)
             _store_inner(v)
 
-    if not ISP(type(value)) and not id(value) in {id(x) for x in stored_objects}:
+    if not ISP(type(value)) and not id(value) in {id(x) for x in stored_objects} and (kind == Archive.Record.StoreKind.FUNCTION_CALL or not value_exists):
         _store_inner(value)

@@ -3,26 +3,12 @@ from abc import ABC
 from collections import deque
 from itertools import chain
 from pathlib import Path
-from typing import *
 
 from common.attributed_dict import AttributedDict
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.naive_object_builder.naive_object_builder import NaiveObjectBuilder
-from tests.test_common.test_common import TestCommon, SKIP_VALUE
-from utils.utils import separate_line_no
-
-
-class TestObjectBuilder(TestCommon, ABC):
-    def setUp(self) -> None:
-        self.object_builder = DiffObjectBuilder(self.archive)
-
-    def value_generator(self, obj, line_no) -> Optional[Iterator[Tuple[Time, Any]]]:
-        return self.object_builder._build_iterator(obj, line_no)
-
-    def _test_series_of_values(self, obj: Identifier, *expected: Any):
-        obj, line_no = separate_line_no(obj)
-        return self._test_series(obj, lambda value: value, line_no, *expected)
+from tests.test_common.test_common import SKIP_VALUE
+from tests.test_common.test_object_builder.test_object_builder import TestObjectBuilder
 
 
 def setUpDiff(self):

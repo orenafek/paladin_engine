@@ -511,13 +511,13 @@ class DiffObjectBuilder(ObjectBuilder):
                 fields = list(map(lambda k: k[1], value.keys()))
                 values = value.values()
             for t, f, v in zip(types, fields, values):
-                if not isinstance(f, DiffObjectBuilder._Field) or f.kind == Archive.Record.StoreKind.FUNCTION_CALL:
+                if not isinstance(f, DiffObjectBuilder._Field):
                     continue
 
-                if ISP(t):
-                    change_times.extend([rng.start for rng in list(*range_set)])
+                if ISP(t) or f.kind == Archive.Record.StoreKind.FUNCTION_CALL:
+                    change_times.extend([rng.start for rng in list(*range_set) if all([rng.start >tt for tt in change_times])])
                 else:
-                    change_times.extend(self.get_change_times(v))
+                    change_times.extend([t for t in self.get_change_times(v) if all([t > tt for tt in change_times])])
 
         return change_times
 

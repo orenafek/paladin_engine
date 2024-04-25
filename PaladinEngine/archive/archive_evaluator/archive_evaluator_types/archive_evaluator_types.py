@@ -180,7 +180,7 @@ class EvalResultEntry(OrderedDict):
         return super().__iter__()
 
     def __repr__(self):
-        return f'{self.time}: {self.items}'
+        return repr(self.items)
 
 
 class EvalResult(List[EvalResultEntry]):
@@ -297,6 +297,8 @@ class EvalResult(List[EvalResultEntry]):
         if rng and vals:
             res[EvalResult._create_key(rng)] = vals
 
+        # Filter out empty results.
+        res = {k: v for k, v in res.items() if not all([vv is None for vv in v.values()])}
         return res
 
     def is_empty(self):

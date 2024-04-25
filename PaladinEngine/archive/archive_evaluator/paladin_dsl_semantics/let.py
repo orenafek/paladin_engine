@@ -1,9 +1,9 @@
-from typing import Optional, Dict, Iterable, cast, Any, Callable
+from typing import Optional, Dict, Callable, Any, cast, Iterable
 
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Time, EvalResultEntry, \
-    EvalResultPair
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
+    EvalResultPair, Time
+from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOperator, Operator
 from archive.archive_evaluator.paladin_dsl_semantics.pure_eval_once import _PureEvalOnce
-from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator, BiLateralOperator
 from archive.object_builder.object_builder import ObjectBuilder
 
 

@@ -5,6 +5,8 @@ from itertools import chain
 from pathlib import Path
 from typing import Tuple, Any, Iterator, Optional
 
+import pytest
+
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from tests.test_common.test_common import TestCommon, SKIP_VALUE
@@ -56,6 +58,7 @@ class TestCaterpillarParser(TestPaladinNativeParser):
     def program_path(cls):
         return cls.example('caterpillar')
 
+    @pytest.mark.skip(reason='No more support for comprehensions')
     def test_left_join(self):
         query = \
             '[(e1.total_slices, ' \
@@ -94,7 +97,7 @@ class TestKruskalLetAndAux(TestPaladinNativeParser):
 
     def test_find_with_aux(self):
         query = "Let({'x': {0, 1, 2}}, Where(list(map(lambda i: uf_find(uf@51, i), [0, 1, 2])), " \
-                "And(src@56 in x, dest@57 in x)))"
+                "And(src@57 in x, dest@58 in x)))"
 
         self._test_series_of_values(query,
                                     SKIP_VALUE,

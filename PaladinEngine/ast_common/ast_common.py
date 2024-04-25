@@ -1,5 +1,4 @@
 import ast
-from dataclasses import dataclass, field
 from typing import *
 
 LiteralTypes = [int, float, str, bool, complex]
@@ -136,5 +135,10 @@ def separate_to_container_and_field(expression: str, frame, locals: dict, global
 
     return id(container), field, container, False, False
 
+
 def split_attr(expression: str):
     return expression.split(".")
+
+
+def get_op_sign(op: ast.operator):
+    return ast._Unparser.binop[op.__class__.__name__]
