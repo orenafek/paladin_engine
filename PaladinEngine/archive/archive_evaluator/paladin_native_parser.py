@@ -14,9 +14,9 @@ from archive.archive_evaluator.paladin_dsl_semantics import Const, TimeOperator
 from archive.archive_evaluator.paladin_dsl_semantics.aux_op import AuxOp
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
-from archive.archive_evaluator.paladin_dsl_semantics.type_op import Type as TypeOp
 from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.archive_evaluator.paladin_dsl_semantics.summary_op import SummaryOp
+from archive.archive_evaluator.paladin_dsl_semantics.type_op import Type as TypeOp
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import ast2str, str2ast, is_tuple, split_tuple
@@ -505,7 +505,7 @@ class PaladinNativeParser(object):
         summaries = filter(lambda op: issubclass(op, SummaryOp), Operator.all())
         aux = filter(lambda op: issubclass(op, AuxOp), Operator.all())
 
-        return [{'type': 'Time Operators', 'doc': doc_repr(time_ops), 'exp': TimeOperator.explanation()},
-                {'type': 'Selectors', 'doc': doc_repr(selectors), 'exp': Selector.explanation()},
-                {'type': 'Summaries', 'doc': doc_repr(summaries), 'exp': SummaryOp.explanation()},
-                {'type': 'Auxiliaries', 'doc': doc_repr(aux), 'exp': AuxOp.explanation()}]
+        return [{'type': 'Selectors', 'doc': doc_repr(selectors), 'exp': Selector.explanation()},
+                {'type': 'Auxiliaries', 'doc': doc_repr(aux), 'exp': AuxOp.explanation()},
+                {'type': 'Time Operators', 'doc': doc_repr(time_ops), 'exp': TimeOperator.explanation()},
+                {'type': 'Summaries', 'doc': doc_repr(summaries), 'exp': SummaryOp.explanation()}]

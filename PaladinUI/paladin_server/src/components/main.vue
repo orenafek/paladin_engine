@@ -7,7 +7,7 @@
             <splitpanes class="default-theme" ref="mainSplit" @resize="storeLayoutPanes">
                 <pane :size="layout.panes[0].size">
                     <splitpanes horizontal class="default-theme" :push-other-panes="false">
-                        <pane :size="85">
+                        <pane :size="85" class="code-editor-pane">
                             <code-editor :source-code="sourceCode.join('\n')" :actions="actions"
                                          lang="python" ref="editor"></code-editor>
                         </pane>
@@ -25,7 +25,7 @@
                 <pane>
                     <splitpanes horizontal class="default-theme" :push-other-panes="false">
                         <pane id="vuebook-pane" :size="100" style="overflow-y: auto">
-                            <cheat-sheet :completions="docs"></cheat-sheet>
+                            <cheat-sheet :docs="docs"></cheat-sheet>
                             <vuebook ref="vuebook" :completions="completions" :lastRunTime="lastRunTime"
                                      @highlight="highlightCodeLine"></vuebook>
                         </pane>
@@ -64,7 +64,7 @@ import Settings from "./settings.vue";
 import ScreenLoadingSpinner from "./screen-loading-spinner.vue";
 
 //@ts-ignore
-import CheatSheet from "./cheat_sheet.vue";
+import CheatSheet from "./cheat-sheet.vue";
 
 type Exception = {
     line_no: number
@@ -157,3 +157,18 @@ class Main extends Vue {
 
 export default toNative(Main);
 </script>
+
+<style lang="scss">
+* {
+    box-sizing: border-box;
+}
+
+.code-editor-pane {
+    display: flex;
+    flex-direction: column;
+}
+
+.code-editor-pane CodeMirror {
+    flex-grow: 1;
+}
+</style>

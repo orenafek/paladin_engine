@@ -1,5 +1,8 @@
 {
   "name": "paladin-ui",
+  "engines": {
+    "node": ">=21.7.1"
+  },
   "version": "0.1.0",
   "scripts": {
     "build": "webpack"
