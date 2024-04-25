@@ -38,7 +38,7 @@ import {Visualizers} from "./visualizers"
 
 @Component({
     components: {Notebook, CommandPalette, tabular},
-    emits: ['highlight']
+    emits: ['highlight', 'highlight-stop']
 })
 class Vuebook extends Vue {
 
@@ -142,10 +142,15 @@ class Vuebook extends Vue {
     }
 
 
-    async emitEvent(name: string, data: any){
-        if (name.includes("row:select")){
+    async emitEvent(name: string, data: any) {
+        if (name.includes("row:select")) {
             const lineNumber = await this.findCausingLineByTime(data as number);
             this.$emit("highlight", lineNumber);
+        }
+
+        if (name.includes("row:unselect")) {
+            const lineNumber = await this.findCausingLineByTime(data as number);
+            this.$emit("highlight-stop", lineNumber);
         }
     }
 }

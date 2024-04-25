@@ -15,11 +15,13 @@
         </thead>
         <tbody>
         <tr v-for="rowHead in value.rowHeaders">
-            <td @click="rowSelect($event, rowHead)" class="hover-underline"> {{ rowHead.display }}</td>
+            <td @mouseover="rowSelect($event, rowHead)" @mouseleave="rowUnselect($event, rowHead)"
+                class="hover-underline"> {{ rowHead.display }}
+            </td>
             <td v-for="colKey in value.columnHeaders">
                 <div style="display: inline-flex;">
-                    <runtime-component ref="rc" :column="colKey" v-bind="results[rowHead.key][colKey]" />
-                    <span :style="'color: '+ results[rowHead.key][colKey].color + '; font-size: 8pt'">*</span>
+                    <runtime-component ref="rc" :column="colKey" v-bind="results[rowHead.key][colKey]"/>
+                    <div class="changed-triangle" v-if="results[rowHead.key][colKey].changed"></div>
                 </div>
             </td>
         </tr>
@@ -48,18 +50,15 @@ type CellData = {
     type: string
     content: any
     data: any
-    color: string
+    changed: boolean
 }
 
 
 @Component({
     components: {RuntimeComponent, VisualizerPanel},
-    emits: ['row:select']
+    emits: ['row:select', 'row:unselect']
 })
 class Tabular extends Vue {
-    COLOR_CLEAR = 'rgba(0, 0, 0, 0)';
-    COLOR_CHANGE = '#ffc66d';
-
     @Prop value: TabularValue
     @Prop emitEvent: any
 
@@ -95,7 +94,7 @@ class Tabular extends Vue {
                     this.results[row][col] = {
                         ...visualizer.instance.format(item),
                         data: item != null ? item : '',
-                        color: this.COLOR_CLEAR
+                        changed: false
                     };
                     visualized = true;
                     /* For now, select the first active, available visualizer to prevent conflicts. */
@@ -115,7 +114,7 @@ class Tabular extends Vue {
 
     private plainResult(row: string, col: string): any {
         const item = this.value.rowData[row]?.[col];
-        return ({type: "text/plain", content: item, data: item != null ? item : '', color: this.COLOR_CLEAR});
+        return ({type: "text/plain", content: item, data: item != null ? item : '', changed: false});
     }
 
     initializeResults() {
@@ -125,8 +124,8 @@ class Tabular extends Vue {
             for (const [col_index, col] of toEntries(this.value.columnHeaders)) {
                 let cell = this.results[row.key][col] = this.plainResult(row.key, col);
                 if (row_index != 0) {
-                    if (lastRow[col_index] !== cell.data) {
-                        cell.color = this.COLOR_CHANGE;
+                    if (JSON.stringify(lastRow[col_index]) !== JSON.stringify(cell.data)) {
+                        cell.changed = true;
                     }
                 }
                 lastRow[col_index] = cell.data;
@@ -134,7 +133,15 @@ class Tabular extends Vue {
         }
     }
 
-     rowSelect($event, rowHead) {
+    rowSelect($event, rowHead) {
+        this.emitEvent('row:select', this.extractLeftTime(rowHead));
+    }
+
+    rowUnselect($event, rowHead) {
+        this.emitEvent('row:unselect', this.extractLeftTime(rowHead));
+    }
+
+    private extractLeftTime(rowHead): number {
         const regex = /\((\d+),\s*\d+\)/;
         const match = regex.exec(rowHead.key);
 
@@ -143,8 +150,7 @@ class Tabular extends Vue {
             console.error('Tabular row key is not in an appropriate format.');
         }
 
-        const leftTime = parseInt(match[1]);
-        this.emitEvent('row:select', leftTime);
+        return parseInt(match[1]);
     }
 
     availableVisualizers(column: string): Visualizer[] {
@@ -160,17 +166,34 @@ export default toNative(Tabular);
 <style scoped>
 table, th, thead, td {
     border: 1px solid;
+    border-collapse: collapse;
 }
 
 th {
-    top: 0;
-    position: sticky;
-    z-index: 5;
     justify-content: left;
+}
+
+th, td {
+    padding: 2px;
+}
+
+td {
+    position: relative;
 }
 
 td.hover-underline:hover {
     text-decoration: underline;
+}
+
+.changed-triangle {
+    border-color: transparent #efc081 transparent transparent;
+    border-style: solid;
+    border-width: 0 8px 8px 8px;
+    position: absolute;
+    height: 0;
+    width: 0;
+    top: 0;
+    right: 0;
 }
 
 </style>
