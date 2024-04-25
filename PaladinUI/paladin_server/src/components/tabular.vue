@@ -15,7 +15,9 @@
         </thead>
         <tbody>
         <tr v-for="rowHead in value.rowHeaders">
-            <td @click="rowSelect($event, rowHead)" class="hover-underline"> {{ rowHead.display }}</td>
+            <td @mouseover="rowSelect($event, rowHead)" @mouseleave="rowUnselect($event, rowHead)"
+                class="hover-underline"> {{ rowHead.display }}
+            </td>
             <td v-for="colKey in value.columnHeaders">
                 <div style="display: inline-flex;">
                     <runtime-component ref="rc" :column="colKey" v-bind="results[rowHead.key][colKey]" />
@@ -54,7 +56,7 @@ type CellData = {
 
 @Component({
     components: {RuntimeComponent, VisualizerPanel},
-    emits: ['row:select']
+    emits: ['row:select', 'row:unselect']
 })
 class Tabular extends Vue {
     COLOR_CLEAR = 'rgba(0, 0, 0, 0)';
@@ -134,7 +136,15 @@ class Tabular extends Vue {
         }
     }
 
-     rowSelect($event, rowHead) {
+    rowSelect($event, rowHead) {
+        this.emitEvent('row:select', this.extractLeftTime(rowHead));
+    }
+
+    rowUnselect($event, rowHead) {
+        this.emitEvent('row:unselect', this.extractLeftTime(rowHead));
+    }
+
+    private extractLeftTime(rowHead): number {
         const regex = /\((\d+),\s*\d+\)/;
         const match = regex.exec(rowHead.key);
 
@@ -143,8 +153,7 @@ class Tabular extends Vue {
             console.error('Tabular row key is not in an appropriate format.');
         }
 
-        const leftTime = parseInt(match[1]);
-        this.emitEvent('row:select', leftTime);
+        return parseInt(match[1]);
     }
 
     availableVisualizers(column: string): Visualizer[] {
@@ -160,13 +169,19 @@ export default toNative(Tabular);
 <style scoped>
 table, th, thead, td {
     border: 1px solid;
+    border-collapse: collapse;
 }
 
 th {
-    top: 0;
-    position: sticky;
-    z-index: 5;
     justify-content: left;
+}
+
+th, td {
+    padding: 2px;
+}
+
+td {
+    position: relative;
 }
 
 td.hover-underline:hover {

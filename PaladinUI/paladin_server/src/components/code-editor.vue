@@ -49,49 +49,39 @@ class CodeEditor extends Vue {
         this._sourceCode = $;
     }
 
-    highlightRow(lineNumber) {
+    highlightRow(lineNumber: number): void {
+        this.handleHighlighting(lineNumber, true);
+    }
+
+    unHighlightRow(lineNumber: number): void {
+        this.handleHighlighting(lineNumber, false);
+    }
+
+    private handleHighlighting(lineNumber: number, highlight: boolean) {
         const editor = this.cm.cminstance;
         const className = "code-editor-highlighted-row";
-        let flashingInterval;
-        let flashingDuration = 2000; // Flashing duration in milliseconds
-        let hasLineClass = false;
 
         /*  Decrease one from line number as the lines in codemirror starts at 1. */
         lineNumber = lineNumber - 1;
 
-        // // Scroll the highlighted line into view
-
         editor.operation(() => {
-            const lineHandle = editor.getLineHandle(lineNumber);
-            console.log('lineHandle = ', lineHandle);
             const pos = {line: lineNumber, ch: 'end', margin: 3};
             editor.setCursor(pos);
             editor.scrollIntoView(pos);
         });
 
+        editor.operation(() => {
+            if (highlight) {
+                editor.addLineClass(lineNumber, 'background', className);
+            } else {
+                editor.removeLineClass(lineNumber, 'background', className);
+            }
+        });
 
-        const toggleHighlight = () => {
-            editor.operation(() => {
-                if (hasLineClass) {
-                    editor.removeLineClass(lineNumber, 'background', className);
-                    hasLineClass = false;
-                } else {
-                    editor.addLineClass(lineNumber, 'background', className);
-                    hasLineClass = true;
-                }
-            });
-        };
+       this.addHighlightStyles(className);
+    }
 
-        // Start flashing
-        flashingInterval = setInterval(toggleHighlight, 500); // Toggle every 500 milliseconds
-
-        // Stop flashing after the specified duration
-        setTimeout(() => {
-            clearInterval(flashingInterval);
-            editor.removeLineClass(lineNumber, 'background', className);
-        }, flashingDuration);
-
-
+    private addHighlightStyles(className: string): void {
         const styleElements: HTMLCollectionOf<HTMLStyleElement> = document.head.getElementsByTagName('style');
 
         if (!Array.from(styleElements).some((styleElement: HTMLStyleElement) => styleElement.innerHTML.includes(`.$ {className}`))) {
