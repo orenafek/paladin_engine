@@ -1,6 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass
-from typing import Optional, Iterable, Dict, Collection, List, Type, Callable
+from typing import Optional, Iterable, Dict, Collection, List, Type, Callable, Any
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Time
 from archive.object_builder.object_builder import ObjectBuilder
@@ -67,6 +67,10 @@ class Operator(ABC):
     def _all(cls):
         return cls.__subclasses__()
 
+    @classmethod
+    def is_operator(cls, name: Any) -> bool:
+        return any(map(lambda o: o.name() == name, cls.all()))
+
 
 class NoArgOperator(Operator, ABC):
     def _get_args(self) -> Collection['Operator']:
@@ -112,9 +116,10 @@ class TriLateralOperator(Operator, ABC):
 
 
 class VariadicLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], *args: List[Operator]):
+    def __init__(self, times: Iterable[Time], *args: Operator, **kwargs: Operator):
         super(VariadicLateralOperator, self).__init__(times)
-        self.args: List[Operator] = args
+        self.args: List[Operator] = list(args)
+        self.kwargs: Dict[str, Operator] = kwargs
 
     def _get_args(self) -> Collection['Operator']:
         return self.args

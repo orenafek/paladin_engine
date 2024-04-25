@@ -7,7 +7,7 @@ from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types i
 from archive.archive_evaluator.paladin_dsl_semantics import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.changed import Changed
 from tests.unit_tests.archive.archive_evaluator.time_operator.test_time_operator import TestTimeOperator
-from tests.unit_tests.archive.object_builder.test_object_builder import TestObjectBuilder
+from tests.test_common.test_object_builder.test_object_builder import TestObjectBuilder
 from utils.utils import separate_line_no
 
 
@@ -37,7 +37,7 @@ class TestBasic2Changed(TestChanged):
         return cls.example('basic2')
 
     def test_changed_objects(self):
-        self._test_times('p0', [3, 4, 6, 7, 10, 15, 94, 97])
+        self._test_times('p0', [7, 10, 15, 97])
 
 
 

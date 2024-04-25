@@ -66,9 +66,10 @@ class Vuebook extends Vue {
         watch(keys['Down'], (v) => v && this.$refs.cmd.close());
     }
 
-    async mounted(){
+    async mounted() {
         await Visualizers.instance.loadBuiltinVisualizers(builtinVisualizers);
     }
+
     onCommand(command: { command: string }) {
         this.$refs.notebook.command(command);
     }
@@ -133,7 +134,7 @@ class Vuebook extends Vue {
         const results = this.formatResults(queryRunResult);
         try {
             return parseInt(results.rowData[results.rowHeaders[0].key][results.columnHeaders[0]]);
-        } catch(error){
+        } catch (error) {
             console.error("vuebook_app: wrong lineNumber.");
         }
 

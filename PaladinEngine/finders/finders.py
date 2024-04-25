@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
 
-from ast_common.ast_common import ast2str
+from ast_common.ast_common import ast2str, get_op_sign
 from conf.engine_conf import *
 from stubs.stubs import SubscriptVisitResult, __STUBS__
 
@@ -479,6 +479,9 @@ class AssignmentFinder(GenericFinder):
             def visit_Attribute(self, node):
                 return ast2str(node)  # , StubArgumentType.NAME
                 # return node.attr, StubArgumentType.NAME
+
+            def visit_BinOp(self, node: ast.BinOp) -> Any:
+                return f'{self.visit(node.left)} {get_op_sign(node.op)} {self.visit(node.right)}'
 
             def visit_Slice(self, node):
                 def safe_visit(node):

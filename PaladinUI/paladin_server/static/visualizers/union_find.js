@@ -1,6 +1,4 @@
-// noinspection DuplicatedCode
-
-class Customizer {
+class UnionFind extends Visualizer {
 
     matches(data) {
         return data != null && typeof data === 'object' && 'parent' in data && Array.isArray(data['parent']) &&
@@ -111,7 +109,7 @@ class Customizer {
         }
 
         //language=css
-        const cssStyles = `
+        Visualizer.addStyle(`
             svg {
                 width: ${width}px;
                 height: ${height}px;
@@ -138,11 +136,7 @@ class Customizer {
                 dominant-baseline: middle;
                 fill: hotpink; /* Change rank text color to blue */
             }
-        `
-
-        const styleTag = document.createElement('style');
-        styleTag.textContent = cssStyles;
-        document.head.appendChild(styleTag);
+        `);
 
         return svg.node();
     }

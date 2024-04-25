@@ -7,7 +7,8 @@ from typing import Any, Optional, Iterator, Tuple
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, Identifier
 from archive.archive_evaluator.paladin_dsl_semantics import Raw, Operator
 from tests.test_common.test_common import SKIP_VALUE
-from tests.unit_tests.archive.object_builder.test_object_builder import TestObjectBuilder, TestCaterpillar
+from tests.unit_tests.archive.object_builder.test_object_builder import TestCaterpillar
+from tests.test_common.test_object_builder.test_object_builder import TestObjectBuilder
 from utils.utils import separate_line_no
 
 

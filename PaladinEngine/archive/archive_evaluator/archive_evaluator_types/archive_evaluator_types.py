@@ -1,3 +1,4 @@
+import re
 from collections import OrderedDict
 from collections import deque
 from dataclasses import dataclass, field
@@ -8,6 +9,7 @@ from typing import Callable
 import frozendict
 
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
+from common.attributed_dict import AttributedDict
 
 ExpressionMapper = Mapping[str, Dict[int, object]]
 
@@ -28,7 +30,8 @@ ParseResults: Type = Dict[str, Dict[str, Any]]
 
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
-EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict, deque.__name__: deque}
+EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict, deque.__name__: deque,
+                        list.__name__: list, AttributedDict.__name__: AttributedDict}
 BAD_JSON_VALUES = {'-Infinity': '"-∞"', 'Infinity': '"∞"', 'NaN': '"NaN"'}
 
 
@@ -84,12 +87,20 @@ class EvalResultEntry(OrderedDict):
         return EvalResultEntry(self.time, [EvalResultPair(rr.key, c) for rr in self.evaled_results], self.replacements)
 
     @property
-    def keys(self) -> Iterable[str]:
+    def keys(self) -> List[str]:
         return list(dict.fromkeys(map(lambda rr: rr.key, self.evaled_results)))
 
     @property
-    def values(self) -> Iterable[Optional[object]]:
+    def values(self) -> List[Optional[object]]:
         return [rr.value for rr in self.evaled_results]
+
+    @property
+    def items(self) -> List[Tuple[Any, Any]]:
+        return [(rr.key, rr.value) for rr in self.evaled_results]
+
+    @property
+    def items_no_scope_signs(self) -> 'AttributedDict':
+        return AttributedDict([(re.sub(r'\b(.+?)@\d+\b', r'\1', rr[0]), rr[1]) for rr in self.items])
 
     def satisfies(self) -> bool:
         return all([r.value is not None and r.value is not False and r.value != [None] for r in self.evaled_results])
@@ -113,8 +124,7 @@ class EvalResultEntry(OrderedDict):
         if e1.time != e2.time:
             return EvalResultEntry.empty()
 
-        return EvalResultEntry(e1.time, EvalResultEntry.__join_evalued_results(e1, e2),
-                               e1.replacements + e2.replacements)
+        return EvalResultEntry(e1.time, EvalResultEntry.__join_evalued_results(e1, e2), [])
 
     @staticmethod
     def __join_evalued_results(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> List[EvalResultPair]:
@@ -170,7 +180,7 @@ class EvalResultEntry(OrderedDict):
         return super().__iter__()
 
     def __repr__(self):
-        return super().__repr__() + ' {' + str(self.time) + '}'
+        return repr(self.items)
 
 
 class EvalResult(List[EvalResultEntry]):
@@ -287,7 +297,12 @@ class EvalResult(List[EvalResultEntry]):
         if rng and vals:
             res[EvalResult._create_key(rng)] = vals
 
+        # Filter out empty results.
+        res = {k: v for k, v in res.items() if not all([vv is None for vv in v.values()])}
         return res
+
+    def is_empty(self):
+        return len(self) == 0
 
     @classmethod
     def join(cls, r1: 'EvalResult', r2: 'EvalResult'):
@@ -352,28 +367,6 @@ class EvalResult(List[EvalResultEntry]):
 
 EvalFunction = Callable[[int, int, int, int], EvalResult]
 SemanticsArgType = Union[bool, EvalResult]
-
-
-class AttributedDict(Dict):
-
-    def __init__(self, seq=None) -> None:
-        if seq:
-            super().__init__(seq)
-
-        for k, v in self.items():
-            self.__setattr__(str(k), v)
-
-    def __hash__(self) -> int:
-        return hash(str(self))
-
-    def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        self.__setattr__(str(key), value)
-
-    def __delitem__(self, key):
-        super().__delitem__(key)
-        self.__delattr__(key)
-
 
 Rk = 'Archive.Record.RecordKey'
 Rv = 'Archive.Record.RecordValue'

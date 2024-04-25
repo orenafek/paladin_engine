@@ -16,10 +16,10 @@ class InFunction(UniLateralOperator, TimeOperator):
     InFunction(f/f@ln): Satisfied for each time in which the program has run the code of f.
     """
 
-    def __init__(self, times: Iterable[Time], func_name: str, line_no: Optional[LineNo] = -1):
+    def __init__(self, times: Iterable[Time], func_name: Raw | str, line_no: Optional[LineNo] = -1):
         UniLateralOperator.__init__(self, times, Const(func_name, times))
         TimeOperator.__init__(self, times)
-        self.func_name = func_name
+        self.func_name = func_name.query if isinstance(func_name, Raw) else func_name
         self.line_no = line_no
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
@@ -36,9 +36,9 @@ class Locals(UniLateralOperator):
     Locals(f/f@ln): Retrieves values of all assignments that have happened inside a function.
     """
 
-    def __init__(self, times: Iterable[Time], func_name: str, line_no: Optional[LineNo] = -1):
+    def __init__(self, times: Iterable[Time], func_name: str | Raw, line_no: Optional[LineNo] = -1):
         UniLateralOperator.__init__(self, times, TRUE)
-        self.func_name = func_name
+        self.func_name = func_name.query if isinstance(func_name, Raw) else func_name
         self.line_no = line_no
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
