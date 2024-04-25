@@ -1,5 +1,7 @@
 import {ref, Ref} from "vue";
 
+import {Visualizer as VisualizerBase}  from "../../static/visualizers/visualizer";
+
 type FormattedData = {
     type: string
     content: string
@@ -19,16 +21,19 @@ type Visualizer = {
     instance?: DisplayClass
 }
 
+const VISUALIZERS_FOLDER: string = '../../static/visualizers/';
+const VISUALIZER_BASE_CLASS_PATH: string = VISUALIZERS_FOLDER + "visualizer.js";
+
 class Visualizers {
-    readonly VISUALIZERS_FOLDER: string = '../../static/visualizers/';
 
     static instance: Visualizers = new Visualizers()
 
     builtin: Ref<Visualizer[]> = ref([])
 
     async loadBuiltinVisualizers(visualizers: Visualizer[]) {
+        window['Visualizer'] = VisualizerBase;
         this.builtin.value = await Promise.all(visualizers.map(async (d: Visualizer) => {
-            d.source = await (await fetch(this.VISUALIZERS_FOLDER + d.file)).text();
+            d.source = await (await fetch(VISUALIZERS_FOLDER + d.file)).text();
             d.instance = this.instantiate(d.source);
             return d;
         }));

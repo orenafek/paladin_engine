@@ -1,4 +1,4 @@
-class Visualizer {
+class GraphVisualizer {
 
     matches(data) {
         function isEdge(obj) {
@@ -148,7 +148,8 @@ class Visualizer {
         }
 
         /* language=css */
-        const cssStyles = `
+
+        Visualizer.addStyle(`
             .graph-node {
                 fill: #eb6734;
                 stroke: #eb6734;
@@ -169,11 +170,7 @@ class Visualizer {
                 font-size: 10pt;
                 stroke: white;
             }
-        `
-
-        const styleTag = document.createElement('style');
-        styleTag.textContent = cssStyles;
-        document.head.appendChild(styleTag);
+        `);
 
         return svg.node();
     }
