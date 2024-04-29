@@ -1,4 +1,4 @@
-.idea
+\.idea
 __pycache__
 node_modules
 **/.DS_Store
@@ -16,3 +16,5 @@ PaladinCLI/interactive_graph/static/index.js
 /out.py
 **/.pytest_cache
 **/.pdbrc
+**/static/*.woff2
+**/static/*.ttf

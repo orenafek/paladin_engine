@@ -37,7 +37,6 @@ class CheatSheet extends Vue {
     }
 
     changeDrawer() {
-        console.log(JSON.stringify(this.docs));
         this.drawerOpen = !this.drawerOpen;
     }
 }

@@ -64,7 +64,6 @@ class Drawer extends Vue {
     }
 
     closeDrawer() {
-        console.log("closeDrawer");
         if (!this.isTransitioning) {
             this.$emit("close");
         }
