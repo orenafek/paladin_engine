@@ -1,7 +1,10 @@
 <template>
     <div id="app">
         <div id="header">
-            <h1 style="position: center">PaLaDiN - Time-travel Debugging with Semantic Queries</h1>
+            <h1 class="headline">PaLaDiN - Time-travel Debugging with Semantic Queries</h1>
+            <div class="helpBtnContainer">
+                <va-button round icon="help" @click="helpBtnClick" color="#eb6734" class="helpBtn"/>
+            </div>
         </div>
         <div id="main">
             <splitpanes class="default-theme" ref="mainSplit" @resize="storeLayoutPanes">
@@ -46,16 +49,16 @@ import './main.scss';
 import 'splitpanes/dist/splitpanes.css';
 import Slider from "@vueform/slider";
 import "@vueform/slider/themes/default.scss";
-//@ts-ignore
-import Vuebook, {Completion, IVuebook} from "./vuebook_app.vue";
-
-
-//@ts-ignore
-import CodeEditor from "./code-editor.vue";
 
 import {LocalStore, persistField} from "../infra/store";
 
 import {request, request_debug_info, upload} from "../request";
+
+//@ts-ignore
+import Vuebook, {Completion, IVuebook} from "./vuebook_app.vue";
+
+//@ts-ignore
+import CodeEditor from "./code-editor.vue";
 
 //@ts-ignore
 import Settings from "./settings.vue";
@@ -89,6 +92,7 @@ class Main extends Vue {
     docs: string = ''
     @Ref vuebook: IVuebook
     @Ref editor: CodeEditor
+    @Ref cheatSheet: CheatSheet
 
     readonly actions = [
         {name: 'Save', icon: 'save', action: this.updateCode},
@@ -152,6 +156,13 @@ class Main extends Vue {
         (this.editor as CodeEditor).highlightRow(lineNumber);
     }
 
+    stopHighlightCodeLine(lineNumber: number): void {
+        (this.editor as CodeEditor).unHighlightRow(lineNumber);
+    }
+
+    helpBtnClick(){
+        this.cheatSheet.changeDrawer()
+    }
 
 }
 
@@ -170,5 +181,26 @@ export default toNative(Main);
 
 .code-editor-pane CodeMirror {
     flex-grow: 1;
+}
+
+#header {
+    display: grid;
+    grid-template-areas: "headline helpBtn";
+    padding-right: 10px;
+}
+
+.headline {
+    grid-area: headline;
+}
+
+.helpBtnContainer {
+    padding-top: 2px;
+    justify-self: right;
+}
+
+.helpBtn {
+    grid-area: helpBtn;
+    max-width: 40px;
+    justify-self: right;
 }
 </style>
