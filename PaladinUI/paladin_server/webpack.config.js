@@ -1,5 +1,5 @@
 const webpack = require('webpack');
-const { VueLoaderPlugin } = require('vue-loader')
+const {VueLoaderPlugin} = require('vue-loader')
 const path = require(`path`);
 
 module.exports = (env, argv) => ({
@@ -63,6 +63,9 @@ module.exports = (env, argv) => ({
             __VUE_OPTIONS_API__: true,
             __VUE_PROD_DEVTOOLS__: true
         }),
-        new webpack.ProvidePlugin({'Buffer': 'buffer'})
+        new webpack.ProvidePlugin({'Buffer': 'buffer'}),
+        new webpack.DefinePlugin({
+            '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__': JSON.stringify(false)
+        })
     ]
 });
