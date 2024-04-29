@@ -1,5 +1,4 @@
 from abc import ABC
-from functools import reduce
 from typing import Iterable, Optional, Dict, Collection, List, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Replacement, \
@@ -15,6 +14,11 @@ class TimeOperator(Operator, ABC):
     @classmethod
     def make(cls, op: Operator):
         return op if isinstance(op, TimeOperator) else Whenever(op.times, op)
+
+    @classmethod
+    def explanation(cls) -> str:
+        return 'Evaluates to True/False for each time point based on their type.\n' \
+               'These operators are used to filter time range by a certain criteria (see Where for more).'
 
     def __init__(self, times: Iterable[Time]):
         super().__init__(times)

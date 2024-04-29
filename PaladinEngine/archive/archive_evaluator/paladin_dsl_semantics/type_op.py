@@ -4,10 +4,11 @@ from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types i
     EvalResultPair, LineNo
 from archive.archive_evaluator.paladin_dsl_semantics import Const, Raw
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator, Operator
+from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.object_builder.object_builder import ObjectBuilder
 
 
-class Type(UniLateralOperator):
+class Type(UniLateralOperator, Selector):
     """
     Type(var/var@ln): Retrieve the type of the variable(s) named var from the log.
     """

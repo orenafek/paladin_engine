@@ -7,7 +7,10 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class ConstTime(TimeOperator):
-
+    """
+        ConstTime(t): Satisfies only on time t.
+                      This operator is useful if an event time is known.
+    """
     def __init__(self, times: Iterable[Time], const_time: int):
         super().__init__(times)
         self.const_time = const_time

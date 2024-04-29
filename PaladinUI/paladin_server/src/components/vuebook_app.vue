@@ -139,8 +139,6 @@ class Vuebook extends Vue {
     }
 
     private isError(result: string): boolean {
-        console.log('r = ', result);
-        console.log('JS(r) = ', JSON.parse(result));
         return JSON.parse(result)['error'] != undefined
     }
 

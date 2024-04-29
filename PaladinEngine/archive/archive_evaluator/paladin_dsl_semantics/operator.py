@@ -20,6 +20,10 @@ class Operator(ABC):
     def name(cls) -> str:
         return cls.__name__
 
+    @classmethod
+    def explanation(cls) -> str:
+        return ''
+
     @property
     def times(self):
         if isinstance(self._times, range):

@@ -1,5 +1,4 @@
 import ast
-import traceback
 from typing import Optional, Iterable, Dict, Set, Collection, Union, List, Any, Callable
 
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
@@ -8,12 +7,13 @@ from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types i
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 from archive.archive_evaluator.paladin_dsl_semantics.let import Let
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
+from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.archive_evaluator.paladin_dsl_semantics.semantic_utils import Time
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import str2ast, split_tuple
 
 
-class Raw(Operator):
+class Raw(Operator, Selector):
     """
     Raw(expr): The basic operator to retrieve data and evaluate expressions with data from the log.
                Can be used in an implied form, i.e., Raw(x) <==> x.

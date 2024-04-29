@@ -7,7 +7,9 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Before(UniLateralOperator, TimeOperator):
-
+    """
+        Before(o): Satisfies on each time before o has been satisfied.
+    """
     def __init__(self, times: Iterable[Time], first: TimeOperator):
         UniLateralOperator.__init__(self, times, first)
         TimeOperator.__init__(self, times)

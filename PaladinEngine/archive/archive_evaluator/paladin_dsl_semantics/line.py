@@ -3,15 +3,16 @@ from typing import Iterable, Optional, Dict, List, Tuple, Callable
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Rk, Rv
 from archive.archive_evaluator.paladin_dsl_semantics.const import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
+from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.archive_evaluator.paladin_dsl_semantics.semantic_utils import Time
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.var_selector import VarSelector, VarSelectorByLineNo
 from archive.object_builder.object_builder import ObjectBuilder
 
 
-class Line(UniLateralOperator):
+class Line(UniLateralOperator, Selector):
     """
-        Line(<number>): Returns values of all values in the scope of <number> when the program hit line numbered <number>.
+        Line(ln): Returns values of all values in the scope of ln when the program hit line numbered ln.
     """
 
     def __init__(self, times: Iterable[Time], line_no: int):

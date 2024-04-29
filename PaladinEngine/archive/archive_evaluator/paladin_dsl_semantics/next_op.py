@@ -8,7 +8,7 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class Next(UniLateralOperator, TimeOperator):
     """
-        Next(o): Satisfies for the second time of o ("first after first").
+        Next(o): Satisfies for the second time that o has been satisfied ("first after first").
     """
 
     def __init__(self, times: Iterable[Time], first: Operator):

@@ -3,10 +3,11 @@ from typing import Optional, Dict, Callable
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
     EvalResultPair
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
+from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.object_builder.object_builder import ObjectBuilder
 
 
-class LineNo(UniLateralOperator):
+class LineNo(UniLateralOperator, Selector):
     """
     LineNo(o): Retrieve the line numbers in the program for each event that had happened in the entry's time if it has been satisfied.
     """

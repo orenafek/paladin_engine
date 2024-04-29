@@ -1,11 +1,12 @@
 from typing import Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry
+from archive.archive_evaluator.paladin_dsl_semantics.aux_op import AuxOp
 from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOperator
 from archive.object_builder.object_builder import ObjectBuilder
 
 
-class Where(BiLateralOperator):
+class Where(BiLateralOperator, AuxOp):
     """
     Where(s, c): Slice the time range of a query by running s operator only on the times in which c has been satisfied.
                  This operator is useful to retrieve data for a certain time stamps.

@@ -9,6 +9,7 @@ from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOp
 from archive.archive_evaluator.paladin_dsl_semantics.range import Range
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.semantic_utils import Time
+from archive.archive_evaluator.paladin_dsl_semantics.summary_op import SummaryOp
 from archive.archive_evaluator.paladin_dsl_semantics.time_operator import TimeOperator
 from archive.archive_evaluator.paladin_dsl_semantics.union import Union
 from archive.archive_evaluator.paladin_dsl_semantics.var_selector import VarSelectorByTimeAndLines, VarSelector
@@ -17,7 +18,7 @@ from archive.object_builder.object_builder import ObjectBuilder
 from stubs.stubs import __SOLI__, __SOL__, __EOLI__
 
 
-class LoopIteration(BiLateralOperator):
+class LoopIteration(BiLateralOperator, SummaryOp):
     """
     LoopIteration(ln, i): Retrieve any events that have happened in the loop's code's line numbers in the i'th iteration
                           of the loop that starts in line ln.
@@ -71,7 +72,7 @@ class LoopIteration(BiLateralOperator):
         return changed_vars_diffs
 
 
-class LoopSummary(UniLateralOperator):
+class LoopSummary(UniLateralOperator, SummaryOp):
     """
     LoopSummary(ln): Retrieve any events that have happened in the loop's code's line numbers of the loop that starts in
                      line ln, i.e., runs LoopIteration for each iteration of the loop.

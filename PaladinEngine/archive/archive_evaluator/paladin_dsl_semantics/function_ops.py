@@ -5,6 +5,7 @@ from archive.archive_evaluator.paladin_dsl_semantics.const import Const
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.semantic_utils import TRUE
+from archive.archive_evaluator.paladin_dsl_semantics.summary_op import SummaryOp
 from archive.archive_evaluator.paladin_dsl_semantics.time_operator import TimeOperator
 from archive.archive_evaluator.paladin_dsl_semantics.union import Union
 from archive.archive_evaluator.paladin_dsl_semantics.var_selector import VarSelector, _VarSelectorByEntries
@@ -31,7 +32,7 @@ class InFunction(UniLateralOperator, TimeOperator):
         ])
 
 
-class Locals(UniLateralOperator):
+class Locals(UniLateralOperator, SummaryOp):
     """
     Locals(f/f@ln): Retrieves values of all assignments that have happened inside a function.
     """

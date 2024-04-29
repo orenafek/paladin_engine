@@ -2,12 +2,12 @@ from typing import Optional, Dict, Callable, Iterable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
     EvalResultPair, Time
-from archive.archive_evaluator.paladin_dsl_semantics import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.operator import OptionalArgOperator
+from archive.archive_evaluator.paladin_dsl_semantics.summary_op import SummaryOp
 from archive.object_builder.object_builder import ObjectBuilder
 
 
-class CallStack(OptionalArgOperator):
+class CallStack(OptionalArgOperator, SummaryOp):
     """
        CallStack():  Retrieves all function calls in the program run.
     """
