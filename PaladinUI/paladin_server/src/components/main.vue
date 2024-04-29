@@ -30,7 +30,7 @@
                         <pane id="vuebook-pane" :size="100" style="overflow-y: auto">
                             <cheat-sheet ref="cheatSheet" :docs="docs"></cheat-sheet>
                             <vuebook ref="vuebook" :completions="completions" :lastRunTime="lastRunTime"
-                                     @highlight="highlightCodeLine"></vuebook>
+                                     @highlight="highlightCodeLine" @highlight-stop="stopHighlightCodeLine"></vuebook>
                         </pane>
                     </splitpanes>
                 </pane>
