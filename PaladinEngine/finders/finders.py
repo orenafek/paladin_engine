@@ -493,7 +493,7 @@ class AssignmentFinder(GenericFinder):
 
         # Take extra for the slice.
         slice_extra = SliceFinder().visit(node.slice)
-        if slice_extra is None or all(x is None for x in slice_extra):
+        if slice_extra is None or isinstance(slice_extra, Iterable) and all(x is None for x in slice_extra):
             return [value_extra]
 
         # Create a subscript tuple.

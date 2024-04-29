@@ -1,44 +1,44 @@
 <template>
     <div class="cheat-sheet-container">
-        <va-button round icon="help" @click="btnClick" color="#eb6734"/>
-        <div :class="{ 'cs': true, 'collapsed': !active }">
-            <va-button round icon="help" @click="btnClick" v-if="active" color="#eb6734"/>
-            <div style="display: grid; justify-items: center; background-color: #2b2b2b">
-                <h3 class="cheat-sheet-header"> Cheat Sheet </h3>
-                <div id="docs-container">
-                    <div class="doc-section" v-for="d in docs" v-if="active">
-                        <h4 class="doc-section-header"> {{ d.type }} </h4>
-                        <div class="doc-section-explanation"> {{d.exp }} </div>
-                        <code-editor :source-code="d.doc" lang="python"></code-editor>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <drawer :content="paladinDoc"
+                :content-props="{docs: docs}"
+                :is-open="drawerOpen" :max-width="maxWidth"
+                @close="drawerOpen = false">
+        </drawer>
     </div>
 
 </template>
 
 <script lang="ts">
+import {h} from "vue";
 import {Component, Prop, toNative, Vue} from "vue-facing-decorator";
 
 //@ts-ignore
-import CodeEditor from "./code-editor.vue";
+import Drawer from "./drawer.vue";
+
+//@ts-ignore
+import PaladinDoc from "./paladin-doc.vue";
 
 @Component({
-    components: {CodeEditor}
+    components: {Drawer, PaladinDoc}
 })
 class CheatSheet extends Vue {
 
     @Prop docs: Array<{ type: string, doc: string, exp: string }>
 
-    active: boolean = false;
+    readonly maxWidth: string = '750px';
+
+    drawerOpen: boolean = false;
+    paladinDoc: typeof PaladinDoc = null;
+
 
     mounted() {
-        console.log('docs = ', this.docs);
+        this.paladinDoc = h(PaladinDoc);
     }
 
-    btnClick() {
-        this.active = !this.active;
+    changeDrawer() {
+        console.log(JSON.stringify(this.docs));
+        this.drawerOpen = !this.drawerOpen;
     }
 }
 

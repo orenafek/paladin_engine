@@ -1,6 +1,21 @@
-import itertools
+"""
+ __  __  ____   _____   _  __                   _            _
+|  \/  |/ ___| |_   _| | |/ / _ __  _   _  ___ | | __  __ _ | |
+| |\/| |\___ \   | |   | ' / | '__|| | | |/ __|| |/ / / _` || |
+| |  | | ___) |  | |   | . \ | |   | |_| |\__ \|   < | (_| || |
+|_|  |_||____/   |_|   |_|\_\|_|    \__,_||___/|_|\_\ \__,_||_|
 
-from stubs.stubs import archive, __PAUSE__, __RESUME__
+
+
+Minimal Spanning Tree (using Prim)
+
+This program finds the minimal spanning tree of a non-directed graph using Prim Algorithm.
+I.e., the minimal set of edges that enclose all vertices and in which
+the sum of the edges' weights is minimal in comparison to any other
+subset of the graph's edges.
+"""
+
+import itertools
 
 
 class UnionFind:
