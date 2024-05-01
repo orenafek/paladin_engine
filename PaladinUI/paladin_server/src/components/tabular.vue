@@ -81,9 +81,10 @@ class Tabular extends Vue {
             this.results[row] = {}
         }
 
+        const previousChanged: boolean = this.results[row][col].changed;
         let item = this.value.rowData[row]?.[col];
         if (visualizers.length == 0) {
-            this.results[row][col] = this.plainResult(row, col);
+            this.results[row][col] = this.plainResult(row, col, previousChanged);
             return;
         }
 
@@ -94,7 +95,7 @@ class Tabular extends Vue {
                     this.results[row][col] = {
                         ...visualizer.instance.format(item),
                         data: item != null ? item : '',
-                        changed: false
+                        changed: previousChanged
                     };
                     visualized = true;
                     /* For now, select the first active, available visualizer to prevent conflicts. */
@@ -102,7 +103,7 @@ class Tabular extends Vue {
                 }
             }
             if (!visualized) {
-                this.results[row][col] = this.plainResult(row, col);
+                this.results[row][col] = this.plainResult(row, col, previousChanged);
             }
 
         } catch (error) {
@@ -112,9 +113,9 @@ class Tabular extends Vue {
     }
 
 
-    private plainResult(row: string, col: string): any {
+    private plainResult(row: string, col: string, changed: boolean = false): any {
         const item = this.value.rowData[row]?.[col];
-        return ({type: "text/plain", content: item, data: item != null ? item : '', changed: false});
+        return ({type: "text/plain", content: item, data: item != null ? item : '', changed: changed});
     }
 
     initializeResults() {
