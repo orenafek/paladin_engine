@@ -84,7 +84,8 @@ class PaladinDoc extends Vue {
         {keys: ['Ctrl', '+'], action: 'Add a cell'},
         {keys: ['Ctrl', '-'], action: 'Remove a cell'},
         {keys: ['↑/↓'], action: 'Move between cells'},
-        {keys: ['⌘ Command', 'K'], action: 'Open options menu'}
+        {keys: ['⌘ Command', 'K'], action: 'Open options menu'},
+        {keys: ['Ctrl', '⇧ Shift', '-'], action: 'Collapse all cells'}
     ]
 
     midpoint: number
