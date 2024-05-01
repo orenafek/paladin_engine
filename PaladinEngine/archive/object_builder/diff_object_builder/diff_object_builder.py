@@ -597,8 +597,8 @@ class DiffObjectBuilder(ObjectBuilder):
 
         return scope
 
-    def get_container_ids_by_line_no(self, line_no: LineNo) -> Optional[ContainerId]:
-        return self._scopes[line_no] if line_no in self._scopes else None
+    def get_container_ids_by_line_no(self, line_no: LineNo) -> Iterable[ContainerId]:
+        return self._scopes[line_no].container_ids if line_no in self._scopes else []
 
     def get_line_nos_by_container_ids(self, container_ids: Set[ContainerId]) -> Iterable[LineNo]:
         return list(map(lambda t: t[0], filter(lambda t: t[1] in container_ids, self._scopes.items())))

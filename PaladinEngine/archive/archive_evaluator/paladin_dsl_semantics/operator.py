@@ -65,7 +65,7 @@ class Operator(ABC):
         for subclass in subclasses:
             subclasses.extend(subclass.all())
 
-        return list(set(subclasses))
+        return list(filter(lambda sc: not sc.is_deprecated(), set(subclasses)))
 
     @classmethod
     def _all(cls):
@@ -74,6 +74,10 @@ class Operator(ABC):
     @classmethod
     def is_operator(cls, name: Any) -> bool:
         return any(map(lambda o: o.name() == name, cls.all()))
+
+    @classmethod
+    def is_deprecated(cls) -> bool:
+        return hasattr(cls, 'deprecated')
 
 
 class NoArgOperator(Operator, ABC):

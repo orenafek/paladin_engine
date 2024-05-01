@@ -398,7 +398,7 @@ class Archive(object):
         if len(split_func_name) > 1:
             filters = [Archive.Filters.VALUE_FILTER(func_name)]
         else:
-            filters = [Archive.Filters.REGEX_VALUE_FILTER(fr'.*\.{func_name}')]
+            filters = [Archive.Filters.REGEX_VALUE_FILTER(fr'[.*\.{func_name}]|{func_name}')]
 
         if line_no is not None and line_no > 0:
             filters.append(Archive.Filters.LINE_NO_FILTER(line_no))

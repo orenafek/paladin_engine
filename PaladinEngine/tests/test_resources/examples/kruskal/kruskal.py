@@ -17,6 +17,8 @@ subset of the graph's edges.
 
 import itertools
 
+from stubs.stubs import __PAUSE__, __RESUME__
+
 
 class UnionFind:
     def __init__(self, size):
@@ -127,9 +129,9 @@ if __name__ == "__main__":
     mst = kruskal(graph, num_vertices)
     mst_weight = st_weight(mst)
 
-#    __PAUSE__()
+    __PAUSE__()
     all_st = find_all_spanning_trees(graph, num_vertices)
-#    __RESUME__()
+    __RESUME__()
     min_st_weight = min([st_weight(st) for st in all_st])
 
     if min_st_weight < mst_weight:

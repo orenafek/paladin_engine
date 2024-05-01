@@ -5,6 +5,7 @@ from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types i
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
+from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.archive_evaluator.paladin_dsl_semantics.time_operator import TimeOperator
 from archive.object_builder.object_builder import ObjectBuilder
 from ast_common.ast_common import str2ast
@@ -22,7 +23,7 @@ class Changed(UniLateralOperator, TimeOperator):
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
              user_aux: Optional[Dict[str, Callable]] = None):
-        if not isinstance(self.first, Raw):
+        if not isinstance(self.first, Selector):
             return EvalResult.empty(self.times)
 
         res = self.first.eval(builder, query_locals, user_aux)

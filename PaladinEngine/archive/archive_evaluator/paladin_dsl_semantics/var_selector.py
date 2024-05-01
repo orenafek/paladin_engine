@@ -64,7 +64,7 @@ class _VarSelectorByEntries(VarSelector):
 
     def __init__(self, times: Iterable[Time],
                  entries: List[Tuple[Archive.Record.RecordKey, Archive.Record.RecordValue]]):
-        super().__init__(times, TRUE)
+        super().__init__(times, TRUE(times))
         self.assignments = entries
 
     def _get_assignments(self, builder: ObjectBuilder, time_range: range):

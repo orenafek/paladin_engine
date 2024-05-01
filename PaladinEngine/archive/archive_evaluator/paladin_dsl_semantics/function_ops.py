@@ -38,7 +38,7 @@ class Locals(UniLateralOperator, SummaryOp):
     """
 
     def __init__(self, times: Iterable[Time], func_name: str | Raw, line_no: Optional[LineNo] = -1):
-        UniLateralOperator.__init__(self, times, TRUE)
+        UniLateralOperator.__init__(self, times, TRUE(times))
         self.func_name = func_name.query if isinstance(func_name, Raw) else func_name
         self.line_no = line_no
 
@@ -49,8 +49,9 @@ class Locals(UniLateralOperator, SummaryOp):
                                                     exits=False,
                                                     ass_and_bmfcs_only=True)
         var_selector = _VarSelectorByEntries(self.times, func_entries)
-        vars = getattr(var_selector.eval(builder, query_locals)[0], VarSelector.VARS_KEY)
-        if not vars:
+        var_selector_res = list(var_selector.eval(builder, query_locals))[0]
+        if not hasattr(var_selector_res, VarSelector.VARS_KEY) or \
+                not (vars := getattr(var_selector_res, VarSelector.VARS_KEY)):
             return EvalResult.empty(self.times)
 
         selectors = [Raw(var_name, line_no, self.times) for (var_name, line_no), times in vars.items()
