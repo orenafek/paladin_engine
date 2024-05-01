@@ -29,7 +29,7 @@
                     <splitpanes horizontal class="default-theme" :push-other-panes="false">
                         <pane id="vuebook-pane" :size="100" style="overflow-y: auto">
                             <cheat-sheet ref="cheatSheet" :docs="docs"></cheat-sheet>
-                            <vuebook ref="vuebook" :completions="completions" :lastRunTime="lastRunTime"
+                            <vuebook ref="vuebook" :lastRunTime="lastRunTime"
                                      @highlight="highlightCodeLine" @highlight-stop="stopHighlightCodeLine"></vuebook>
                         </pane>
                     </splitpanes>
@@ -55,7 +55,7 @@ import {LocalStore, persistField} from "../infra/store";
 import {request, request_debug_info, upload} from "../request";
 
 //@ts-ignore
-import Vuebook, {Completion, IVuebook} from "./vuebook_app.vue";
+import Vuebook, {IVuebook} from "./vuebook_app.vue";
 
 //@ts-ignore
 import CodeEditor from "./code-editor.vue";
@@ -87,7 +87,6 @@ class Main extends Vue {
     sourceCode: Array<string> = []
     programOutput: string = ''
     thrownException: Exception = {} as Exception
-    completions: Completion[] = []
     isRerunning: Boolean = false
     docs: string = ''
     @Ref vuebook: IVuebook
@@ -119,7 +118,6 @@ class Main extends Vue {
         this.programOutput = await request_debug_info('run_output') as string;
         this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
         this.thrownException = await request_debug_info('thrown_exception') as Exception;
-        this.completions = await request_debug_info('completions') as Completion[];
         this.docs = await request_debug_info('docs') as string;
         this.$forceUpdate();
         this.resetSlider();

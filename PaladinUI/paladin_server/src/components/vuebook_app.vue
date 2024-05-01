@@ -1,8 +1,7 @@
 <template>
     <div>
         <command-palette ref="cmd" :commands="commands" @command="onCommand"/>
-        <notebook ref="notebook" :model="model" @cell:action="onCellAction" :codeEditorType="codeEditorType"
-                  :completions="completions"/>
+        <notebook ref="notebook" :model="model" @cell:action="onCellAction" />
     </div>
 </template>
 
@@ -13,11 +12,7 @@ import {useMagicKeys} from '@vueuse/core';
 
 
 import {
-    CodeEditor,
     CommandPalette,
-    Completion,
-    EditorView,
-    ICodeEditor,
     ICommandPalette,
     INotebook,
     Model,
@@ -45,9 +40,6 @@ import {Visualizers} from "./visualizers"
 })
 class Vuebook extends Vue {
 
-    readonly codeEditorType: ICodeEditor = PaladinCompletions
-
-    @Prop completions: Completion[]
     @Prop lastRunTime: number
 
     model: ModelImpl
@@ -170,37 +162,37 @@ class Vuebook extends Vue {
     }
 }
 
-class PaladinCompletions extends CodeEditor {
+// class PaladinCompletions extends CodeEditor {
+//
+//     private _completions: Completion[]
+//
+//     constructor(container: HTMLElement, initialContent?: string, completions: Completion[] = []) {
+//         super(container, initialContent);
+//         this._completions = completions.map((c) => {
+//             return {...c, apply: this.applyCompletion}
+//         });
+//     }
+//
+//     get completions(): Completion[] {
+//         return this._completions;
+//     }
+//
+//     applyCompletion(ev: EditorView, c: Completion, from: number, to: number) {
+//         const newText = c.label + '()';
+//         ev.dispatch(ev.state.update({
+//             changes: {
+//                 from: from,
+//                 to: to,
+//                 insert: newText,
+//             },
+//             selection: {
+//                 anchor: from + newText.length - 1,
+//                 head: from + newText.length - 1
+//             }
+//         }));
+//     }
+// }
 
-    private _completions: Completion[]
-
-    constructor(container: HTMLElement, initialContent?: string, completions: Completion[] = []) {
-        super(container, initialContent);
-        this._completions = completions.map((c) => {
-            return {...c, apply: this.applyCompletion}
-        });
-    }
-
-    get completions(): Completion[] {
-        return this._completions;
-    }
-
-    applyCompletion(ev: EditorView, c: Completion, from: number, to: number) {
-        const newText = c.label + '()';
-        ev.dispatch(ev.state.update({
-            changes: {
-                from: from,
-                to: to,
-                insert: newText,
-            },
-            selection: {
-                anchor: from + newText.length - 1,
-                head: from + newText.length - 1
-            }
-        }));
-    }
-}
-
-export {Vuebook as IVuebook, Completion};
+export {Vuebook as IVuebook};
 export default toNative(Vuebook);
 </script>
