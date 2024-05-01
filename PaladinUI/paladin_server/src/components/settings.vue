@@ -21,7 +21,8 @@ const builtinVisualizers: Visualizer[] = [
     {name: 'Array', icon: 'view_array', file: 'array.js'},
     {name: 'Graph', icon: 'share', file: 'graph.js'},
     {name: 'Object', icon: 'data_object', file: 'object.js'},
-    {name: 'UnionFind', icon: 'forest', file: 'union_find.js'}
+    {name: 'UnionFind', icon: 'forest', file: 'union_find.js'},
+    {name: 'Matrix', icon: 'grid_on', file: 'matrix.js'}
 ]
 
 @Component({
