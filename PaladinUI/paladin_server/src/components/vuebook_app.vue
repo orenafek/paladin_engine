@@ -105,6 +105,10 @@ class Vuebook extends Vue {
     }
 
     private async runCell(cell: Model.Cell) {
+        if (cell.input === ''){
+            return;
+        }
+
         cell.loading = true;
         let queryRunResult = await request_debug_info("query", ...[cell.input, 0, this.lastRunTime, ""]) as string;
         this.model.clearOutputs(cell);

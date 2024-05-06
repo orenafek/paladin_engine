@@ -14,7 +14,7 @@ class MatrixVisualizer {
     renderMatrix(data) {
         const numRows = data.length;
         const numCols = data[0].length;
-        const cellSize = 20; // Smaller cell size
+        const cellSize = 40; // Smaller cell size
         const padding = 2; // Reduced padding
 
         // Calculate total width and height of the matrix

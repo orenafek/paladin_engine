@@ -10,11 +10,16 @@
             <splitpanes class="default-theme" ref="mainSplit" @resize="storeLayoutPanes">
                 <pane :size="layout.panes[0].size">
                     <splitpanes horizontal class="default-theme" :push-other-panes="false">
-                        <pane :size="85" class="code-editor-pane">
-                            <code-editor :source-code="sourceCode.join('\n')" :actions="actions"
-                                         lang="python" ref="editor"></code-editor>
+                        <pane :size="codeEditorPaneSize" class="code-editor-pane">
+                            <code-editor :source-code="sourceCode" :original-source-code="originalSourceCode"
+                                         :actions="actions"
+                                         lang="python" ref="editor"
+                                         @code-editor-change="codeEditorChange"
+                                         @code-editor-reset="codeEditorReset"
+
+                            ></code-editor>
                         </pane>
-                        <pane id="program-output-pane" :size="15">
+                        <pane id="program-output-pane" :size="100 - codeEditorPaneSize">
                             <h3 class="section"> Output </h3>
                             <pre class="output" v-text="programOutput"></pre>
                             <div v-if="thrownException.line_no > 0" style="color: red;">
@@ -46,7 +51,6 @@
 import {Pane, Splitpanes} from 'splitpanes';
 import {Component, Ref, toNative, Vue} from 'vue-facing-decorator';
 import './main.scss';
-import 'splitpanes/dist/splitpanes.css';
 import Slider from "@vueform/slider";
 import "@vueform/slider/themes/default.scss";
 
@@ -84,24 +88,34 @@ class Main extends Vue {
     layout = {panes: [{size: 30}]}
     lastRunTime: number = 0
     timeRange: Array<number> = [0, 0]
-    sourceCode: Array<string> = []
+    sourceCode: string = ''
+    originalSourceCode: string = ''
     programOutput: string = ''
     thrownException: Exception = {} as Exception
     isRerunning: Boolean = false
     docs: string = ''
+    codeEditorPaneSize: number = 85
     @Ref vuebook: IVuebook
     @Ref editor: CodeEditor
     @Ref cheatSheet: CheatSheet
 
     readonly actions = [
-        {name: 'Save', icon: 'save', action: this.updateCode},
-        {name: 'Rerun', icon: 'replay', action: this.rerun},
-        {
-            name: 'Save&Rerun', icon: 'cloud_sync', action: async (uc) => {
-                await this.updateCode(uc);
-                await this.rerun(null);
-            }
-        }
+        // {
+        //     name: 'Reset', icon: 'restart_alt', color: "#eb6734", enabled: false, action:
+        //         async (updated, original) => {
+        //             console.log('in reset callback. original = ', original, ' updated = ', updated);
+        //             await this.updateCode(original);
+        //             this.sourceCode = original;
+        //             await this.rerun();
+        //         }
+        // },
+        // {
+        //     name: 'Rerun', icon: 'directions_run', color: "#eb6734", enabled: false,
+        //     action: async (updated, original) => {
+        //         await this.updateCode(updated);
+        //         await this.rerun();
+        //     }
+        // }
     ]
 
     async created() {
@@ -111,10 +125,13 @@ class Main extends Vue {
     mounted() {
         persistField(this.layout, 'panes', new LocalStore('main:layout.panes'));
         this.isRerunning = false;
+        this.codeEditorPaneSize = this.editor.height();
+        console.log('this = ', this);
     }
 
     async fetchInitial() {
-        this.sourceCode = await request_debug_info('source_code') as Array<string>;
+        this.originalSourceCode = (await request_debug_info('source_code') as Array<string>).join('\n');
+        this.sourceCode = this.originalSourceCode;
         this.programOutput = await request_debug_info('run_output') as string;
         this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
         this.thrownException = await request_debug_info('thrown_exception') as Exception;
@@ -137,17 +154,18 @@ class Main extends Vue {
     }
 
     async updateCode(updatedCode: string) {
+        console.log('in updateCode: updated_code = ', updatedCode);
         await upload(updatedCode, 'upload/source_code');
     }
 
-    async rerun(_: any) {
+    async rerun() {
         this.isRerunning = true;
         await request('rerun');
         await this.fetchInitial();
         this.isRerunning = false;
-        this.$forceUpdate();
         /* TODO: Fixme!! */
         await (this.vuebook as IVuebook).runAllCells();
+        this.$forceUpdate();
     }
 
     highlightCodeLine(lineNumber: number) {
@@ -158,8 +176,19 @@ class Main extends Vue {
         (this.editor as CodeEditor).unHighlightRow(lineNumber);
     }
 
-    helpBtnClick(){
+    helpBtnClick() {
         this.cheatSheet.changeDrawer()
+    }
+
+    codeEditorChange() {
+        /* Change reset button. */
+        // this.actions[0].enabled = true;
+        // this.actions[1].enabled = true;
+    }
+
+    codeEditorReset() {
+        // this.actions[0].enabled = false;
+        // this.actions[1].enabled = false;
     }
 
 }
@@ -168,6 +197,8 @@ export default toNative(Main);
 </script>
 
 <style lang="scss">
+@import 'splitpanes/dist/splitpanes.css';
+
 * {
     box-sizing: border-box;
 }
@@ -200,5 +231,9 @@ export default toNative(Main);
     grid-area: helpBtn;
     max-width: 40px;
     justify-self: right;
+}
+
+.splitpanes.default-theme .splitpanes__pane {
+    background-color: #2b2b2b;
 }
 </style>

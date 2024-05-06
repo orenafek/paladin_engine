@@ -549,7 +549,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
             # As each name in a block should be stored with a line no. suited for its definition (first assignment),
             # there should be no more than one.
-            assert len(line_nos_of_container_id) == 1
+            #assert len(line_nos_of_container_id) == 1
 
             return line_nos_of_container_id[0]
 

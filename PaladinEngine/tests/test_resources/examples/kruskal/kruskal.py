@@ -7,7 +7,7 @@
 
 
 
-Minimal Spanning Tree (using Prim)
+Minimal Spanning Tree (using Kruskal)
 
 This program finds the minimal spanning tree of a non-directed graph using Prim Algorithm.
 I.e., the minimal set of edges that enclose all vertices and in which
@@ -50,8 +50,7 @@ class UnionFind:
             elif self.rank[root_x] < self.rank[root_y]:
                 self.parent[root_x] = root_y
             else:
-                self.parent[root_y] = root_x
-                #self.parent[root_y] = root_y  # BUG
+                self.parent[root_y] = root_y
 
 
 
@@ -75,6 +74,7 @@ def kruskal(graph, num_vertices):
         dest = edge.dest
         uff_s = uf.find(src)
         uff_d = uf.find(dest)
+        y =1
         if uff_s != uff_d:
             uf.union(src, dest)
             mst.append(edge)
@@ -129,9 +129,8 @@ if __name__ == "__main__":
     mst = kruskal(graph, num_vertices)
     mst_weight = st_weight(mst)
 
-    __PAUSE__()
     all_st = find_all_spanning_trees(graph, num_vertices)
-    __RESUME__()
+
     min_st_weight = min([st_weight(st) for st in all_st])
 
     if min_st_weight < mst_weight:

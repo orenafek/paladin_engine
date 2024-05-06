@@ -92,7 +92,7 @@ class Archive(object):
 
         @staticmethod
         def TIME_EQUAL_OR_LATER_FILTER(time: int):
-            return lambda vv: vv.time <= time
+            return lambda vv: vv.time >= time
 
         @staticmethod
         def CONTAINER_ID_EQUALS(container_id: ContainerId):
@@ -398,7 +398,7 @@ class Archive(object):
         if len(split_func_name) > 1:
             filters = [Archive.Filters.VALUE_FILTER(func_name)]
         else:
-            filters = [Archive.Filters.REGEX_VALUE_FILTER(fr'[.*\.{func_name}]|{func_name}')]
+            filters = [Archive.Filters.REGEX_VALUE_FILTER(r"(?:\b\w+\.)?" + re.escape(func_name) + r"\b")]
 
         if line_no is not None and line_no > 0:
             filters.append(Archive.Filters.LINE_NO_FILTER(line_no))

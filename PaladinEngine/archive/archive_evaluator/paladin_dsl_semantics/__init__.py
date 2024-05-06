@@ -13,7 +13,7 @@ from .const import Const
 from .const_time import ConstTime
 from .diff import Diff
 from .first import First
-from .function_ops import InFunction, Locals
+from .function_ops import InFunction, FunctionSummary
 from .group import Group
 from .last import Last
 from .let import Let

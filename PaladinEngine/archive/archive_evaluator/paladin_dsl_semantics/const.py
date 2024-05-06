@@ -20,5 +20,6 @@ class Const(Operator):
     def _get_args(self) -> Collection['Operator']:
         return []
 
-    def eval_const_value(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None) -> AnyT:
+    def eval_const_value(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+                         user_aux = None) -> AnyT:
         return self.eval(builder, query_locals, user_aux)[self.times[0]].values[0]

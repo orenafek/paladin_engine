@@ -1,3 +1,19 @@
+"""
+     _         _
+    | |  ___  | |__   ___
+ _  | | / _ \ | '_ \ / __|
+| |_| || (_) || |_) |\__ \
+ \___/  \___/ |_.__/ |___/
+
+
+Jobs
+
+In this program, there is a server that handles jobs by dispatching to any of its workers.
+Each worker can either operate on a certain job or not, and when it does, it adds a summary to the server.
+As long as a job hasn't been operated on, it goes back to the server.
+The program ends when all jobs have been processed.
+"""
+
 import random
 from abc import abstractmethod
 from enum import Enum

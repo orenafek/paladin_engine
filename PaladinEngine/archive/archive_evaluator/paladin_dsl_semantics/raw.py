@@ -15,8 +15,9 @@ from ast_common.ast_common import str2ast, split_tuple
 
 class Raw(Operator, Selector):
     """
-    Raw(expr): The basic operator to retrieve data and evaluate expressions with data from the log.
-               Can be used in an implied form, i.e., Raw(x) <==> x.
+    Raw(<expr>): The basic operator to retrieve data and evaluate expressions with data from the log.
+               Can be used in an implied form. The expression can be any legal Python expression
+               (including list/set/dict comprehensions).
 
     """
 

@@ -1,14 +1,12 @@
 <template>
-    <div class="panel-container">
-        <div class="panel">
-            <va-button v-for="(action, index) in actions" color="#eb6734" :icon="action.icon"
-                       :style="`'grid-column: ${index}`"
-                       @click="btnAction(index)">{{ action.name }}
-            </va-button>
+    <div class="code-editor-container">
+        <div @mouseenter="() => {panelActive = true;}" @mouseleave="() => {panelActive = false;}">
+            <actions-panel :actions="actions" :position="panelPosition" :btnClick="btnAction"
+                           :hidden="!panelActive"/>
+            <Codemirror id="source-editor" ref="cm" class="original-style" :value="sourceCode"
+                        :options="codemirrorOptions" @change="updateSourceCode"/>
         </div>
     </div>
-    <Codemirror id="source-editor" ref="cm" class="original-style" :value="sourceCode"
-                :options="codemirrorOptions" @change="updateSourceCode"/>
 </template>
 
 <script lang="ts">
@@ -22,32 +20,59 @@ import "codemirror/addon/scroll/simplescrollbars.css";
 import Codemirror from "codemirror-editor-vue3";
 import "./main.scss";
 
+//@ts-ignore
+import ActionsPanel from "./actions-panel.vue";
+
 @Component({
-    components: {Codemirror},
+    components: {Codemirror, ActionsPanel},
+    emits: ['code-editor-change', 'code-editor-reset']
 })
 class CodeEditor extends Vue {
     @Prop sourceCode: string
+    @Prop originalSourceCode: string
     @Prop lang: string = ''
     @Prop actions: Array<any> = []
 
     codemirrorOptions = {theme: 'darcula', scrollbarStyle: 'overlay'}
-    /* TODO: Can this be removed? */
     _sourceCode: string = ''
+
+    panelActive: boolean = false;
+    panelPosition: { top: string, left: string } = {top: '0px', left: '0px'}
 
     @Ref cm: typeof Codemirror
 
     mounted() {
         this.codemirrorOptions['mode'] = this.lang;
         this._sourceCode = this.sourceCode;
+        this.updatePanelPosition();
     }
 
     async btnAction(index: number) {
-        await this.actions[index]?.action(this._sourceCode);
+        await this.actions[index]?.action(this._sourceCode, this.originalSourceCode);
     }
 
     updateSourceCode($) {
         this._sourceCode = $;
+        if (this._sourceCode === this.sourceCode) {
+            /* If back to original */
+            this.$emit('code-editor-reset');
+        } else {
+            this.$emit('code-editor-change');
+        }
     }
+
+    updatePanelPosition() {
+        const codeEditorEl = this.cm.$el;
+        const codeEditorRect = codeEditorEl.getBoundingClientRect();
+        const panelWidth = 200; // Adjust this width according to your panel's width
+
+        this.panelPosition = {
+            top: codeEditorRect.top.toString() + 'px',
+            left: (codeEditorRect.right / 2 + 30).toString() + 'px' // Adjust the offset as needed
+        };
+        console.log('pp = ', this.panelPosition);
+    };
+
 
     highlightRow(lineNumber: number): void {
         this.handleHighlighting(lineNumber, true);
@@ -78,7 +103,7 @@ class CodeEditor extends Vue {
             }
         });
 
-       this.addHighlightStyles(className);
+        this.addHighlightStyles(className);
     }
 
     private addHighlightStyles(className: string): void {
@@ -93,6 +118,10 @@ class CodeEditor extends Vue {
             document.head.appendChild(styleTag);
         }
     }
+
+    height(): number {
+        return this.cm.cminstance.getScrollerElement().clientHeight;
+    }
 }
 
 export default toNative(CodeEditor);
@@ -100,25 +129,13 @@ export default toNative(CodeEditor);
 </script>
 
 <style lang="scss" scoped>
+.code-editor-container {
+    overflow-y: auto; /* Enable vertical scroll */
+    background-color: #2b2b2b;
 
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-gap: 25px;
 }
 
-.panel-container {
-    background: #282727;
-    padding: 8px;
+.code-editor-container::-webkit-scrollbar {
+    background-color: #2b2b2b;
 }
-
-.panel {
-    @extend .grid-container;
-    max-width: 450px;
-}
-
-.btn {
-    grid-column: var(--idx);
-}
-
 </style>

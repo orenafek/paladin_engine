@@ -155,6 +155,12 @@ def deconstruct(s: str) -> Tuple[str, str, str]:
             self.base = ast2str(node.value)
             self.attr = node.attr
 
+        def visit_Slice(self, node: ast.Slice) -> Any:
+            self.other = node.lower, node.step, node.upper
+
+        def visit_Subscript(self, node: ast.Subscript) -> Any:
+            self.base = ast2str(node.value)
+
         def visit_Name(self, node: ast.Name):
             self.base = node.id
 

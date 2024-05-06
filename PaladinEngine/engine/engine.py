@@ -208,7 +208,6 @@ class PaLaDiNEngine(object):
                 self.output_capture = StringIO()
                 with redirect_stdout(self.output_capture):
                     exec(compile(self.paladinized_code, 'PALADIN', 'exec'), variables)
-                    output = self.output_capture.getvalue()
             else:
                 exec(compile(self.paladinized_code, 'PALADIN', 'exec'), variables)
 
@@ -218,6 +217,8 @@ class PaLaDiNEngine(object):
                         sys.exc_info(),
                         archive.time,
                         e.line_no if isinstance(e, PaladinTimeoutError) else -1)
+        finally:
+            output = self.output_capture.getvalue()
 
         self._run_data = PaLaDiNEngine.PaladinRunData(output, archive, thrown_exception)
 

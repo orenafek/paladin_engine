@@ -17,7 +17,7 @@ class XTime(BiLateralOperator, TimeOperator):
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
              user_aux: Optional[Dict[str, Callable]] = None):
-        number = cast(Const, self.second).eval_const_value(builder, query_locals)
+        number = cast(Const, self.second).eval_const_value(builder, query_locals, user_aux)
 
         if number < 0:
             return EvalResult.empty(self.times)

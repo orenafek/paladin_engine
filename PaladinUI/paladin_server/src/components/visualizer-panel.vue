@@ -4,7 +4,7 @@
             <tr>
                 <td v-for="v in visualizers">
                     <va-button preset="secondary" color="#eb6734" hover-behavior="opacity"
-                              :icon="v.icon" :hover-opacity="0.4" size="small" @click="buttonClick(v)" />
+                              :icon="v.icon" :hover-opacity="0.4" size="small" @click="buttonClick(v)" :disabled="shouldDisable(v)" />
                 </td>
             </tr>
         </table>
@@ -21,7 +21,6 @@ import {Visualizer} from "./visualizers";
 class VisualizerPanel extends Vue {
     @Prop column: string
     @Prop visualizers?: Visualizer[]
-    //@Prop active?: Visualizer[]
 
     _active: Visualizer[] = []
     btnState: boolean[];
@@ -62,6 +61,10 @@ class VisualizerPanel extends Vue {
             }
         }
         return -1;
+    }
+
+    shouldDisable(v: Visualizer): boolean {
+        return this._active.length > 0 && this.indexOf(this._active, v) == -1;
     }
 
     active(): Visualizer[] {

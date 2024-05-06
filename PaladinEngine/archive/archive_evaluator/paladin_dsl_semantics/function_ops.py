@@ -32,9 +32,9 @@ class InFunction(UniLateralOperator, TimeOperator):
         ])
 
 
-class Locals(UniLateralOperator, SummaryOp):
+class FunctionSummary(UniLateralOperator, SummaryOp):
     """
-    Locals(f/f@ln): Retrieves values of all assignments that have happened inside a function.
+    FunctionSummary(f/f@ln): Retrieves values of all assignments that have happened inside a function.
     """
 
     def __init__(self, times: Iterable[Time], func_name: str | Raw, line_no: Optional[LineNo] = -1):

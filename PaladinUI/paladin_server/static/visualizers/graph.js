@@ -5,18 +5,44 @@ class GraphVisualizer {
             return typeof obj === 'object' && obj != null &&
                 'dest' in obj && typeof obj.dest !== 'undefined' &&
                 'src' in obj && typeof obj.src !== 'undefined' &&
-                'weight' in obj && typeof obj.weight !== 'undefined'
+                'weight' in obj && typeof obj.weight !== 'undefined';
         }
 
-        return (Array.isArray(data) && data.length >= 1 && data.every(obj => isEdge(obj))) || data && isEdge(data);
+        if (Array.isArray(data)) {
+            if (data.length >= 1 && data.every(obj => isEdge(obj))) {
+                return true; // Single graph
+            } else if (data.every(graph => Array.isArray(graph) && graph.every(obj => isEdge(obj)))) {
+                return true; // List of graphs
+            }
+        }
 
+        return false;
     }
 
     format(data) {
-        return {
-            type: "htmlElement",
-            content: this.renderD3Graph(data)
+        if (!Array.isArray(data)) {
+            data = [data]; // Wrap single edge in an array
         }
+
+        if (Array.isArray(data[0])) {
+            // List of graphs
+            const container = document.createElement('div');
+            data.forEach(graph => {
+                const svg = this.renderD3Graph(graph);
+                container.appendChild(svg);
+            });
+            return {
+                type: "htmlElement",
+                content: container
+            };
+        } else {
+            // Single graph
+            return {
+                type: "htmlElement",
+                content: this.renderD3Graph(data)
+            };
+        }
+
     }
 
     renderD3Graph(data) {
