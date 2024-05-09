@@ -19,6 +19,8 @@ from time import time
 from types import CodeType
 from typing import Optional, Union, Tuple
 
+# noinspection PyUnresolvedReferences
+from api.api import PaladinPostCondition
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
 from ast_common.ast_common import ast2str, get_arg_from_func_call
@@ -30,8 +32,6 @@ from module_transformer.module_transformator import ModuleTransformer
 from stubs.stubs import __FLI__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
     __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__, __BREAK__, __EOLI__, __SOLI__, __BMFCS__, \
     __PRINT__, __STUBS__
-# noinspection PyUnresolvedReferences
-from api.api import PaladinPostCondition
 
 
 # noinspection PyRedeclaration
@@ -55,6 +55,18 @@ class PaLaDiNEngine(object):
         def create(source_code: str, paladinized_code: str, sys_exc_info,
                    archive_time: int, exception_line_no: int = -1) -> 'PaLaDiNEngine.PaladinRunExceptionData':
 
+            matched_line, run_line_no = PaLaDiNEngine.PaladinRunExceptionData.find_original_line_no(exception_line_no,
+                                                                                                    paladinized_code,
+                                                                                                    source_code,
+                                                                                                    sys_exc_info)
+            return PaLaDiNEngine.PaladinRunExceptionData(line_no=matched_line[0],
+                                                         paladinized_line_no=run_line_no - 1,
+                                                         msg=str(sys_exc_info[1]),
+                                                         throwing_line_source=matched_line[1],
+                                                         time=archive_time)
+
+        @staticmethod
+        def find_original_line_no(exception_line_no, paladinized_code, source_code, sys_exc_info):
             if exception_line_no == -1:
                 run_line_no = None
                 exc_info: traceback = sys_exc_info[2]
@@ -63,12 +75,9 @@ class PaLaDiNEngine(object):
                     exc_info = exc_info.tb_next
             else:
                 run_line_no = exception_line_no
-
             original_lines = source_code.split('\n')
             paladinized_lines = paladinized_code.split('\n')
-
             paladinized_line = paladinized_lines[run_line_no - 1]
-
             if __IS_STUBBED__(paladinized_line):
                 # The line itself is not as it was in the original file, therefore look for the line no. in it.
                 try:
@@ -89,11 +98,7 @@ class PaLaDiNEngine(object):
                 # assert len(matched_lines) == 1
 
                 matched_line = matched_lines[0]
-            return PaLaDiNEngine.PaladinRunExceptionData(line_no=matched_line[0],
-                                                         paladinized_line_no=run_line_no - 1,
-                                                         msg=str(sys_exc_info[1]),
-                                                         throwing_line_source=matched_line[1],
-                                                         time=archive_time)
+            return matched_line, run_line_no
 
         @classmethod
         def empty(cls):
@@ -192,11 +197,11 @@ class PaLaDiNEngine(object):
             def handler(signum, frame):
                 current_frame = frame
                 line_no = frame.f_lineno
-                while current_frame and 'PALADIN' not in str(current_frame):
+                while current_frame and 'PALADIN' not in str(current_frame) and not re.match(r'__.*__', str(current_frame)):
+                # while current_frame and not str(current_frame) in self.paladinized_code.split('\n'):
                     line_no = current_frame.f_lineno
                     current_frame = current_frame.f_back
-                raise PaladinTimeoutError(line_no,
-                                          f'Program exceeded timeout, stopped on: {line_no}')
+                raise PaladinTimeoutError(line_no, f'Program exceeded timeout.')
 
             if self.timeout > 0:
                 signal.signal(signal.SIGALRM, handler)
@@ -251,6 +256,7 @@ class PaLaDiNEngine(object):
                 .transform_breaks()
 
         except BaseException as e:
+            traceback.print_exc()
             print(e)
         return t.module, t.global_map
 

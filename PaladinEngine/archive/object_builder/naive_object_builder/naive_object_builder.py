@@ -33,7 +33,7 @@ class NaiveObjectBuilder(ObjectBuilder):
 
         records = sorted(self.archive.flatten_and_filter(
             [Archive.Filters.AS_OR_BMFCS_FILTER, Archive.Filters.CONTAINER_ID_EQUALS(item),
-             Archive.Filters.TIME_EQUAL_OR_LATER_FILTER(time)] +
+             Archive.Filters.TIME_BEFORE_OR_EQUAL_FILTER(time)] +
             ([Archive.Filters.LINE_NO_FILTER(line_no)] if line_no > -1 else [])), key=lambda r: r[1].time)
 
         object_data = AttributedDict()

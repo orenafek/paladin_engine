@@ -21,11 +21,36 @@ from stubs.stubs import __PAUSE__, __RESUME__
 
 
 class UnionFind:
+    """
+    UnionFind data structure for disjoint-set operations.
+
+    This data structure efficiently maintains a partition of a set of elements,
+    with each partition represented by a tree. It supports two main operations:
+    1. Find: Determine which set a particular element belongs to.
+    2. Union: Merge two sets into one by connecting their respective trees.
+
+    Attributes:
+        parent (list): An array where each element's index represents a vertex,
+            and the value at that index represents the parent vertex.
+            Initially, each vertex is its own parent, forming a disjoint set.
+        rank (list): An array to store the rank of each subset.
+            The rank is used to optimize the union operation by always attaching
+            the smaller tree to the root of the larger tree.
+    """
     def __init__(self, size):
         self.parent = [i for i in range(size)]
         self.rank = [0] * size
 
     def find(self, x):
+        """
+        Find operation to determine the root of the set containing the element x.
+
+        Args:
+           x (int): The element whose set is being determined.
+
+        Returns:
+          int: The root element of the set containing x.
+        """
         # Find the root of the set containing x
         root = x
         while self.parent[root] != root:
@@ -40,6 +65,13 @@ class UnionFind:
         return root
 
     def union(self, x, y):
+        """
+        Union operation to merge two sets represented by elements x and y.
+
+        Args:
+            x (int): An element from the first set.
+            y (int): An element from the second set.
+        """
         root_x = self.find(x)
         root_y = self.find(y)
 
@@ -50,7 +82,7 @@ class UnionFind:
             elif self.rank[root_x] < self.rank[root_y]:
                 self.parent[root_x] = root_y
             else:
-                self.parent[root_y] = root_y
+                self.parent[root_y] = root_x
 
 
 
@@ -74,7 +106,6 @@ def kruskal(graph, num_vertices):
         dest = edge.dest
         uff_s = uf.find(src)
         uff_d = uf.find(dest)
-        y =1
         if uff_s != uff_d:
             uf.union(src, dest)
             mst.append(edge)

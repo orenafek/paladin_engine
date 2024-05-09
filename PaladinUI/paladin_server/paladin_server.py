@@ -75,7 +75,7 @@ class PaladinServer(FlaskView):
 
     def run(self, port: int = 9999):
         self.register_app()
-        self.app.run(port=port)
+        self.app.run(host='0.0.0.0', port=port)
 
     @classmethod
     def _reset(cls, engine: PaLaDiNEngine):

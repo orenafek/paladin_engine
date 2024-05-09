@@ -23,8 +23,6 @@ WORKDIR /app
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-RUN ls /app
-
 # Install curl and other necessary packages
 RUN apt-get update && \
     apt-get install -y curl && \
@@ -35,6 +33,7 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 ENV PATH="~/.local/bin:${PATH}"
 
 # Install dependencies using Poetry
+RUN ~/.local/bin/poetry config virtualenvs.in-project true
 RUN ~/.local/bin/poetry install --no-root --no-interaction
 ENV PATH="~/.local/bin:${PATH}"
 
@@ -81,11 +80,11 @@ RUN npm run build
 
 WORKDIR /app
 
-# Make port 80 available to the world outside this container
+# Make port available to the world outside this container
 EXPOSE 5555
 
 ## Define environment variable
 #ENV FLASK_APP=app.py
 
 # Run the script to start the application
-CMD ~/.local/bin/poetry run ./run_paladin.sh /app/PaladinEngine/tests/test_resources/examples/tutorial/tutorial.py -d -p 5555
+CMD . .venv/bin/activate && ./run_paladin.sh /app/PaladinEngine/tests/test_resources/examples/tutorial/tutorial.py -d -p 5555

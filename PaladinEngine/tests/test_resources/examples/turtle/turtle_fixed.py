@@ -1,16 +1,16 @@
-from stubs.stubs import archive
+from stubs.stubs import __PAUSE__, __RESUME__
 
-archive.pause_record()
+__PAUSE__()
 import pandas as pd
 
 df = pd.read_excel(
-    '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/examples/turtle/irobot_kelet.xlsx')
+    '/Users/oren.afek/Projects/Paladin/paladin_engine/PaladinEngine/tests/test_resources/examples/turtle/irobot_kelet.xlsx')
 
 df = df.dropna()
 df = df.transpose()
 print(df)
 
-archive.resume_record()
+__RESUME__()
 walls = [(int(x[0]), int(x[1])) for x in df.values.tolist()[1:]]
 start = (4, 7)
 robot_pos = start
@@ -31,7 +31,6 @@ def Move():
     if next_temp not in walls:
         robot_pos = next_temp
         print(robot_pos)
-
         return True
     else:
         return False
@@ -51,10 +50,11 @@ def RotateRight():
 
 
 def IrobotClean():
+    global start, robot_dir
     # defining the edges for the irobot
-    start_pos = (0, 0)
+    start_pos = start
     current_pos = start_pos
-    direction = (1, 0)
+    direction = robot_dir
 
     def add_v(x, y):
         return (x[0] + y[0], x[1] + y[1])
@@ -101,9 +101,14 @@ def has_unexplored(visited, edges):
         l = [(x + 1, y), (x, y - 1), (x - 1, y), (x, y + 1)]
         for p in l:
             if p not in visited and ((x, y), p) not in edges:
-                return True  # there is still unexplored points, p is unexplored
+                return True  # there are still unexplored points, p is unexplored
 
     return False  # there aren't otherb points to explore     
 
 
-IrobotClean()
+def main():
+    IrobotClean()
+
+
+if __name__ == '__main__':
+    main()

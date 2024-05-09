@@ -319,13 +319,17 @@ class EvalResult(List[EvalResultEntry]):
 
         for t in set(r1_time_mapped).union(r2_time_mapped):
             if t in r1_time_mapped and t not in r2_time_mapped:
-                results.append(r1_time_mapped[t])
+                e1 = r1_time_mapped[t]
+                e2 = EvalResultEntry.empty_with_keys(t, r2.all_keys())
 
             elif t not in r1_time_mapped and t in r2_time_mapped:
-                results.append(r2_time_mapped[t])
-
+                e1 = EvalResultEntry.empty_with_keys(t, r1.all_keys())
+                e2 = r2_time_mapped[t]
             else:
-                results.append(EvalResultEntry.join(r1_time_mapped[t], r2_time_mapped[t]))
+                e1 = r1_time_mapped[t]
+                e2 = r2_time_mapped[t]
+
+            results.append(EvalResultEntry.join(e1, e2))
 
         return EvalResult(results)
 

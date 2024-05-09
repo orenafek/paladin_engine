@@ -18,8 +18,9 @@ import random
 from abc import abstractmethod
 from enum import Enum
 from random import shuffle, choice
+from string import ascii_uppercase
 from typing import Optional
-
+from art import tprint
 
 class Job(object):
     class Type(Enum):
@@ -77,8 +78,18 @@ class PlayableWorker(Worker):
 
 
 class VisualWorker(Worker):
-
     def operate(self) -> None:
+        if Job.Type[self.ongoing.type] == Job.Type.IMAGE:
+            count = 1
+        elif Job.Type[self.ongoing.type] == Job.Type.VIDEO:
+            count = 10
+        else:
+            count = 0
+
+        for i in range(count):
+            art = ''.join(random.choice(ascii_uppercase) for _ in range(self.ongoing.id))
+            tprint(art, font='minion')
+
         match Job.Type[self.ongoing.type]:
             case Job.Type.IMAGE | Job.Type.VIDEO:
                 self.server.summaries.append(self.ongoing)

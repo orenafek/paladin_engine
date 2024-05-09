@@ -7,7 +7,9 @@ class GraphVisualizer {
                 'src' in obj && typeof obj.src !== 'undefined' &&
                 'weight' in obj && typeof obj.weight !== 'undefined';
         }
-
+         if (!Array.isArray(data)) {
+            return isEdge(data); // Return true if it's a single edge
+        }
         if (Array.isArray(data)) {
             if (data.length >= 1 && data.every(obj => isEdge(obj))) {
                 return true; // Single graph

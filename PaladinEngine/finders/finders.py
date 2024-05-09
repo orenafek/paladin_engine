@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
+from dataclasses import dataclass, field
+from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable, Dict
 
 from ast_common.ast_common import ast2str, get_op_sign
 from conf.engine_conf import *
@@ -286,19 +286,44 @@ class PaladinLoopFinder(GenericFinder):
     A finder for While & For loops.
     """
 
-    def visit_For(self, node) -> Any:
+    def __init__(self):
+        self.loop_extras: Dict[ast.AST, PaladinLoopFinder.PaladinLoopExtra] = {}
+        self.current_loop = []
+        super().__init__()
+
+    @dataclass
+    class PaladinLoopExtra(object):
+        breaks: List[ast.Break] = field(default_factory=lambda: [])
+        continues: List[ast.Continue] = field(default_factory=lambda: [])
+
+    def _visit_loop(self, node: ast.For | ast.While):
+        self.current_loop.append(node)
+        self.loop_extras[node] = PaladinLoopFinder.PaladinLoopExtra()
+        r = self._generic_visit_with_extras(node, self.loop_extras[node])
+        self.current_loop.pop()
+        return r
+
+    def visit_For(self, node: ast.For) -> Any:
         """
             A visitor for For Loops.
         :param node: (ast.AST) An AST node.
         :return: None.
         """
-        return True
+        return self._visit_loop(node)
 
     def visit_While(self, node: ast.While) -> Any:
+        return self._visit_loop(node)
+
+    def visit_Continue(self, node: ast.Continue) -> Any:
+        self.loop_extras[self.current_loop[0]].continues.append(node)
+        return True
+
+    def visit_Break(self, node: ast.Break) -> Any:
+        self.loop_extras[self.current_loop[0]].breaks.append(node)
         return True
 
     def types_to_find(self) -> Union:
-        return [ast.For, ast.While]
+        return [ast.For, ast.While, ast.Continue, ast.Break]
 
 
 class PaladinForLoopInvariantsFinder(GenericFinder):
@@ -471,7 +496,7 @@ class AssignmentFinder(GenericFinder):
 
             def visit_Tuple(self, node):
                 visited_elts = [self.visit(e) for e in node.elts]
-                return ", ".join(["'%s'" % ve if isinstance(ve, str) else str(ve) for ve in visited_elts])
+                return ", ".join(["%s" % ve if isinstance(ve, str) else str(ve) for ve in visited_elts])
 
             def visit_Name(self, node):
                 return node.id

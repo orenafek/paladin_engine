@@ -106,10 +106,9 @@ def gen_rand():
     s = t()
     c = []
     for i in range(0, random.randint(1, 5)):
-        c.append(math.ceil(10 ** 9 * (s - t())))
+        c.append(math.ceil(10 ** 9 * (t() - s)))
 
     return random.choice(c)
-
 
 
 def main():
@@ -143,7 +142,7 @@ def main():
 
     if not all(initial_balance >= current_balance for initial_balance, current_balance in
                zip(initial_balances, current_balances)):
-        raise RuntimeError('There is still balance in the accounts.')
+        raise ValueError('There is still balance in the accounts.')
 
     # Validate and print results
     total_balance = sum(acc.get_current_balance() for acc in bank.get_all_accounts())

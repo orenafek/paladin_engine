@@ -96,8 +96,8 @@ class TestKruskalLetAndAux(TestPaladinNativeParser):
         return 'kruskal_aux.py'
 
     def test_find_with_aux(self):
-        query = "Let({'x': {0, 1, 2}}, Where(list(map(lambda i: uf_find(uf@51, i), [0, 1, 2])), " \
-                "And(src@57 in x, dest@58 in x)))"
+        query = "Let({'x': {0, 1, 2}}, Where(list(map(lambda i: uf_find(uf@102, i), [0, 1, 2])), " \
+                "And(src@105 in x, dest@106 in x)))"
 
         self._test_series_of_values(query,
                                     SKIP_VALUE,

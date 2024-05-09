@@ -21,6 +21,8 @@ PyHamcrest = "^2.0.4"
 Flask-Classful = "^0.14.2"
 pytest = "^7.3.0"
 frozendict = "^2.3.8"
+openpyxl = "^3.1.2"
+crcmod = "^1.7"
 
 
 [build-system]

@@ -95,6 +95,10 @@ class Archive(object):
             return lambda vv: vv.time >= time
 
         @staticmethod
+        def TIME_BEFORE_OR_EQUAL_FILTER(time: int):
+            return lambda vv: vv.time <= time
+
+        @staticmethod
         def CONTAINER_ID_EQUALS(container_id: ContainerId):
             return lambda vv: vv.key.container_id == container_id
 

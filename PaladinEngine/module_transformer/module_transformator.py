@@ -61,11 +61,15 @@ class ModuleTransformer(object):
         while loop_entries:
             loop_entry = loop_entries.pop()
 
+            if all([not isinstance(loop_entry.node, t) for t in {ast.For, ast.While}]):
+                continue
+
             # Create a stubber.
             stubber = LoopStubber(self._module)
 
             # Stub.
-            self._module = stubber.stub_loop(loop_entry.node, loop_entry.container, loop_entry.attr_name)
+            self._module = stubber.stub_loop(loop_entry.node, loop_entry.container, loop_entry.attr_name,
+                                             loop_entry.extra)
 
             plf.visit(self._module)
             loop_entries = plf.find()

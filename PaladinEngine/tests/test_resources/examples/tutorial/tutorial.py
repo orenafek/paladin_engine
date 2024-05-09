@@ -9,10 +9,16 @@ class Array(object):
 
     def sort(self):
         for i in range(self.dim):
-            for j in range(0, self.dim - i):
+            for j in range(0, self.dim - i - 1):
                 if self.data[j] > self.data[j + 1]:
                     self.data[j], self.data[j + 1] = self.data[j + 1], self.data[j]
 
+        x = 0
+        while True:
+            x += 1
+            print(x)
+            if x > 10:
+                break
     def _populate(self):
         for i in range(self.dim):
             self.data[i] = randint(0, 100)
