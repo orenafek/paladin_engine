@@ -701,7 +701,7 @@ class AugAssignStubber(Stubber):
         self.temp_var_seed = 0
 
     def stub_aug_assigns(self, node: ast.AugAssign, container: ast.AST, container_attr_name: str):
-        temp_var = self.next_temp_var
+        temp_var = self.next_temp_var(node.lineno)
         temp_op_and_assign = Stubber.copy_line_no(ast.Assign(targets=[ast.Name(id=temp_var)], ctx=ast.Store,
                                                              value=ast.BinOp(left=node.target, op=node.op,
                                                                              right=node.value)), node)
@@ -713,9 +713,8 @@ class AugAssignStubber(Stubber):
         self.root_module = self.stub(stub_record)
         return self.root_module
 
-    @property
-    def next_temp_var(self):
-        temp_var = self.temp_var_base + f'{self.temp_var_seed}'
+    def next_temp_var(self, line_no: int):
+        temp_var = self.temp_var_base + f'{self.temp_var_seed}__' + f'LINE_NO__{line_no}'
         self.temp_var_seed += 1
         return temp_var
 

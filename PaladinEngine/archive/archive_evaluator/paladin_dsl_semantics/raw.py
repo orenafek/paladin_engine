@@ -1,4 +1,6 @@
 import ast
+import concurrent.futures
+import os
 from typing import Optional, Iterable, Dict, Set, Collection, Union, List, Any, Callable
 
 from archive.archive_evaluator.archive_evaluator import ArchiveEvaluator
@@ -44,23 +46,49 @@ class Raw(Operator, Selector):
     def _evaluate_raw_by_time(self, builder, extractor, queries, query_locals, user_aux: Dict[str, Callable]):
 
         results = []
-        for t in self.times:
-            resolved_names = self._resolve_names(builder, extractor.names, self.line_no, t, query_locals, user_aux)
-            try:
-                # TODO: Can AST object be compiled and then evaled (without turning to string)?
-                result = eval(self.query, {**resolved_names, **EVAL_BUILTIN_CLOSURE})
-            except (IndexError, KeyError, NameError, AttributeError, TypeError):
-                result = [None] * len(queries) if len(queries) > 1 else None
-            results.append(self._create_evald_result(queries, result, t))
-        return EvalResult(results)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+            # Submit evaluation tasks for each time in self.times
+            future_to_time = {
+                executor.submit(self._evaluate_for_time, queries, builder, extractor, self.line_no, t, query_locals, user_aux): t
+                for t in self.times}
+            for future in concurrent.futures.as_completed(future_to_time):
+                t = future_to_time[future]
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    result = [None] * len(queries) if len(queries) > 1 else None
+                    print(f'Evaluation failed for time {t}: {exc}')
+                results.append(self._create_evald_result(queries, result, t))
+        return EvalResult(sorted(results, key=lambda e: e.time))
 
-    def _evaluate_comprehension(self, queries, query_locals):
+    def _evaluate_for_time(self, queries, builder, extractor, line_no, t, query_locals, user_aux):
+        resolved_names = self._resolve_names(builder, extractor.names, line_no, t, query_locals, user_aux)
         try:
-            evald = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **Raw.query_locals_for_compr(query_locals)})
+            result = eval(self.query, {**resolved_names, **EVAL_BUILTIN_CLOSURE})
         except (IndexError, KeyError, NameError, AttributeError, TypeError):
-            evald = [None] * len(self.times)
-        results = [self._create_evald_result(queries, evald[t], t) for t in self.times]
-        return EvalResult(results)
+            result = [None] * len(queries) if len(queries) > 1 else None
+        return result
+
+    # def _evaluate_raw_by_time(self, builder, extractor, queries, query_locals, user_aux: Dict[str, Callable]):
+    #
+    #     results = []
+    #     for t in self.times:
+    #         resolved_names = self._resolve_names(builder, extractor.names, self.line_no, t, query_locals, user_aux)
+    #         try:
+    #             # TODO: Can AST object be compiled and then evaled (without turning to string)?
+    #             result = eval(self.query, {**resolved_names, **EVAL_BUILTIN_CLOSURE})
+    #         except (IndexError, KeyError, NameError, AttributeError, TypeError):
+    #             result = [None] * len(queries) if len(queries) > 1 else None
+    #         results.append(self._create_evald_result(queries, result, t))
+    #     return EvalResult(results)
+    #
+    # def _evaluate_comprehension(self, queries, query_locals):
+    #     try:
+    #         evald = eval(self.query, {**EVAL_BUILTIN_CLOSURE, **Raw.query_locals_for_compr(query_locals)})
+    #     except (IndexError, KeyError, NameError, AttributeError, TypeError):
+    #         evald = [None] * len(self.times)
+    #     results = [self._create_evald_result(queries, evald[t], t) for t in self.times]
+    #     return EvalResult(results)
 
     @staticmethod
     def query_locals_for_compr(query_locals: Dict[str, EvalResult]) -> Dict[str, Any]:

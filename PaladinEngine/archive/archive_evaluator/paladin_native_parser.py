@@ -13,6 +13,7 @@ from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNC
 from archive.archive_evaluator.paladin_dsl_semantics import Const, TimeOperator
 from archive.archive_evaluator.paladin_dsl_semantics.aux_op import AuxOp
 from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
+from archive.archive_evaluator.paladin_dsl_semantics.for_each import ForEach
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.archive_evaluator.paladin_dsl_semantics.summary_op import SummaryOp
@@ -94,6 +95,7 @@ class PaladinNativeParser(object):
             self.operators: Dict[str, Tuple[Operator, str]] = {}
             self.root_vars = []
             self._visited_root: bool = False
+            self._extract_inner_ops: bool = True
 
         def visit(self, node: ast.AST) -> Any:
             if self._visited_root:
@@ -119,6 +121,10 @@ class PaladinNativeParser(object):
             var_name = self.create_operator_lambda_var()
             # noinspection PyUnresolvedReferences,PyArgumentList,PyTypeChecker
             # Visit arguments.
+
+            if isinstance(node.func, ast.Name) and node.func.id == ForEach.name():
+                self._extract_inner_ops = False
+
             arg_vars = []
             for arg in node.args:
                 arg_visit_result = self.visit(arg)
@@ -131,9 +137,11 @@ class PaladinNativeParser(object):
                     arg_vars.append(self._create_raw_op_from_arg(arg_visit_result))
 
             # noinspection PyArgumentList,PyUnresolvedReferences
-            self._add_operator(var_name, ast2str(node),
-                               PaladinNativeParser.OPERATORS[node.func.id](self.times, *arg_vars))
+            op = PaladinNativeParser.OPERATORS[node.func.id](self.times, *arg_vars)
+            op.standalone = self._extract_inner_ops
+            self._add_operator(var_name, ast2str(node), op)
 
+            self._extract_inner_ops = True
             return ast.Name(id=var_name, lineno=node.lineno)
 
         def _handle_type_call(self, node: ast.Call):
@@ -420,11 +428,13 @@ class PaladinNativeParser(object):
     def _eval_operators(self, visitor):
         operator_results = {}
         for var_name, (operator, operator_original_name) in visitor.operators.items():
-            eval_result = operator.eval(self.builder, operator_results, self.user_aux)
-            if is_tuple(var_name):
-                operator_results.update({e: eval_result.by_key(e) for e in split_tuple(var_name)})
-            else:
-                operator_results[var_name] = eval_result
+            if operator.standalone:
+                eval_result = operator.eval(self.builder, operator_results, self.user_aux)
+                if is_tuple(var_name):
+                    operator_results.update({e: eval_result.by_key(e) for e in split_tuple(var_name)})
+                else:
+                    operator_results[var_name] = eval_result
+
 
         # Evaluate query.
         return operator_results

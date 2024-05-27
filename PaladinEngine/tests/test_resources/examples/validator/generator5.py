@@ -1,10 +1,11 @@
+import binascii
 import hashlib
 import random
 import string
 
 SEP = 'X@y$'
 FINAL = 'A#<B'
-N = 15
+N = 30
 I = 0
 
 
@@ -13,8 +14,8 @@ def gen_str(length: int):
 
 
 magic_options = [gen_str(4) for _ in range(int(N))]
-magic_seq = [1, 2, 3, 'X', 1, 1, 'Y', 2, 1, 1, 3]
-magic_seq2 = [2, 1, 1, 3, 1, 1, 2, 1, 2, 3]
+magic_seq = [1, 2, 2, 1, 3, 'X', 1, 1, 'Y', 2, 1, 1, 3, 2, 1, 1, 1, 3, 4, 2, 1]
+magic_seq2 = [1, 2, 1, 2, 1, 1, 3, 1, 1, 2, 1, 2, 3, 2, 1, 3, 4, 2, 1, 1]
 magics = []
 
 
@@ -35,19 +36,6 @@ def populate_magics(seq):
 
 def generate_msg():
     return str(msg(magic := gen_magic(), l := gen_len(), (cntnt := gen_str(int(l))), SEP)), magic, cntnt
-
-
-def crc16(data):
-    crc = 0xFFFF
-    for char in data:
-        crc ^= ord(char)
-        for _ in range(8):
-            if crc & 0x0001:
-                crc >>= 1
-                crc ^= 0xA001
-            else:
-                crc >>= 1
-    return crc
 
 
 class msg(object):
@@ -81,20 +69,22 @@ def gen_input():
         s += msg
         if magic not in cntnts:
             cntnts[magic] = 0
-        cntnts[magic] += (c := crc16(content))
-        print(f'{magic}: {c}')
+        cntnts[magic] += (c := binascii.crc32(bytes(content, 'utf-8')))
+        # print(f'{magic}: {c}')
 
-    print(''.join(map(str, cntnts.values())))
+    # print(''.join(map(str, cntnts.values())))
     checksum = hashlib.md5(''.join(map(str, cntnts.values())).encode()).hexdigest()
-    print(len(str(checksum)))
+    # print(len(str(checksum)))
     return f'{s}{FINAL}{checksum}'
 
 
 def main():
-    populate_magics(magic_seq)
-    print(gen_input())
     populate_magics(magic_seq2)
     print(gen_input())
+    print('-----------')
+    populate_magics(magic_seq)
+    print(gen_input())
+
 
 if __name__ == '__main__':
     main()

@@ -20,7 +20,9 @@ from enum import Enum
 from random import shuffle, choice
 from string import ascii_uppercase
 from typing import Optional
-from art import tprint
+
+from art import text2art
+
 
 class Job(object):
     class Type(Enum):
@@ -32,6 +34,12 @@ class Job(object):
     def __init__(self, id: int, _type):
         self.id = id
         self.type = _type._name_
+
+
+class Summary(object):
+    def __init__(self, job: Job, summary: str):
+        self.job = job
+        self.summary = summary
 
 
 class Server(object):
@@ -86,15 +94,16 @@ class VisualWorker(Worker):
         else:
             count = 0
 
+        total_art = ''
         for i in range(count):
             art = ''.join(random.choice(ascii_uppercase) for _ in range(self.ongoing.id))
-            tprint(art, font='minion')
+            total_art += text2art(art, font='minion')
 
-        match Job.Type[self.ongoing.type]:
-            case Job.Type.IMAGE | Job.Type.VIDEO:
-                self.server.summaries.append(self.ongoing)
-            case Job.Type.TEXT:
-                self.server.todo.append(self.ongoing)
+        if Job.Type[self.ongoing.type] in {Job.Type.IMAGE, Job.Type.VIDEO}:
+            self.server.summaries.append(Summary(self.ongoing, total_art))
+
+        elif Job.Type[self.ongoing.type] in {Job.Type.TEXT}:
+            self.server.todo.append(self.ongoing)
 
 
 class EvenWorker(Worker):

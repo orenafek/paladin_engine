@@ -13,8 +13,10 @@ from .const import Const
 from .const_time import ConstTime
 from .diff import Diff
 from .first import First
+from .for_each import ForEach
 from .function_ops import InFunction, FunctionSummary
 from .group import Group
+from .invariant import Inv
 from .last import Last
 from .let import Let
 from .line import Line

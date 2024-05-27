@@ -23,6 +23,8 @@ pytest = "^7.3.0"
 frozendict = "^2.3.8"
 openpyxl = "^3.1.2"
 crcmod = "^1.7"
+intervaltree = "^3.1.0"
+sortedcontainers = "^2.4.0"
 
 
 [build-system]

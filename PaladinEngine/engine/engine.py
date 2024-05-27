@@ -61,7 +61,7 @@ class PaLaDiNEngine(object):
                                                                                                     sys_exc_info)
             return PaLaDiNEngine.PaladinRunExceptionData(line_no=matched_line[0],
                                                          paladinized_line_no=run_line_no - 1,
-                                                         msg=str(sys_exc_info[1]),
+                                                         msg=repr(sys_exc_info[1]),
                                                          throwing_line_source=matched_line[1],
                                                          time=archive_time)
 
@@ -91,6 +91,14 @@ class PaLaDiNEngine(object):
                         raise e
                 line_no = int(line_no)
                 matched_line = (line_no, original_lines[line_no - 1])  # original_lines start from 0
+                return matched_line, run_line_no
+
+            m = re.match(r'.*____PALADIN_TEMP_AUG_ASSIGN_VAR__\d+__LINE_NO__(\d+).*', paladinized_line)
+            if m is not None:
+                original_line_no = int(m.group(1))
+                matched_line = original_lines[original_line_no - 1]
+                return (original_line_no, matched_line), run_line_no
+
             else:
                 matched_lines = [(no + 1, l) for no, l in enumerate(original_lines) if
                                  paladinized_lines[run_line_no - 1] == l]

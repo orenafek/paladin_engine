@@ -100,22 +100,22 @@ class Main extends Vue {
     @Ref cheatSheet: CheatSheet
 
     readonly actions = [
-        // {
-        //     name: 'Reset', icon: 'restart_alt', color: "#eb6734", enabled: false, action:
-        //         async (updated, original) => {
-        //             console.log('in reset callback. original = ', original, ' updated = ', updated);
-        //             await this.updateCode(original);
-        //             this.sourceCode = original;
-        //             await this.rerun();
-        //         }
-        // },
-        // {
-        //     name: 'Rerun', icon: 'directions_run', color: "#eb6734", enabled: false,
-        //     action: async (updated, original) => {
-        //         await this.updateCode(updated);
-        //         await this.rerun();
-        //     }
-        // }
+        {
+            name: 'Reset', icon: 'restart_alt', color: "#eb6734", enabled: false, action:
+                async (updated, original) => {
+                    console.log('in reset callback. original = ', original, ' updated = ', updated);
+                    await this.updateCode(original);
+                    this.sourceCode = original;
+                    await this.rerun();
+                }
+        },
+        {
+            name: 'Rerun', icon: 'directions_run', color: "#eb6734", enabled: false,
+            action: async (updated, original) => {
+                await this.updateCode(updated);
+                await this.rerun();
+            }
+        }
     ]
 
     async created() {
@@ -182,13 +182,13 @@ class Main extends Vue {
 
     codeEditorChange() {
         /* Change reset button. */
-        // this.actions[0].enabled = true;
-        // this.actions[1].enabled = true;
+        this.actions[0].enabled = true;
+        this.actions[1].enabled = true;
     }
 
     codeEditorReset() {
-        // this.actions[0].enabled = false;
-        // this.actions[1].enabled = false;
+        this.actions[0].enabled = false;
+        this.actions[1].enabled = false;
     }
 
 }
@@ -206,11 +206,15 @@ export default toNative(Main);
 .code-editor-pane {
     display: flex;
     flex-direction: column;
+
+    > .code-editor-container {
+        flex-grow: 1;
+        > div {
+            height: 100%;
+        }
+    }
 }
 
-.code-editor-pane CodeMirror {
-    flex-grow: 1;
-}
 
 #header {
     display: grid;

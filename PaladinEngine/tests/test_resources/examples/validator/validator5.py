@@ -12,7 +12,7 @@ Message: <Magic |4|><Length|2|><Content|Length|>
 The entire sequence is in the following format:
 Sequence: <Message><Seperator><Message><Seperator>...<Message><Seperator><EndBarker><Entire Seq.Checksum>
 """
-
+import binascii
 import hashlib
 from collections import OrderedDict
 
@@ -44,16 +44,7 @@ def validate(s: str):
         chunk = s[i: i + cntr]
         i += cntr
 
-        c = 0xFFFF
-        for char in chunk:
-            c ^= ord(char)
-            for _ in range(8):
-                if c & 0x0001:
-                    c >>= 1
-                    c ^= 0xA001
-                else:
-                    c >>= 1
-        cursum += c
+        cursum += binascii.crc32(bytes(chunk, 'utf-8'))
 
     chunk = ''.join(map(str, chsms.values()))
     calc = hashlib.md5(chunk.encode()).hexdigest()
@@ -62,12 +53,20 @@ def validate(s: str):
     return str(f) == str(calc)
 
 
-def main():
-    s = 'wSr704zmT7X@y$w7Fj08afEqiiTzX@y$w7Fj03ugUX@y$djj108hPc6AB0zX@y$djj103AfVX@y$djj1035vhX@y$w7Fj02UwX@y$A#<Bc724dc57d014e57bc587d7002871c99d'
+def validate_input(s: str):
     if validate(s):
         print(':)')
     else:
         print(':(')
+
+
+def main():
+    s1 = 'u4kE08wNrEvl1IX@y$g1p204J0wYX@y$g1p206nJhkDzX@y$vyvo05UuFEdX@y$9JpA01fX@y$9JpA012X@y$tSvh06EL5k2DX@y$ZUKq03D45X@y$b7FN03beoX@y$b7FN04xRSgX@y$b7FN08UTwWczOEX@y$JqU0052GmxzX@y$GAKn01oX@y$lxU803b5ZX@y$lxU8045diaX@y$KeeD09RTwsyZ2aoX@y$grh110EEW6uj2slzX@y$grh103TvtX@y$OLt101RX@y$OLt1081mxzj7dsX@y$OLt104T3TOX@y$ahTW10Q0DE6b17zTX@y$ahTW07ducYmnvX@y$xF4j09vzSlMjepxX@y$DUUl05oCjgEX@y$DUUl02DvX@y$DUUl05lqhCiX@y$V9Ma06xIQVJUX@y$V9Ma086nKV82MrX@y$V9Ma03bTEX@y$A#<B7f14990ec00a36145fa897b6744acb8f'
+    validate_input(s1)
+    s2 = 'V9Ma01EX@y$Rttb05cFeEoX@y$Rttb03rNCX@y$Trkg09AFdU0FxoEX@y$oX3A082AIBHJ48X@y$u4kE06MB1NO4X@y$g1p206DtiFSrX@y$g1p210wj91OXa1QRX@y$vyvo08rSsE3pJRX@y$vyvo03rtmX@y$9JpA07A2YjMFAX@y$tSvh018X@y$tSvh08hv7yaRgqX@y$tSvh01XX@y$g1p207o5dDENwX@y$b7FN08THvPpRTPX@y$JqU0017X@y$vyvo03tpjX@y$lxU809NKBiB6lPsX@y$lxU804aYTaX@y$KeeD09Ev136BTisX@y$grh107rkMbfMpX@y$OLt108FvqPZcauX@y$OLt102ufX@y$OLt101KX@y$ahTW09F6RXcF5TSX@y$ahTW02T5X@y$xF4j02TSX@y$DUUl041wZzX@y$V9Ma05HO6tvX@y$A#<B635f36a2d8a4c09efbfc396c3cf7df77'
+    validate_input(s2)
+
+
 
 if __name__ == '__main__':
     main()

@@ -7,8 +7,6 @@ from time import time
 from types import NoneType
 from typing import *
 
-from ranges import Range, RangeDict, RangeSet
-
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ObjectId, LineNo, \
     Identifier, ContainerId, Scope, AttributedDict
@@ -17,6 +15,7 @@ from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollect
     EMPTY_COLLECTION
 from common.common import ISP
 from stubs.stubs import __AS__, __BMFCS__, __FC__
+from utils.range_dict import RangeDict
 
 INNER_COLLECTION_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
 
@@ -102,7 +101,6 @@ class DiffObjectBuilder(ObjectBuilder):
     def __init__(self, archive: Archive, should_time_construction: bool = False):
         ObjectBuilder.__init__(self, archive, should_time_construction)
         self._data: Dict[ObjectId, RangeDict] = {}
-        self._last_range: Dict[ObjectId, Range] = {}
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
         self._named_primitives: INNER_COLLECTION_DATA_TYPE = {}
         self._named_objects: INNER_COLLECTION_DATA_TYPE = {}
@@ -118,7 +116,7 @@ class DiffObjectBuilder(ObjectBuilder):
                                                                              line_no)
                 if ISP(object_type) or object_type is NoneType:
                     return obj_data
-            except BaseException:
+            except BaseException as e:
                 return None
         else:
             # If the object asked to be built is a primitive, or it's not an object in the data
@@ -272,10 +270,10 @@ class DiffObjectBuilder(ObjectBuilder):
 
         else:
             if time not in named_data:
-                if time < DiffObjectBuilder.__get_first_time(named_data):
+                if time < named_data.first_time:
                     return not_found_ret_value
+                named_type, object_id = named_data[named_data.last_time]
 
-                named_type, object_id = named_data[DiffObjectBuilder.__get_last_time(named_data)]
             else:
                 named_type, object_id = named_data[time]
 
@@ -287,22 +285,20 @@ class DiffObjectBuilder(ObjectBuilder):
 
             return named_type, object_id, self._data[object_id]
 
-    def _find_closest(self, col, time) -> Optional[RangeDict]:
-        _closest_time = lambda tt: min([abs(time - t) for t in tt if t <= time], default=float('inf'))
-        closest: Tuple[Union[Time, float], Optional[RangeDict]] = float('inf'), None
+    def _find_closest(self, col, t: Time) -> Optional[RangeDict]:
+        closest: Tuple[Time | float, Optional[RangeDict]] = float('inf'), None
         for _, rd in col.items():
-            times = self.get_all_ranges_edge_times(rd)
-            if time in times:
+            c, ct = rd.get_closest(t)
+            if not c:
+                continue
+
+            if ct == t:
                 return rd
 
-            if (c := _closest_time(times)) < closest[0]:
-                closest = c, rd
+            if ct < closest[0]:
+                closest = ct, rd
 
         return closest[1]
-
-    @staticmethod
-    def __initial_range(t: Time):
-        return Range(t, t, include_end=True)
 
     def _construct(self):
         if self._should_time_construction:
@@ -331,21 +327,9 @@ class DiffObjectBuilder(ObjectBuilder):
             return self.__add_first_value(object_id, t, field, rv.value, rv.rtype, rv.key.kind)
 
         object_id_data: RangeDict = self._data[object_id]
-        last_range: Range = self._last_range[object_id]
-        key: Tuple[str, Type] = field, rv.rtype
-        last_object_value = object_id_data[last_range]
+        last_object_value = object_id_data.get_last()
 
-        # Either a new value for an existing field or a new field in a new time.
-        if key in last_object_value or t != last_range.end:
-            # Finalize the last range if needed.
-            if t - 1 not in object_id_data:
-                DiffObjectBuilder.__extend_range(object_id_data, last_range, t - 1)
-
-            # Create a new range.
-            self._last_range[object_id] = (last_range := DiffObjectBuilder.__initial_range(t))
-
-        object_id_data[last_range] = DiffObjectBuilder.__update_value(last_object_value, field, rv.value, rv.rtype,
-                                                                      rv.key.kind)
+        object_id_data[t] = DiffObjectBuilder.__update_value(last_object_value, field, rv.value, rv.rtype, rv.key.kind)
 
         return object_id_data
 
@@ -357,21 +341,10 @@ class DiffObjectBuilder(ObjectBuilder):
     def __get_last_time(rd: RangeDict):
         return sorted(reduce(lambda ll, l: ll + l, [[y.end for y in x] for x in rd.ranges()]), reverse=True)[0]
 
-    @staticmethod
-    def __add_to_range_dict(rd: RangeDict, t: Time, value: Any):
-
-        last_time = DiffObjectBuilder.__get_last_time(rd)
-        DiffObjectBuilder.__extend_range(rd, rd.getrange(last_time), t - 1)
-        rng: Range = DiffObjectBuilder.__initial_range(t)
-        rd[rng] = value
-
-        return rng
-
     def __add_first_value(self, object_id: ObjectId, t: Time, field: str, value: Any, _type: Type,
                           kind: Archive.Record.StoreKind):
-        self._last_range[object_id] = DiffObjectBuilder.__initial_range(t)
-        self._data[object_id] = RangeDict(
-            [(self._last_range[object_id], DiffObjectBuilder.__update_value(None, field, value, _type, kind))])
+        self._data[object_id] = (rd := RangeDict(self.archive.last_time))
+        rd[t] = DiffObjectBuilder.__update_value(None, field, value, _type, kind)
 
         return self._data[object_id]
 
@@ -410,14 +383,6 @@ class DiffObjectBuilder(ObjectBuilder):
                 new_obj[(_type, field)] = value
         return new_obj
 
-    @staticmethod
-    def __extend_range(object_id_data: RangeDict, last_range: Range, new_time: Time) -> Range:
-        updated_last_range = Range(start=last_range.start, end=new_time if new_time > 0 else 0,
-                                   include_start=True, include_end=True)
-
-        object_id_data[updated_last_range] = object_id_data[last_range]
-        return updated_last_range
-
     def __add_to_named(self, rv: Archive.Record.RecordValue, object_data: RangeDict):
         is_primitive = ISP(rv.rtype) and rv.rtype != NoneType
         collection = self._named_primitives if is_primitive else self._named_objects
@@ -430,11 +395,11 @@ class DiffObjectBuilder(ObjectBuilder):
         else:
             value_to_store = DiffObjectBuilder._Field(rv.value)
             if scope not in self._named_objects[rv.expression]:
-                self._named_objects[rv.expression][scope] = RangeDict(
-                    [(self.__initial_range(rv.time), (rv.rtype, value_to_store))])
+                self._named_objects[rv.expression][scope] = (rd := RangeDict(self.archive.last_time))
+                rd[rv.time] = (rv.rtype, value_to_store)
+
             else:
-                DiffObjectBuilder.__add_to_range_dict(self._named_objects[rv.expression][scope], rv.time,
-                                                      (rv.rtype, value_to_store))
+                self._named_objects[rv.expression][scope][rv.time] = (rv.rtype, value_to_store)
 
     @staticmethod
     def __get_field_change_from_dict(d: Dict) -> Optional[
@@ -459,16 +424,11 @@ class DiffObjectBuilder(ObjectBuilder):
             return obj_data[time]
 
         try:
-            first, last = DiffObjectBuilder.get_edge_times(obj_data)
+            last = obj_data.last_time
             if time >= last:
-                return obj_data[last]
+                return obj_data.get_last()
         except KeyError:
             return None
-
-    @staticmethod
-    def get_edge_times(rd: RangeDict) -> Tuple[Time, Time]:
-        all_ranges = DiffObjectBuilder._get_all_time_ranges(rd)
-        return min(all_ranges).start, max(all_ranges).end
 
     @staticmethod
     def get_all_ranges_edge_times(rd: RangeDict) -> Set[Time]:
@@ -479,10 +439,6 @@ class DiffObjectBuilder(ObjectBuilder):
                 times.add(r.end)
 
         return times
-
-    @staticmethod
-    def _get_all_time_ranges(rd: RangeDict) -> RangeSet:
-        return reduce(lambda rr, r: rr + r, rd.ranges())
 
     def get_change_times(self, item: Identifier, line_no: LineNo = -1) -> Iterable[Time]:
         if isinstance(item, str):
@@ -515,7 +471,8 @@ class DiffObjectBuilder(ObjectBuilder):
                     continue
 
                 if ISP(t) or f.kind == Archive.Record.StoreKind.FUNCTION_CALL:
-                    change_times.extend([rng.start for rng in list(*range_set) if all([rng.start >tt for tt in change_times])])
+                    change_times.extend(
+                        [rng.start for rng in list(*range_set) if all([rng.start > tt for tt in change_times])])
                 else:
                     change_times.extend([t for t in self.get_change_times(v) if all([t > tt for tt in change_times])])
 
@@ -549,7 +506,7 @@ class DiffObjectBuilder(ObjectBuilder):
 
             # As each name in a block should be stored with a line no. suited for its definition (first assignment),
             # there should be no more than one.
-            #assert len(line_nos_of_container_id) == 1
+            # assert len(line_nos_of_container_id) == 1
 
             return line_nos_of_container_id[0]
 

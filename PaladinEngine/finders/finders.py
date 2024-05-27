@@ -704,6 +704,9 @@ class ReturnStatementsFinder(GenericFinder):
     def visit_Return(self, node: ast.Return) -> Any:
         return self._generic_visit_with_extras(node, object())
 
+    def find(self) -> List[StubEntry]:
+        return self._entries
+
 
 class BreakFinder(GenericFinder):
     def types_to_find(self) -> Union:

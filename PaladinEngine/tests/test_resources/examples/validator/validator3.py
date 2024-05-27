@@ -62,12 +62,19 @@ def validate(s: str):
     return str(f) == str(calc)
 
 
-def main():
-    s = 'wSr704zmT7X@y$w7Fj08afEqiiTzX@y$w7Fj03ugUX@y$djj108hPc6AB0zX@y$djj103AfVX@y$djj1035vhX@y$w7Fj02UwX@y$A#<Bc724dc57d014e57bc587d7002871c99d'
+def validate_input(s: str):
     if validate(s):
         print(':)')
     else:
         print(':(')
+
+
+def main():
+    s1 = 'aI6l04V1n3X@y$OZDy09hKLJpMAdHX@y$9roQ08UJ9rW3cXX@y$9roQ04odCuX@y$tTRc01aX@y$tTRc07WdTxjPFX@y$G7Q502tyX@y$A#<Bd0fe402fa086ed599f444dd02bf00226'
+    validate_input(s1)
+    s2 = 'tTRc02a8X@y$G7Q50372rX@y$G7Q503EQ8X@y$VfmG07dlekazXX@y$VfmG101sCPxvJpR9X@y$VfmG039m3X@y$G7Q503Jp2X@y$A#<B905ff7a943573da1b5219aa005452040'
+    validate_input(s2)
+
 
 if __name__ == '__main__':
     main()

@@ -37,7 +37,7 @@ class TestBasic2Changed(TestChanged):
         return cls.example('basic2')
 
     def test_changed_objects(self):
-        self._test_times('p0', [7, 10, 15, 97])
+        self._test_times('p0', [8, 11, 16, 185])
 
 
 
