@@ -1,7 +1,7 @@
 <template>
     <div class="cheat-sheet-container">
         <drawer :content="paladinDoc"
-                :content-props="{docs: docs}"
+                :content-props="{docs: docs, examples: examples}"
                 :is-open="drawerOpen" :max-width="maxWidth"
                 @close="drawerOpen = false">
         </drawer>
@@ -25,6 +25,7 @@ import PaladinDoc from "./paladin-doc.vue";
 class CheatSheet extends Vue {
 
     @Prop docs: Array<{ type: string, doc: string, exp: string }>
+    @Prop examples?: Array<[string, string]>
 
     readonly maxWidth: string = '750px';
 

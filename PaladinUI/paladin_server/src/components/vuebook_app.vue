@@ -104,6 +104,11 @@ class Vuebook extends Vue {
         }
     }
 
+    async clearCellOutputs() {
+        for (const cell of this.model.cells) {
+            await this.model.clearOutputs(cell);
+        }
+    }
     private async runCell(cell: Model.Cell) {
         if (cell.input === ''){
             return;
@@ -139,7 +144,7 @@ class Vuebook extends Vue {
     }
 
     async findCausingLineByTime(time: number): Promise<number> {
-        const query = "LineNo(ConstTime(" + time + "))";
+        const query = "LineNo(InTime(" + time + "))";
         const queryRunResult = await request_debug_info("query", ...[query, time, time]);
         const results = this.formatResults(queryRunResult);
         try {

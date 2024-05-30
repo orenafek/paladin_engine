@@ -92,6 +92,10 @@ class EvalResultEntry(OrderedDict):
         """
         return EvalResultEntry(self.time, [EvalResultPair(rr.key, c) for rr in self.evaled_results], self.replacements)
 
+    @classmethod
+    def create_const(cls, t: Time, k: str, c: object):
+        return EvalResultEntry(t, [EvalResultPair(k, c)], [])
+
     @property
     def keys(self) -> List[str]:
         return list(dict.fromkeys(map(lambda rr: rr.key, self.evaled_results)))
@@ -207,7 +211,11 @@ class EvalResult(List[EvalResultEntry]):
 
     @classmethod
     def create_const_copy(cls, r: 'EvalResult', c: object):
-        return [EvalResultEntry.create_const_copy(e, c) for e in r]
+        return EvalResult([EvalResultEntry.create_const_copy(e, c) for e in r])
+
+    @classmethod
+    def create_const(cls, times: Iterable[Time], k: str, c: object):
+        return EvalResult([EvalResultEntry.create_const(t, k, c) for t in times])
 
     def all_satisfies(self):
         return all([e.satisfies() for e in self])
@@ -409,14 +417,13 @@ class EvalResult(List[EvalResultEntry]):
     def empty(cls, time_range: Iterable[Time]) -> 'EvalResult':
         return EvalResult([EvalResultEntry.empty(t) for t in time_range])
 
-    @staticmethod
-    def rename_key(result: 'EvalResult', operator_original_name: str, var_name: str) -> 'EvalResult':
-        for e in result:
+    def rename_key(self, new: str, old: str):
+        for e in self:
             for k in e.keys:
-                if var_name in k:
-                    e.replace_key(k, k.replace(var_name, operator_original_name))
+                if old in k:
+                    e.replace_key(k, k.replace(old, new))
 
-        return result
+        self._last_hash = -1
 
     def by_key(self, key: str) -> 'EvalResult':
         if key not in self.all_keys():

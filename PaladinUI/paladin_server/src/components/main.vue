@@ -33,7 +33,7 @@
                 <pane>
                     <splitpanes horizontal class="default-theme" :push-other-panes="false">
                         <pane id="vuebook-pane" :size="100" style="overflow-y: auto">
-                            <cheat-sheet ref="cheatSheet" :docs="docs"></cheat-sheet>
+                            <cheat-sheet ref="cheatSheet" :docs="docs" :examples="examples"></cheat-sheet>
                             <vuebook ref="vuebook" :lastRunTime="lastRunTime"
                                      @highlight="highlightCodeLine" @highlight-stop="stopHighlightCodeLine"></vuebook>
                         </pane>
@@ -94,6 +94,7 @@ class Main extends Vue {
     thrownException: Exception = {} as Exception
     isRerunning: Boolean = false
     docs: string = ''
+    examples: Array<[string, string]> = []
     codeEditorPaneSize: number = 85
     @Ref vuebook: IVuebook
     @Ref editor: CodeEditor
@@ -101,13 +102,13 @@ class Main extends Vue {
 
     readonly actions = [
         {
-            name: 'Reset', icon: 'restart_alt', color: "#eb6734", enabled: false, action:
-                async (updated, original) => {
-                    console.log('in reset callback. original = ', original, ' updated = ', updated);
-                    await this.updateCode(original);
-                    this.sourceCode = original;
-                    await this.rerun();
-                }
+            // name: 'Reset', icon: 'restart_alt', color: "#eb6734", enabled: false, action:
+            //     async (updated, original) => {
+            //         console.log('in reset callback. original = ', original, ' updated = ', updated);
+            //         await this.updateCode(original);
+            //         this.sourceCode = original;
+            //         await this.rerun();
+            //     }
         },
         {
             name: 'Rerun', icon: 'directions_run', color: "#eb6734", enabled: false,
@@ -136,6 +137,7 @@ class Main extends Vue {
         this.lastRunTime = parseInt((await request_debug_info('last_run_time')).toString());
         this.thrownException = await request_debug_info('thrown_exception') as Exception;
         this.docs = await request_debug_info('docs') as string;
+        this.examples = await request_debug_info('examples') as Array<[string, string]>;
         this.$forceUpdate();
         this.resetSlider();
     }
@@ -164,7 +166,7 @@ class Main extends Vue {
         await this.fetchInitial();
         this.isRerunning = false;
         /* TODO: Fixme!! */
-        await (this.vuebook as IVuebook).runAllCells();
+        await (this.vuebook as IVuebook).clearCellOutputs();
         this.$forceUpdate();
     }
 

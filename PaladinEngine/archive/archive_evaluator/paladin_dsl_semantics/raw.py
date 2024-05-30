@@ -148,3 +148,6 @@ class Raw(Operator, Selector):
 
     def _get_args(self) -> Collection['Operator']:
         return []
+
+    def __str__(self):
+        return self.query

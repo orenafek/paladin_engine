@@ -143,6 +143,21 @@ class PaLaDiNEngine(object):
     def paladinized_code(self):
         return self._paladinized_code
 
+    @property
+    def docs_file_path(self) -> Optional[Path]:
+        docs_path = Path(self.source_path.parent).joinpath(self.source_path.parent.name).with_suffix('.docs')
+        if docs_path.exists():
+            return docs_path
+
+        return None
+
+    @property
+    def examples_path(self) -> Optional[Path]:
+        examples_path = Path(self.source_path.parent).joinpath(self.source_path.parent.name).with_suffix('.examples')
+        if examples_path.exists():
+            return examples_path
+
+        return None
     @paladinized_code.setter
     def paladinized_code(self, value: str):
         self._paladinized_code = value

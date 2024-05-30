@@ -6,7 +6,7 @@ from typing import Union, List, cast
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo
 from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param, str2ast
-from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils
+from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, __BUILTIN_COLLECTIONS__
 from finders.finders import StubEntry, PaladinLoopFinder, ContainerFinder
 from stubs.stubs import __FRAME__, __EOLI__, __SOLI__, __BMFCS__, __PRINT__, __FC__, __SOL__
 from utils.utils import assert_not_raise
@@ -565,6 +565,9 @@ class AssignmentStubber(Stubber):
 class FunctionCallStubber(Stubber):
     def stub_func(self, node: ast.Call, container: ast.AST, attr_name: str):
         try:
+            # Do not stub direct calls to creation of builtin collections.
+            if isinstance(node.func, ast.Name) and node.func.id in map(lambda t: t.__name__, __BUILTIN_COLLECTIONS__):
+                return self.root_module
             # In case of a print call, wrap with a different stub.
             if isinstance(node.func, ast.Name) and node.func.id == print.__name__:
                 stub_name = __PRINT__.__name__

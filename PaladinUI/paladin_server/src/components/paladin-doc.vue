@@ -53,6 +53,19 @@
                 </section>
             </div>
         </section>
+
+        <section class="cheat-sheet-section">
+            <div class="section-header" @click="toggleSection('examples')">
+                <span class="collapse-icon" v-html="getCollapseIcon('examples')"></span>
+                Examples
+            </div>
+            <div class="examples-container" v-show="sections.examples">
+                <div v-for="(example, index) in examples" :key="`example-${index}`" class="example-block">
+                    <pre class="example-code">{{ example[0] }}</pre>
+                    <p class="example-explanation">{{ example[1] }}</p>
+                </div>
+            </div>
+        </section>
     </div>
 </template>
 
@@ -69,15 +82,16 @@ type Doc = {
     exp: string
 };
 
-@Component({components: {CodeEditor}})
+@Component
 class PaladinDoc extends Vue {
-    @Prop docs: Array<Doc>
+    @Prop docs!: Array<Doc>;
+    @Prop examples!: Array<[string, string]>; // Add examples as a prop
 
     sections = ref({
         shortcuts: true,
-        operators: true
+        operators: true,
+        examples: true
     });
-
 
     readonly shortcuts = [
         {keys: ['⇧ Shift', '↵ Enter'], action: 'Run cell'},
@@ -242,5 +256,29 @@ export default toNative(PaladinDoc);
     display: flex;
     align-items: center;
     user-select: none;
+}
+
+.examples-container {
+    margin-top: 15px;
+}
+
+.example-block {
+    background: #333;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.example-code {
+    background: #222;
+    padding: 10px;
+    border-radius: 5px;
+    white-space: pre-wrap;
+    color: #9cdcfe; /* Light blue for code */
+    margin-bottom: 5px;
+}
+
+.example-explanation {
+    color: #d4d4d4; /* Light gray for explanations */
 }
 </style>

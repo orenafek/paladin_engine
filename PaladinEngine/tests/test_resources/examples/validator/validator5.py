@@ -11,10 +11,17 @@ Message: <Magic |4|><Length|2|><Content|Length|>
 
 The entire sequence is in the following format:
 Sequence: <Message><Seperator><Message><Seperator>...<Message><Seperator><EndBarker><Entire Seq.Checksum>
+
+The entire checksum is the result of md5 on the 
+concatination of the sums of checksums of all messages of the same magic.
 """
 import binascii
 import hashlib
 from collections import OrderedDict
+
+
+def crc(inp: str):
+    return binascii.crc32(bytes(inp, 'utf-8'))
 
 
 def validate(s: str):
@@ -44,7 +51,7 @@ def validate(s: str):
         chunk = s[i: i + cntr]
         i += cntr
 
-        cursum += binascii.crc32(bytes(chunk, 'utf-8'))
+        cursum += crc(chunk)
 
     chunk = ''.join(map(str, chsms.values()))
     calc = hashlib.md5(chunk.encode()).hexdigest()
@@ -65,7 +72,6 @@ def main():
     validate_input(s1)
     s2 = 'V9Ma01EX@y$Rttb05cFeEoX@y$Rttb03rNCX@y$Trkg09AFdU0FxoEX@y$oX3A082AIBHJ48X@y$u4kE06MB1NO4X@y$g1p206DtiFSrX@y$g1p210wj91OXa1QRX@y$vyvo08rSsE3pJRX@y$vyvo03rtmX@y$9JpA07A2YjMFAX@y$tSvh018X@y$tSvh08hv7yaRgqX@y$tSvh01XX@y$g1p207o5dDENwX@y$b7FN08THvPpRTPX@y$JqU0017X@y$vyvo03tpjX@y$lxU809NKBiB6lPsX@y$lxU804aYTaX@y$KeeD09Ev136BTisX@y$grh107rkMbfMpX@y$OLt108FvqPZcauX@y$OLt102ufX@y$OLt101KX@y$ahTW09F6RXcF5TSX@y$ahTW02T5X@y$xF4j02TSX@y$DUUl041wZzX@y$V9Ma05HO6tvX@y$A#<B635f36a2d8a4c09efbfc396c3cf7df77'
     validate_input(s2)
-
 
 
 if __name__ == '__main__':

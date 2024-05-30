@@ -4,7 +4,7 @@ from typing import Iterable, Optional, Dict, List, Tuple, Collection, Callable
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, LineNo, \
     EvalResultEntry, EvalResultPair, Rk, Rv
 from archive.archive_evaluator.paladin_dsl_semantics.const import Const
-from archive.archive_evaluator.paladin_dsl_semantics.const_time import ConstTime
+from archive.archive_evaluator.paladin_dsl_semantics.in_time import InTime
 from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOperator, Operator, UniLateralOperator
 from archive.archive_evaluator.paladin_dsl_semantics.range import Range
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
@@ -41,8 +41,8 @@ class LoopIteration(BiLateralOperator, SummaryOp):
         loop_iteration_start = loop_iteration_starts_and_ends[index * 2]
         loop_iteration_end = loop_iteration_starts_and_ends[index * 2 + 1]
         iterator_values_times = Range(self.times,
-                                      ConstTime(self.times, loop_iteration_start[1].time + 1),
-                                      ConstTime(self.times, loop_iteration_end[1].time - 1))
+                                      InTime(self.times, loop_iteration_start[1].time + 1),
+                                      InTime(self.times, loop_iteration_end[1].time - 1))
 
         return Union(self.times,
                      *self._create_iteration_operators(iterator_values_times, builder, query_locals, user_aux,
@@ -65,7 +65,7 @@ class LoopIteration(BiLateralOperator, SummaryOp):
         changed_vars_diffs = []
         for v in sorted(changed_vars.keys(), key=lambda _v: _v[0]):
             times = [max(changed_vars[v])] if self.is_short else self.times
-            condition_time_op = ConstTime(self.times, times[0]) if self.is_short else time_range_operator
+            condition_time_op = InTime(self.times, times[0]) if self.is_short else time_range_operator
             changed_vars_diffs.append(Where(self.times, Raw(v[0], line_no=v[1], times=times), condition_time_op))
 
         return changed_vars_diffs

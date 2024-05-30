@@ -8,7 +8,7 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 class After(UniLateralOperator, TimeOperator):
     """
-        After(o): Satisfies on the first time o has been satisfied and later.
+        After(o): Satisfies on each time after o's last satisfaction
     """
 
     def __init__(self, times: Iterable[Time], first: TimeOperator):
@@ -17,9 +17,9 @@ class After(UniLateralOperator, TimeOperator):
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
              user_aux: Optional[Dict[str, Callable]] = None):
-        first_satisfy: Time = self.first.eval(builder, query_locals, user_aux).first_satisfaction().time
+        last_satisfy: Time = self.first.eval(builder, query_locals, user_aux).last_satisfaction().time
 
-        if first_satisfy < 0:
+        if last_satisfy < 0:
             return EvalResult.empty(self.times)
 
-        return EvalResult([TimeOperator.create_time_eval_result_entry(t, t >= first_satisfy) for t in self.times])
+        return EvalResult([TimeOperator.create_time_eval_result_entry(t, t > last_satisfy) for t in self.times])

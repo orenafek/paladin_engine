@@ -1,5 +1,6 @@
 import ast
 import json
+import re
 import traceback
 from _ast import BinOp, AST
 from collections import deque
@@ -12,8 +13,10 @@ from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types i
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import FUNCTION_CALL_MAGIC
 from archive.archive_evaluator.paladin_dsl_semantics import Const, TimeOperator
 from archive.archive_evaluator.paladin_dsl_semantics.aux_op import AuxOp
-from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.for_each import ForEach
+from archive.archive_evaluator.paladin_dsl_semantics.let import Let
+from archive.archive_evaluator.paladin_dsl_semantics.old import Old
+from archive.archive_evaluator.paladin_dsl_semantics.operator import Operator
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
 from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.archive_evaluator.paladin_dsl_semantics.summary_op import SummaryOp
@@ -113,7 +116,7 @@ class PaladinNativeParser(object):
             return visit_result
 
         def visit_Call(self, node: ast.Call) -> Any:
-            node = self._handle_type_call(node)
+            node = self._handle_special_calls(node)
 
             if not PaladinNativeParser._is_operator_call(node):
                 return self.generic_visit(node)
@@ -122,31 +125,43 @@ class PaladinNativeParser(object):
             # noinspection PyUnresolvedReferences,PyArgumentList,PyTypeChecker
             # Visit arguments.
 
-            if isinstance(node.func, ast.Name) and node.func.id == ForEach.name():
+            if isinstance(node.func, ast.Name) and node.func.id in {ForEach.name(), Let.name()}:
                 self._extract_inner_ops = False
 
-            arg_vars = []
-            for arg in node.args:
-                arg_visit_result = self.visit(arg)
-                if isinstance(arg_visit_result, ast.Name):
-                    arg_vars.append(self.operators[arg_visit_result.id][0] if arg_visit_result.id in self.operators
-                                    else self._create_raw_op_from_arg(arg_visit_result))
-                elif isinstance(arg_visit_result, ast.Constant):
-                    arg_vars.append(arg_visit_result.value)
-                else:
-                    arg_vars.append(self._create_raw_op_from_arg(arg_visit_result))
+            arg_vars = [self._find_arg_replacement(arg) for arg in node.args if not isinstance(arg, ast.NamedExpr)]
+
+            named_args = {arg.target.id: self._find_arg_replacement(arg.value) for arg in node.args if
+                          isinstance(arg, ast.NamedExpr)}
+            named_args.update({kw.arg: self._find_arg_replacement(kw.value) for kw in node.keywords})
+            self._extract_inner_ops = True
 
             # noinspection PyArgumentList,PyUnresolvedReferences
-            op = PaladinNativeParser.OPERATORS[node.func.id](self.times, *arg_vars)
+            try:
+                op = (o := PaladinNativeParser.OPERATORS[node.func.id])(self.times, *arg_vars, **named_args)
+            except TypeError as e:
+                raise SyntaxError(f'Error in operator {o.name()}')
             op.standalone = self._extract_inner_ops
             self._add_operator(var_name, ast2str(node), op)
 
-            self._extract_inner_ops = True
             return ast.Name(id=var_name, lineno=node.lineno)
 
-        def _handle_type_call(self, node: ast.Call):
+        def _find_arg_replacement(self, arg):
+            arg_visit_result = self.visit(arg)
+            if isinstance(arg_visit_result, ast.Name):
+                return self.operators[arg_visit_result.id][0] if arg_visit_result.id in self.operators \
+                    else self._create_raw_op_from_arg(arg_visit_result)
+            elif isinstance(arg_visit_result, ast.Constant):
+                return arg_visit_result.value
+
+            return self._create_raw_op_from_arg(arg_visit_result)
+
+        def _handle_special_calls(self, node: ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id == type.__name__:
                 node.func.id = TypeOp.__name__
+
+            if isinstance(node.func, ast.Name) and node.func.id == Old.name().lower():
+                node.func.id = Old.__name__
+
             return node
 
         def visit_Slice(self, node: ast.Slice) -> Any:
@@ -170,10 +185,14 @@ class PaladinNativeParser(object):
             return ast.Call(func=ast.Name(id=AttributedDict.__name__), args=[node], keywords=[], lineno=node.lineno)
 
         def _create_raw_op_from_arg(self, arg: ast.AST):
-            return Raw(ast2str(arg), arg.lineno, self.times)
+            r = Raw(ast2str(arg), arg.lineno, self.times)
+            r.standalone = not self._extract_inner_ops
+            return r
 
         def _create_const_op_from_arg(self, arg: ast.AST):
-            return Const(ast2str(arg), self.times)
+            c = Const(ast2str(arg), self.times)
+            c.standalone = not self._extract_inner_ops
+            return c
 
         def _create_type_op_from_arg(self, arg: ast.AST):
             return TypeOp(self.times, Raw(ast2str(arg)), arg.lineno)
@@ -346,6 +365,9 @@ class PaladinNativeParser(object):
                 if isinstance(o, float) and o in BUILTIN_SPECIAL_FLOATS.values():
                     return str(super().default(o))
 
+                if isinstance(o, range):
+                    return str(o)
+
                 return super().default(o)
 
             def iterencode(_self, o: Any, _one_shot=False) -> Iterator[str]:
@@ -362,6 +384,13 @@ class PaladinNativeParser(object):
                     def visit_Set(self, node: ast.Set) -> Any:
                         return ast.List(elts=node.elts)
 
+                    def visit_Call(self, node: ast.Call) -> Any:
+                        if isinstance(node.func, ast.Name):
+                            if node.func.id in {'dict_values', 'dict_keys', 'dict_items'}:
+                                node.func = ast.Name(id=list.__name__)
+
+                        return node
+
                 return super().iterencode(
                     eval(ast2str(Tuple2StrReplacer().visit(str2ast(str(o))), _one_shot), EVAL_BUILTIN_CLOSURE))
 
@@ -373,6 +402,9 @@ class PaladinNativeParser(object):
 
             # Handle function call magic symbols.
             query = PaladinNativeParser.__replace_function_call_magic(query)
+
+            # Handle special syntax.
+            query = PaladinNativeParser.__handle_special_syntax(query)
 
             query_ast = str2ast(query.strip().replace('\n', ' '))
 
@@ -415,7 +447,8 @@ class PaladinNativeParser(object):
             traceback.print_exc()
             if jsonify:
                 return json.dumps(
-                    {'error': 'Syntax Error: ' + str(e.msg) if isinstance(e, SyntaxError) else 'Internal Error'})
+                    {'error': 'Syntax Error: ' + (str(e.msg) if e.msg else '') if isinstance(e,
+                                                                                             SyntaxError) else 'Internal Error'})
 
             raise e
 
@@ -434,7 +467,6 @@ class PaladinNativeParser(object):
                     operator_results.update({e: eval_result.by_key(e) for e in split_tuple(var_name)})
                 else:
                     operator_results[var_name] = eval_result
-
 
         # Evaluate query.
         return operator_results
@@ -489,7 +521,7 @@ class PaladinNativeParser(object):
                 # If the result is in the form of "lambda_var: EvalResult(...)", remove the lambda var.
                 result = EvalResult([e[var_name].value if e[var_name] else e for e in result])
             else:
-                result = EvalResult.rename_key(result, operator_original_name, var_name)
+                result.rename_key(operator_original_name, var_name)
 
         return visitor.operators[ast2str(query_ast)][1], result
 
@@ -508,14 +540,77 @@ class PaladinNativeParser(object):
         return query.replace(FUNCTION_CALL_MAGIC, PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL)
 
     @classmethod
-    def docs(cls) -> List[Dict]:
-        doc_repr = lambda ops: '\n'.join(sorted([op.__doc__.strip() for op in ops if op.__doc__])) + '\n'
-        time_ops = filter(lambda op: issubclass(op, TimeOperator), Operator.all())
-        selectors = filter(lambda op: issubclass(op, Selector), Operator.all())
-        summaries = filter(lambda op: issubclass(op, SummaryOp), Operator.all())
-        aux = filter(lambda op: issubclass(op, AuxOp), Operator.all())
+    def docs(cls, ops_filter: Callable[[Type[Operator]], bool] = lambda op: True) -> List[Dict]:
+        supported_ops = list(filter(ops_filter, Operator.all()))
 
-        return [{'type': 'Selectors', 'doc': doc_repr(selectors), 'exp': Selector.explanation()},
-                {'type': 'Auxiliaries', 'doc': doc_repr(aux), 'exp': AuxOp.explanation()},
-                {'type': 'Time Operators', 'doc': doc_repr(time_ops), 'exp': TimeOperator.explanation()},
-                {'type': 'Summaries', 'doc': doc_repr(summaries), 'exp': SummaryOp.explanation()}]
+        time_ops = filter(lambda op: issubclass(op, TimeOperator), supported_ops)
+        selectors = filter(lambda op: issubclass(op, Selector), supported_ops)
+        summaries = filter(lambda op: issubclass(op, SummaryOp), supported_ops)
+        aux = filter(lambda op: issubclass(op, AuxOp), supported_ops)
+
+        return [PaladinNativeParser.create_doc('Selectors', selectors, Selector.explanation()),
+                PaladinNativeParser.create_doc('Auxiliaries', aux, AuxOp.explanation()),
+                PaladinNativeParser.create_doc('Summaries', summaries, SummaryOp.explanation()),
+                PaladinNativeParser.create_doc('Time Operators', time_ops, TimeOperator.explanation())]
+
+    @classmethod
+    def create_doc(cls, _type: str, doced_col: Iterable, explanation: str,
+                   doc_repr: Optional[Callable[[Iterable], str]] = None) -> Dict[str, str]:
+        if doc_repr is None:
+            doc_repr = lambda ops: '\n'.join(sorted([op.__doc__.strip() for op in ops if op.__doc__])) + '\n'
+
+        return {'type': _type, 'doc': doc_repr(doced_col), 'exp': explanation}
+
+    @staticmethod
+    def __handle_special_syntax(query: str):
+        # return PaladinNativeParser.__handle_let_args_order(query)
+        return query
+
+    @staticmethod
+    def __handle_let_args_order(query: str):
+        # Define the pattern to find "Let(x=1, y=2, ..., expr)"
+        pattern = re.compile(r'Let\((.*)\)')
+
+        def reorder_let(match):
+            content = match.group(1)
+            parts = []
+            current_part = []
+            stack = 0
+
+            # Parse the content and split by top-level commas
+            for char in content:
+                if char == ',' and stack == 0:
+                    parts.append(''.join(current_part).strip())
+                    current_part = []
+                else:
+                    if char == '(':
+                        stack += 1
+                    elif char == ')':
+                        stack -= 1
+                    current_part.append(char)
+
+            if current_part:
+                parts.append(''.join(current_part).strip())
+
+            # Find the expression (which doesn't contain '=' at top level)
+            expr = None
+            for part in parts:
+                if '=' not in part.split('=', 1)[0].strip():
+                    expr = part
+                    break
+
+            # Ensure we have an expression to move
+            if expr is None:
+                return match.group(0)
+
+            # Collect keyword arguments
+            kwargs = [part for part in parts if part != expr]
+
+            # Reconstruct the string with expr at the beginning
+            new_content = ', '.join([expr] + kwargs)
+            return f'Let({new_content})'
+
+        # Apply the reordering for each match
+        corrected_s = pattern.sub(reorder_let, query)
+
+        return corrected_s

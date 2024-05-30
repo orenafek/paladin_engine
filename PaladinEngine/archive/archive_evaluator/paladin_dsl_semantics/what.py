@@ -3,7 +3,7 @@ from typing import Iterable, Optional, Dict, Callable, Tuple, Any, cast
 from archive.archive import Archive
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, EvalResult, EvalResultEntry, \
     EvalResultPair
-from archive.archive_evaluator.paladin_dsl_semantics import ConstTime
+from archive.archive_evaluator.paladin_dsl_semantics import InTime
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
 from archive.object_builder.object_builder import ObjectBuilder
 from stubs.stubs import __AS__, __FC__
@@ -11,7 +11,7 @@ from stubs.stubs import __AS__, __FC__
 
 class What(UniLateralOperator):
     def __init__(self, times: Iterable[Time], time: Time | Iterable[Time]):
-        super().__init__(times, ConstTime(times, time))
+        super().__init__(times, InTime(times, time))
         self.time_range = time if isinstance(time, Iterable) else [time]
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

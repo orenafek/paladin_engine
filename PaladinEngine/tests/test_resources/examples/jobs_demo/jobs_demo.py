@@ -37,7 +37,7 @@ class Job(object):
 
 
 class Summary(object):
-    def __init__(self, job: Job, summary: str):
+    def __init__(self, job: Job, summary: str= ''):
         self.job = job
         self.summary = summary
 
@@ -70,7 +70,7 @@ class TimelessWorker(Worker):
     def operate(self) -> None:
         match Job.Type[self.ongoing.type]:
             case Job.Type.IMAGE | Job.Type.TEXT:
-                self.server.summaries.append(self.ongoing)
+                self.server.summaries.append(Summary(self.ongoing))
             case Job.Type.AUDIO | Job.Type.VIDEO:
                 self.server.todo.append(self.ongoing)
 
@@ -80,7 +80,7 @@ class PlayableWorker(Worker):
     def operate(self) -> None:
         match Job.Type[self.ongoing.type]:
             case Job.Type.AUDIO | Job.Type.VIDEO:
-                self.server.summaries.append(self.ongoing)
+                self.server.summaries.append(Summary(self.ongoing))
             case Job.Type.IMAGE | Job.Type.TEXT:
                 self.server.todo.append(self.ongoing)
 
@@ -114,7 +114,7 @@ class EvenWorker(Worker):
 
     def operate(self) -> None:
         if self.counter % 2 == 0:
-            self.server.summaries.append(self.ongoing)
+            self.server.summaries.append(Summary(self.ongoing))
         else:
             self.server.todo.append(self.ongoing)
 
@@ -129,7 +129,7 @@ class OddWorker(Worker):
 
     def operate(self) -> None:
         if self.counter % 2 == 1:
-            self.server.summaries.append(self.ongoing)
+            self.server.summaries.append(Summary(self.ongoing))
         else:
             self.server.todo.append(self.ongoing)
 
@@ -139,7 +139,7 @@ class OddWorker(Worker):
 class AllTypesWorker(Worker):
 
     def operate(self) -> None:
-        self.server.summaries.append(self.ongoing)
+        self.server.summaries.append(Summary(self.ongoing))
 
 
 def main():

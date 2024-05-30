@@ -244,7 +244,26 @@ class PaladinServer(FlaskView):
 
     @route('/debug_info/docs')
     def docs(self):
-        return PaladinServer.create_response(PaladinNativeParser.docs())
+        if (docs_path := ENGINE.docs_file_path) is not None:
+            with open(str(docs_path), 'r') as f:
+                supported_op_names = [l.strip() for l in f.readlines()]
+                supported_ops = lambda op: op.name() in supported_op_names
+                docs = PaladinNativeParser.docs(supported_ops)
+        else:
+            docs = PaladinNativeParser.docs()
+
+        return PaladinServer.create_response(docs)
+
+    @route('/debug_info/examples')
+    def examples(self):
+        if (examples_path := ENGINE.examples_path) is not None:
+            with open(str(examples_path), 'r') as f:
+                examples = [l.strip() for l in f.readlines()]
+                res = [tuple(e.split('$')) for e in examples]
+        else:
+            res = []
+
+        return PaladinServer.create_response(res)
 
     @route('/debug_info/run_output')
     def run_output(self):

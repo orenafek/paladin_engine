@@ -54,7 +54,7 @@ class Operator(ABC):
     def update_times(self, times) -> 'Operator':
         self.times = times
 
-        for a in self._get_args():
+        for a in filter(lambda arg: isinstance(arg, Operator), self._get_args()):
             a.times = times
             a.update_times(times)
 
@@ -80,6 +80,8 @@ class Operator(ABC):
     def is_deprecated(cls) -> bool:
         return hasattr(cls, 'deprecated')
 
+    def __str__(self):
+        return f'{self.name()}({", ".join(str(self._get_args()))}'
 
 class NoArgOperator(Operator, ABC):
     def _get_args(self) -> Collection['Operator']:
