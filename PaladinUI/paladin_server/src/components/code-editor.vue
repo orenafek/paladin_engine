@@ -97,13 +97,15 @@ class CodeEditor extends Vue {
 
         editor.operation(() => {
             if (highlight) {
-                editor.addLineClass(lineNumber, 'background', className);
+                this.changeBgColor('CodeMirror-activeline-background', 'yellow');
+                // editor.addLineClass(lineNumber, 'background', className);
             } else {
-                editor.removeLineClass(lineNumber, 'background', className);
+                this.changeBgColor('CodeMirror-activeline-background', '#323232');
+                // editor.removeLineClass(lineNumber, 'background', className);
             }
         });
 
-        this.addHighlightStyles(className);
+        //this.addHighlightStyles(className);
     }
 
     private addHighlightStyles(className: string): void {
@@ -117,6 +119,32 @@ class CodeEditor extends Vue {
             }`;
             document.head.appendChild(styleTag);
         }
+    }
+
+    private changeBgColor(className: string, newColor: string): string {
+        // Get all stylesheets in the document
+        let styleSheets = document.styleSheets;
+
+        // Loop through the stylesheets
+        for (let i = 0; i < styleSheets.length; i++) {
+            let rules:CSSRuleList = styleSheets[i].cssRules;
+
+            // Loop through the rules
+            for (let j = 0; j < rules.length; j++) {
+                if (rules[j] instanceof CSSStyleRule) {
+                    let rule: CSSStyleRule = rules[j] as CSSStyleRule;
+                    // Find the rule you want to change
+                    if (rule.selectorText === className) {
+                        // Change the color property
+                        const old = rule.style.backgroundColor;
+                        rule.style.backgroundColor = newColor;
+                        return old
+                    }
+                }
+            }
+        }
+
+        return ''
     }
 
     height(): number {
