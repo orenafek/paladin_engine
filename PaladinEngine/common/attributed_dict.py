@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Any, Union
 
 
 class AttributedDict(Dict):
@@ -20,3 +20,15 @@ class AttributedDict(Dict):
     def __delitem__(self, key):
         super().__delitem__(key)
         self.__delattr__(key)
+
+    def __sub__(self, other: Union['AttributedDict', Any]):
+        if not isinstance(other, AttributedDict):
+            raise TypeError(f'unsupported operand type(s) for -: \'{dict.__name__}\' and \'{type(other).__name__}\'')
+
+        sk = set(self.keys())
+        ok = set(other.keys())
+        joint_keys = sk.intersection(ok)
+
+        keys_only_in_self = sk.difference(ok)
+
+        #return AttributedDict({**{k:self[k] for k in keys_only_in_self}, **{k:}})

@@ -74,3 +74,7 @@ class ObjectBuilder(ABC):
         for f, v in evaluated_object.items():
             if isinstance(f, str):
                 setattr(evaluated_object, f, v)
+
+    @abstractmethod
+    def get_var_names(self) -> Iterable[str]:
+        raise NotImplementedError()

@@ -13,7 +13,7 @@ class Array(object):
 
     def sort(self):
         for i in range(self.dim):
-            for j in range(0, self.dim - i - 2):
+            for j in range(0, self.dim - i - 1):
                 if self.data[j] > self.data[j + 1]:
                     self.data[j], self.data[j + 1] = self.data[j + 1], self.data[j]
 
@@ -40,15 +40,13 @@ def sort_array():
 
 def pour_even(s: Set[int]):
     s1 = set()
-    b = True
     while s:
         x = s.pop()
         if x % 2 == 0:
             s1.add(x)
 
-    if b:
-        s1.add(12)
-        b = False
+        if len(s) == 0:
+            s1.add(12)
 
     return s1
 
@@ -60,6 +58,7 @@ def pour_even_example():
 
 
 def main():
+    seed(2024)
     sort_array()
     print('--------')
     pour_even_example()

@@ -1,3 +1,5 @@
+import os
+from concurrent.futures import ThreadPoolExecutor
 from math import floor
 from typing import Iterable, Optional, Dict, List, Tuple, Collection, Callable
 
@@ -90,25 +92,36 @@ class LoopSummary(UniLateralOperator, SummaryOp):
         iterations = builder.get_loop_iterations(line_no)
         iterations_count = floor(len(iterations) / 2)
 
-        return Union(self.times,
-                     *[LoopIteration(self.times, line_no, i, self.is_short)
-                       for i in range(iterations_count)]).eval(builder, query_locals, user_aux) \
-            + LoopSummary.__create_iteration_number_result(iterations, builder.get_loop_starts(line_no))
+        with ThreadPoolExecutor(os.cpu_count()) as executor:
+            loop_iterations = list(executor.map(
+                lambda i: LoopIteration(self.times, line_no, i, self.is_short),
+                range(iterations_count)
+            ))
+
+        union_result = Union(self.times, *loop_iterations).eval(builder, query_locals, user_aux)
+        iteration_number_result = self.__create_iteration_number_result(iterations, builder.get_loop_starts(line_no))
+
+        return union_result + iteration_number_result
 
     @staticmethod
     def __create_iteration_number_result(iterations: List[Tuple[Rk, Rv]], loop_starts: List[Tuple[Rk, Rv]]):
         results = []
-        i = -1
-        for rk, vv in sorted(iterations + loop_starts, key=lambda t: t[1].time):
+
+        def process_iteration(rk_vv):
+            rk, vv = rk_vv
+            nonlocal i
             if rk.stub_name == __SOL__.__name__:
                 i = -1
-
             if rk.stub_name != __SOLI__.__name__:
-                continue
-
+                return None
             i += 1
-            results.append(EvalResultEntry(vv.time, [EvalResultPair(LoopSummary.ITERATION_KEY, i)], []))
+            return EvalResultEntry(vv.time, [EvalResultPair(LoopSummary.ITERATION_KEY, i)], [])
 
+        i = -1
+        with ThreadPoolExecutor(os.cpu_count()) as executor:
+            futures = list(executor.map(process_iteration, sorted(iterations + loop_starts, key=lambda t: t[1].time)))
+
+        results.extend(filter(None, futures))
         return EvalResult(results)
 
 
@@ -125,17 +138,27 @@ class LoopIterationsTimes(UniLateralOperator, TimeOperator):
              user_aux: Optional[Dict[str, Callable]] = None):
         line_no: int = self.first.eval(builder, query_locals, user_aux)[0].values[0]
 
-        loop_iteration_starts_and_ends: Collection[Time] = list(
-            map(lambda t: t[1].time, sorted(builder.get_loop_iterations(line_no),
-                                            key=lambda t: t[1].time)))
+        # Retrieve loop iterations in parallel
+        with ThreadPoolExecutor(os.cpu_count()) as executor:
+            loop_iterations = list(executor.map(
+                lambda t: t[1].time,
+                sorted(builder.get_loop_iterations(line_no), key=lambda t: t[1].time)
+            ))
 
-        if len(loop_iteration_starts_and_ends) % 2 != 0:
+        if len(loop_iterations) % 2 != 0:
             return EvalResult.empty(self.times)
 
-        loop_iteration_ranges = list(zip(loop_iteration_starts_and_ends[::2], loop_iteration_starts_and_ends[1::2]))
+        loop_iteration_ranges = list(zip(loop_iterations[::2], loop_iterations[1::2]))
 
-        return EvalResult([
-            TimeOperator.create_time_eval_result_entry(t,
-                                                       any([start <= t <= end for start, end in loop_iteration_ranges]),
-                                                       [])
-            for t in self.times])
+        # Process time evaluation in parallel
+        def create_time_eval_result_entry(t):
+            return TimeOperator.create_time_eval_result_entry(
+                t,
+                any(start <= t <= end for start, end in loop_iteration_ranges),
+                []
+            )
+
+        with ThreadPoolExecutor(os.cpu_count()) as executor:
+            eval_results = list(executor.map(create_time_eval_result_entry, self.times))
+
+        return EvalResult(eval_results)

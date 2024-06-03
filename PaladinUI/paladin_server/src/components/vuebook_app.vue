@@ -1,7 +1,7 @@
 <template>
     <div>
         <command-palette ref="cmd" :commands="commands" @command="onCommand"/>
-        <notebook ref="notebook" :model="model" @cell:action="onCellAction" />
+        <notebook ref="notebook" :model="model" @cell:action="onCellAction"/>
     </div>
 </template>
 
@@ -13,6 +13,7 @@ import {useMagicKeys} from '@vueuse/core';
 
 import {
     CommandPalette,
+    Completion,
     ICommandPalette,
     INotebook,
     Model,
@@ -41,6 +42,7 @@ import {Visualizers} from "./visualizers"
 class Vuebook extends Vue {
 
     @Prop lastRunTime: number
+    @Prop completions: Completion[]
 
     model: ModelImpl
     control: NotebookActions
@@ -54,11 +56,13 @@ class Vuebook extends Vue {
         this.model.clearAllOutputs();
         this.model.resetLoading();
         window.addEventListener('beforeunload', () => this.model.save());
-
         const keys = useMagicKeys()
         watch(keys['Meta+K'], (v) => v && this.$refs.cmd.open());
         watch(keys['Escape'], (v) => v && this.$refs.cmd.close());
         watch(keys['Down'], (v) => v && this.$refs.cmd.close());
+        this.$watch(() => this.completions, () => {
+            this.model.updateCompletions(this.completions);
+        });
     }
 
     async mounted() {
@@ -109,8 +113,9 @@ class Vuebook extends Vue {
             await this.model.clearOutputs(cell);
         }
     }
+
     private async runCell(cell: Model.Cell) {
-        if (cell.input === ''){
+        if (cell.input === '') {
             return;
         }
 
@@ -161,47 +166,35 @@ class Vuebook extends Vue {
         if (name.includes("row:unselect")) {
             const lineNumber = await this.findCausingLineByTime(data as number);
             this.$emit("highlight-stop", lineNumber);
-        }
-
-        else if (name.includes("row:select")) {
+        } else if (name.includes("row:select")) {
             const lineNumber = await this.findCausingLineByTime(data as number);
             this.$emit("highlight", lineNumber);
         }
 
     }
+
+    handleControl(action: string) {
+        switch (action) {
+            case 'rerun-all-cells':
+                this.runAllCells();
+                break;
+            case 'expand-all':
+                this.$refs.notebook.expandAll();
+                break;
+            case 'collapse-all':
+                this.$refs.notebook.collapseAll();
+                break;
+            default:
+                this.$refs.notebook.command({command: action});
+        }
+    }
+
+    focusedCell() {
+        return this.$refs.notebook.focusedCell;
+    }
 }
 
-// class PaladinCompletions extends CodeEditor {
-//
-//     private _completions: Completion[]
-//
-//     constructor(container: HTMLElement, initialContent?: string, completions: Completion[] = []) {
-//         super(container, initialContent);
-//         this._completions = completions.map((c) => {
-//             return {...c, apply: this.applyCompletion}
-//         });
-//     }
-//
-//     get completions(): Completion[] {
-//         return this._completions;
-//     }
-//
-//     applyCompletion(ev: EditorView, c: Completion, from: number, to: number) {
-//         const newText = c.label + '()';
-//         ev.dispatch(ev.state.update({
-//             changes: {
-//                 from: from,
-//                 to: to,
-//                 insert: newText,
-//             },
-//             selection: {
-//                 anchor: from + newText.length - 1,
-//                 head: from + newText.length - 1
-//             }
-//         }));
-//     }
-// }
 
-export {Vuebook as IVuebook};
+export {Vuebook as IVuebook, Completion};
 export default toNative(Vuebook);
 </script>

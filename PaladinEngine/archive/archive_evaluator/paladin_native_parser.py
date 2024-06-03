@@ -508,6 +508,10 @@ class PaladinNativeParser(object):
     def line_no(self) -> int:
         return self._line_no
 
+    @property
+    def var_names(self) -> Iterable[str]:
+        return self.builder.get_var_names()
+
     @line_no.setter
     def line_no(self, value: int) -> None:
         self._line_no = value
@@ -540,9 +544,9 @@ class PaladinNativeParser(object):
         return query.replace(FUNCTION_CALL_MAGIC, PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL)
 
     @classmethod
-    def docs(cls, ops_filter: Callable[[Type[Operator]], bool] = lambda op: True) -> List[Dict]:
-        supported_ops = list(filter(ops_filter, Operator.all()))
-
+    def docs(cls, supported_ops: Optional[Iterable[Type[Operator]]]) -> List[Dict]:
+        if not supported_ops:
+            supported_ops = Operator.all()
         time_ops = filter(lambda op: issubclass(op, TimeOperator), supported_ops)
         selectors = filter(lambda op: issubclass(op, Selector), supported_ops)
         summaries = filter(lambda op: issubclass(op, SummaryOp), supported_ops)

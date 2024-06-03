@@ -560,6 +560,9 @@ class DiffObjectBuilder(ObjectBuilder):
     def get_line_nos_by_container_ids(self, container_ids: Set[ContainerId]) -> Iterable[LineNo]:
         return list(map(lambda t: t[0], filter(lambda t: t[1] in container_ids, self._scopes.items())))
 
+    def get_var_names(self) -> Iterable[str]:
+        return list(self._named_primitives.keys() | self._named_objects)
+
     @property
     def construction_time(self):
         return self._construction_time

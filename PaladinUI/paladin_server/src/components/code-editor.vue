@@ -1,8 +1,6 @@
 <template>
     <div class="code-editor-container">
         <div @mouseenter="() => {panelActive = true;}" @mouseleave="() => {panelActive = false;}">
-            <actions-panel :actions="actions" :position="panelPosition" :btnClick="btnAction"
-                           :hidden="!panelActive"/>
             <Codemirror id="source-editor" ref="cm" class="original-style" :value="sourceCode"
                         :options="codemirrorOptions" @change="updateSourceCode"/>
         </div>
@@ -20,11 +18,9 @@ import "codemirror/addon/scroll/simplescrollbars.css";
 import Codemirror from "codemirror-editor-vue3";
 import "./main.scss";
 
-//@ts-ignore
-import ActionsPanel from "./actions-panel.vue";
 
 @Component({
-    components: {Codemirror, ActionsPanel},
+    components: {Codemirror},
     emits: ['code-editor-change', 'code-editor-reset']
 })
 class CodeEditor extends Vue {
@@ -33,7 +29,7 @@ class CodeEditor extends Vue {
     @Prop lang: string = ''
     @Prop actions: Array<any> = []
 
-    codemirrorOptions = {theme: 'darcula', scrollbarStyle: 'overlay'}
+    codemirrorOptions = {theme: 'darcula', scrollbarStyle: 'overlay', styleActiveLine: true}
     _sourceCode: string = ''
 
     panelActive: boolean = false;
@@ -70,7 +66,6 @@ class CodeEditor extends Vue {
             top: codeEditorRect.top.toString() + 'px',
             left: (codeEditorRect.right / 2 + 30).toString() + 'px' // Adjust the offset as needed
         };
-        console.log('pp = ', this.panelPosition);
     };
 
 
@@ -84,71 +79,41 @@ class CodeEditor extends Vue {
 
     private handleHighlighting(lineNumber: number, highlight: boolean) {
         const editor = this.cm.cminstance;
-        const className = "code-editor-highlighted-row";
 
         /*  Decrease one from line number as the lines in codemirror starts at 1. */
         lineNumber = lineNumber - 1;
 
-        editor.operation(() => {
-            const pos = {line: lineNumber, ch: 'end', margin: 3};
-            editor.setCursor(pos);
-            editor.scrollIntoView(pos);
-        });
-
-        editor.operation(() => {
-            if (highlight) {
-                this.changeBgColor('CodeMirror-activeline-background', 'yellow');
-                // editor.addLineClass(lineNumber, 'background', className);
-            } else {
-                this.changeBgColor('CodeMirror-activeline-background', '#323232');
-                // editor.removeLineClass(lineNumber, 'background', className);
-            }
-        });
-
-        //this.addHighlightStyles(className);
-    }
-
-    private addHighlightStyles(className: string): void {
-        const styleElements: HTMLCollectionOf<HTMLStyleElement> = document.head.getElementsByTagName('style');
-
-        if (!Array.from(styleElements).some((styleElement: HTMLStyleElement) => styleElement.innerHTML.includes(`.$ {className}`))) {
-            const styleTag = document.createElement('style');
-            // language=CSS
-            styleTag.textContent = `.${className} {
-                background-color: yellow
-            }`;
-            document.head.appendChild(styleTag);
-        }
-    }
-
-    private changeBgColor(className: string, newColor: string): string {
-        // Get all stylesheets in the document
-        let styleSheets = document.styleSheets;
-
-        // Loop through the stylesheets
-        for (let i = 0; i < styleSheets.length; i++) {
-            let rules:CSSRuleList = styleSheets[i].cssRules;
-
-            // Loop through the rules
-            for (let j = 0; j < rules.length; j++) {
-                if (rules[j] instanceof CSSStyleRule) {
-                    let rule: CSSStyleRule = rules[j] as CSSStyleRule;
-                    // Find the rule you want to change
-                    if (rule.selectorText === className) {
-                        // Change the color property
-                        const old = rule.style.backgroundColor;
-                        rule.style.backgroundColor = newColor;
-                        return old
-                    }
-                }
-            }
+        if (highlight){
+            /* Set active line. */
+            editor.operation(() => {
+                const pos = {line: lineNumber, ch: 'end', margin: 3};
+                editor.setCursor(pos);
+                editor.scrollIntoView(pos);
+            });
         }
 
-        return ''
+        editor.operation(() => {
+             /* Set background color. */
+            const lineElement = this.lineNo2Element(editor, lineNumber);
+            console.log('le = ', lineElement);
+            if (lineElement) {
+                lineElement.style.backgroundColor = highlight ? 'yellow' : '';
+            }
+        });
+    }
+
+    private lineNo2Element(editor, lineNumber): HTMLElement {
+        const lineElements: Array<HTMLElement> = editor.getWrapperElement().getElementsByClassName('CodeMirror-line');
+        console.log('les = ', lineElements, ' ln = ', lineNumber);
+        return lineElements[lineNumber];
     }
 
     height(): number {
         return this.cm.cminstance.getScrollerElement().clientHeight;
+    }
+
+    get source(): string {
+        return this._sourceCode;
     }
 }
 
@@ -165,4 +130,13 @@ export default toNative(CodeEditor);
 .code-editor-container::-webkit-scrollbar {
     background-color: #2b2b2b;
 }
+
+.CodeMirror-activeline-background {
+    background: #f3c014;
+}
+
+.highlighted-line {
+    background: #f3c014;
+}
+
 </style>

@@ -90,40 +90,37 @@ def pour_even(s: Set[int]):
     __ARG__('pour_even', __FRAME__(), 41, s=s)
     s1 = set()
     __AS__('s1 = set()', 's1', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=42)
-    b = True
-    __AS__('b = True', 'b', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=43)
-    __SOL__(__FRAME__(), 44)
+    __SOL__(__FRAME__(), 43)
     while s:
-        __SOLI__(44, __FRAME__())
-        x = __BMFCS__(__FC__('s.pop()', s.pop, locals(), globals(), __FRAME__(), 45), s, 's', 'pop', 45, __FRAME__(), locals(), globals())
-        __AS__('x = __BMFCS__(__FC__(@s.pop()@, s.pop, locals(), globals(), __FRAME__(), 45), s, @s@, @pop@, 45, __FRAME__(), locals(), globals())', 'x', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=45)
+        __SOLI__(43, __FRAME__())
+        x = __BMFCS__(__FC__('s.pop()', s.pop, locals(), globals(), __FRAME__(), 44), s, 's', 'pop', 44, __FRAME__(), locals(), globals())
+        __AS__('x = __BMFCS__(__FC__(@s.pop()@, s.pop, locals(), globals(), __FRAME__(), 44), s, @s@, @pop@, 44, __FRAME__(), locals(), globals())', 'x', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=44)
         if x % 2 == 0:
-            __BMFCS__(__FC__('s1.add(x)', s1.add, locals(), globals(), __FRAME__(), 47, x), s1, 's1', 'add', 47, __FRAME__(), locals(), globals(), x)
-        __EOLI__(__FRAME__(), loop_start_line_no=44, loop_end_line_no=47)
-    if b:
-        __BMFCS__(__FC__('s1.add(12)', s1.add, locals(), globals(), __FRAME__(), 50, 12), s1, 's1', 'add', 50, __FRAME__(), locals(), globals(), 12)
-        b = False
-        __AS__('b = False', 'b', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=51)
-    __UNDEF__('pour_even', __FRAME__(), 53)
+            __BMFCS__(__FC__('s1.add(x)', s1.add, locals(), globals(), __FRAME__(), 46, x), s1, 's1', 'add', 46, __FRAME__(), locals(), globals(), x)
+        if __FC__('len(s)', len, locals(), globals(), __FRAME__(), 48, s) == 0:
+            __BMFCS__(__FC__('s1.add(12)', s1.add, locals(), globals(), __FRAME__(), 49, 12), s1, 's1', 'add', 49, __FRAME__(), locals(), globals(), 12)
+        __EOLI__(__FRAME__(), loop_start_line_no=43, loop_end_line_no=49)
+    __UNDEF__('pour_even', __FRAME__(), 51)
     return s1
 
 def pour_even_example():
-    __DEF__('pour_even_example', line_no=56, frame=__FRAME__())
-    __ARG__('pour_even_example', __FRAME__(), 56)
+    __DEF__('pour_even_example', line_no=54, frame=__FRAME__())
+    __ARG__('pour_even_example', __FRAME__(), 54)
     nums = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-    __AS__('nums = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}', 'nums', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=57)
-    __PRINT__(58, __FRAME__(), 'nums: ', nums)
-    __PRINT__(59, __FRAME__(), 'Even nums:', pour_even(nums))
-    __UNDEF__('pour_even_example', __FRAME__(), 59)
+    __AS__('nums = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}', 'nums', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=55)
+    __PRINT__(56, __FRAME__(), 'nums: ', nums)
+    __PRINT__(57, __FRAME__(), 'Even nums:', pour_even(nums))
+    __UNDEF__('pour_even_example', __FRAME__(), 57)
     return None
 
 def main():
-    __DEF__('main', line_no=62, frame=__FRAME__())
-    __ARG__('main', __FRAME__(), 62)
-    __FC__('sort_array()', sort_array, locals(), globals(), __FRAME__(), 63)
-    __PRINT__(64, __FRAME__(), '--------')
-    __FC__('pour_even_example()', pour_even_example, locals(), globals(), __FRAME__(), 65)
-    __UNDEF__('main', __FRAME__(), 65)
+    __DEF__('main', line_no=60, frame=__FRAME__())
+    __ARG__('main', __FRAME__(), 60)
+    __FC__('seed(2024)', seed, locals(), globals(), __FRAME__(), 61, 2024)
+    __FC__('sort_array()', sort_array, locals(), globals(), __FRAME__(), 62)
+    __PRINT__(63, __FRAME__(), '--------')
+    __FC__('pour_even_example()', pour_even_example, locals(), globals(), __FRAME__(), 64)
+    __UNDEF__('main', __FRAME__(), 64)
     return None
 if __name__ == '__main__':
-    __FC__('main()', main, locals(), globals(), __FRAME__(), 69)
+    __FC__('main()', main, locals(), globals(), __FRAME__(), 68)

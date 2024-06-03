@@ -1,6 +1,7 @@
 import json
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import *
 
@@ -30,6 +31,7 @@ EVALUATOR: Optional[ArchiveEvaluator] = None
 PARSER: Optional[PaladinNativeParser] = None
 RECORDER: Optional['PaladinServer.Recorder'] = None
 
+
 class PaladinServer(FlaskView):
     @dataclass
     class _ArchiveEntriesView(object):
@@ -54,14 +56,22 @@ class PaladinServer(FlaskView):
         def __init__(self, session_output_path: Path, program_name: str):
             self.session_output_path = session_output_path
             self.program_name = program_name
-            self.data = {'program': self.program_name, 'queries': []}
+            self.data = {'program': self.program_name, 'queries': [], 'runs': []}
 
         def record_query(self, query: str, result: str, **kwargs):
-            self.data['queries'].append({'request': {'query': query, **kwargs}, 'response': json.loads(result)})
+            self.data['queries'].append(
+                {'time': self.time, 'request': {'query': query, **kwargs}, 'response': json.loads(result)})
+
+        def record_run(self):
+            self.data['runs'].append({'time': self.time})
 
         def dump(self):
             with open(str(self.session_output_path), 'w+') as f:
                 f.write(json.dumps(self.data))
+
+        @property
+        def time(self):
+            return datetime.now().strftime('%H:%M:%S')
 
     @classmethod
     def create(cls, engine: PaLaDiNEngine) -> 'PaladinServer':
@@ -75,6 +85,7 @@ class PaladinServer(FlaskView):
 
     def run(self, port: int = 9999):
         self.register_app()
+        RECORDER.record_run()
         self.app.run(host='0.0.0.0', port=port)
 
     @classmethod
@@ -127,6 +138,7 @@ class PaladinServer(FlaskView):
     @route('/rerun')
     def rerun(self):
         ENGINE.execute_with_paladin()
+        RECORDER.record_run()
         PaladinServer._reset(ENGINE)
         return PaladinServer.create_response({})
 
@@ -221,7 +233,8 @@ class PaladinServer(FlaskView):
     @route('/debug_info/completions')
     def completions(self):
         return PaladinServer.create_response(
-            [{'label': op.name(), 'type': 'keyword', 'info': op.__doc__} for op in Operator.all()]
+            [{'label': op.name(), 'type': 'keyword', 'info': op.__doc__} for op in PaladinServer._supported_ops()] +
+            [{'label': var_name, 'type': 'variable'} for var_name in PARSER.var_names]
         )
 
     @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/')
@@ -244,15 +257,15 @@ class PaladinServer(FlaskView):
 
     @route('/debug_info/docs')
     def docs(self):
+        return PaladinServer.create_response(PaladinNativeParser.docs(PaladinServer._supported_ops()))
+
+    @staticmethod
+    def _supported_ops() -> Iterable[Type[Operator]]:
         if (docs_path := ENGINE.docs_file_path) is not None:
             with open(str(docs_path), 'r') as f:
                 supported_op_names = [l.strip() for l in f.readlines()]
-                supported_ops = lambda op: op.name() in supported_op_names
-                docs = PaladinNativeParser.docs(supported_ops)
-        else:
-            docs = PaladinNativeParser.docs()
-
-        return PaladinServer.create_response(docs)
+                return list(filter(lambda op: op.name() in supported_op_names, Operator.all()))
+        return []
 
     @route('/debug_info/examples')
     def examples(self):

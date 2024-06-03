@@ -1,6 +1,7 @@
-from typing import Optional, Dict, Callable
+from typing import Optional, Dict, Callable, List
 
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, EvalResultEntry, \
+    EvalResultPair
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
 from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
 from archive.object_builder.object_builder import ObjectBuilder
@@ -18,6 +19,14 @@ class Old(UniLateralOperator, Selector):
         else:
             first = self.first.eval(builder, query_locals, user_aux)
 
-        return EvalResult([EvalResultEntry.empty_with_keys(0, first.all_keys())] + [
-            EvalResultEntry(e.time + 1, e.evaled_results, []) for e in list(first)
+        return EvalResult([EvalResultEntry.empty_with_keys(0, [Old._update_key(k) for k in first.all_keys()])] + [
+            EvalResultEntry(e.time + 1, Old._rename_keys(e.evaled_results), []) for e in list(first)
         ])
+
+    @classmethod
+    def _rename_keys(cls, results: List[EvalResultPair]):
+        return [EvalResultPair(Old._update_key(r.key), r.value) for r in results]
+
+    @classmethod
+    def _update_key(cls, key: str):
+        return f'{cls.__name__}({key})'

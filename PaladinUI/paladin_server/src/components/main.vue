@@ -1,11 +1,7 @@
 <template>
     <div id="app">
-        <div id="header">
-            <h1 class="headline">PaLaDiN - Time-travel Debugging with Semantic Queries</h1>
-            <div class="helpBtnContainer">
-                <va-button round icon="help" @click="helpBtnClick" color="#eb6734" class="helpBtn"/>
-            </div>
-        </div>
+        <paladin-header @help-btn-click="cheatSheet.changeDrawer()" @control="handleControl"
+                        :focused-cell="isCellFocused"/>
         <div id="main">
             <splitpanes class="default-theme" ref="mainSplit" @resize="storeLayoutPanes">
                 <pane :size="layout.panes[0].size">
@@ -34,7 +30,7 @@
                     <splitpanes horizontal class="default-theme" :push-other-panes="false">
                         <pane id="vuebook-pane" :size="100" style="overflow-y: auto">
                             <cheat-sheet ref="cheatSheet" :docs="docs" :examples="examples"></cheat-sheet>
-                            <vuebook ref="vuebook" :lastRunTime="lastRunTime"
+                            <vuebook ref="vuebook" :lastRunTime="lastRunTime" :completions="completions"
                                      @highlight="highlightCodeLine" @highlight-stop="stopHighlightCodeLine"></vuebook>
                         </pane>
                     </splitpanes>
@@ -59,7 +55,7 @@ import {LocalStore, persistField} from "../infra/store";
 import {request, request_debug_info, upload} from "../request";
 
 //@ts-ignore
-import Vuebook, {IVuebook} from "./vuebook_app.vue";
+import Vuebook, {Completion, IVuebook} from "./vuebook_app.vue";
 
 //@ts-ignore
 import CodeEditor from "./code-editor.vue";
@@ -73,6 +69,9 @@ import ScreenLoadingSpinner from "./screen-loading-spinner.vue";
 //@ts-ignore
 import CheatSheet from "./cheat-sheet.vue";
 
+//@ts-ignore
+import PaladinHeader from "./paladin-header.vue"
+
 type Exception = {
     line_no: number
     throwing_line_source: string
@@ -81,7 +80,17 @@ type Exception = {
 }
 
 @Component({
-    components: {Splitpanes, Pane, Vuebook, Slider, Settings, CodeEditor, ScreenLoadingSpinner, CheatSheet}
+    components: {
+        Splitpanes,
+        Pane,
+        Vuebook,
+        Slider,
+        Settings,
+        CodeEditor,
+        ScreenLoadingSpinner,
+        CheatSheet,
+        PaladinHeader
+    }
 })
 class Main extends Vue {
 
@@ -95,7 +104,9 @@ class Main extends Vue {
     isRerunning: Boolean = false
     docs: string = ''
     examples: Array<[string, string]> = []
-    codeEditorPaneSize: number = 85
+    completions: Array<Completion> = []
+    codeEditorPaneSize: number = 45
+    isCellFocused: boolean = false;
     @Ref vuebook: IVuebook
     @Ref editor: CodeEditor
     @Ref cheatSheet: CheatSheet
@@ -127,7 +138,10 @@ class Main extends Vue {
         persistField(this.layout, 'panes', new LocalStore('main:layout.panes'));
         this.isRerunning = false;
         this.codeEditorPaneSize = this.editor.height();
-        console.log('this = ', this);
+        this.$watch(() => this.vuebook.focusedCell(), v => {
+            this.isCellFocused = (v !== undefined);
+        });
+
     }
 
     async fetchInitial() {
@@ -138,6 +152,7 @@ class Main extends Vue {
         this.thrownException = await request_debug_info('thrown_exception') as Exception;
         this.docs = await request_debug_info('docs') as string;
         this.examples = await request_debug_info('examples') as Array<[string, string]>;
+        this.completions = await request_debug_info('completions') as Array<any>;
         this.$forceUpdate();
         this.resetSlider();
     }
@@ -156,7 +171,6 @@ class Main extends Vue {
     }
 
     async updateCode(updatedCode: string) {
-        console.log('in updateCode: updated_code = ', updatedCode);
         await upload(updatedCode, 'upload/source_code');
     }
 
@@ -193,6 +207,20 @@ class Main extends Vue {
         this.actions[1].enabled = false;
     }
 
+    async handleControl(action: string) {
+        switch (action) {
+            case 'help':
+                this.cheatSheet.changeDrawer()
+                break;
+            case 'run-prog':
+                await this.updateCode(this.editor.source);
+                await this.rerun();
+                break;
+            default:
+                this.vuebook.handleControl(action);
+
+        }
+    }
 }
 
 export default toNative(Main);
@@ -211,32 +239,11 @@ export default toNative(Main);
 
     > .code-editor-container {
         flex-grow: 1;
+
         > div {
             height: 100%;
         }
     }
-}
-
-
-#header {
-    display: grid;
-    grid-template-areas: "headline helpBtn";
-    padding-right: 10px;
-}
-
-.headline {
-    grid-area: headline;
-}
-
-.helpBtnContainer {
-    padding-top: 2px;
-    justify-self: right;
-}
-
-.helpBtn {
-    grid-area: helpBtn;
-    max-width: 40px;
-    justify-self: right;
 }
 
 .splitpanes.default-theme .splitpanes__pane {
