@@ -62,7 +62,7 @@ RUN git clone https://github.com/orenafek/vuebook.git
 # Switch to vuebook directory
 WORKDIR /vuebook
 RUN ls
-RUN git checkout docker_1
+RUN git checkout docker_2
 
 # Install dependencies
 RUN npm install

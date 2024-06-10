@@ -1,6 +1,6 @@
 export async function request(req) {
     const req_with_lr = req.replace(/\r\n|\r|\n/g, '<br>');
-    const gResponse = await fetch(window.location.origin + "/" + req_with_lr, {
+    const gResponse = await fetch(new URL(req_with_lr, window.location), {
         headers: {
             "Accept": "application-json"
         }

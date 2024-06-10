@@ -21,7 +21,7 @@ type Visualizer = {
     instance?: DisplayClass
 }
 
-const VISUALIZERS_FOLDER: string = '../../static/visualizers/';
+const VISUALIZERS_FOLDER: string = 'static/visualizers/';
 const VISUALIZER_BASE_CLASS_PATH: string = VISUALIZERS_FOLDER + "visualizer.js";
 
 class Visualizers {
@@ -33,7 +33,7 @@ class Visualizers {
     async loadBuiltinVisualizers(visualizers: Visualizer[]) {
         window['Visualizer'] = VisualizerBase;
         this.builtin.value = await Promise.all(visualizers.map(async (d: Visualizer) => {
-            d.source = await (await fetch(VISUALIZERS_FOLDER + d.file)).text();
+            d.source = await (await fetch(new URL(VISUALIZERS_FOLDER + d.file, window.location.href))).text();
             d.instance = this.instantiate(d.source);
             return d;
         }));
