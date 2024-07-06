@@ -3,7 +3,7 @@ run-name: Run Unit Tests
 on: [push]
 env:
   PYTHON_VERSION: "3.10"
-  POETRY_VERSION: "1.2.0"
+  POETRY_VERSION: "1.8.3"
 jobs:
   unittest:
     runs-on: ubuntu-latest
