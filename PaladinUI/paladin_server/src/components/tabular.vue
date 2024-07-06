@@ -16,7 +16,7 @@
         <tbody>
         <tr v-for="rowHead in value.rowHeaders">
             <td @mouseover="rowSelect($event, rowHead)" @mouseleave="rowUnselect($event, rowHead)"
-                class="hover-underline"> {{ rowHead.display }}
+                class="row-header hover-effect"> {{ rowHead.display }}
             </td>
             <td v-for="colKey in value.columnHeaders">
                 <div style="display: inline-flex;">
@@ -172,22 +172,24 @@ table, th, thead, td {
 
 th {
     justify-content: left;
-}
-
-th, td {
     padding: 2px;
 }
 
 td {
+    padding: 2px 3px;
     position: relative;
 }
 
-td.hover-underline:hover {
-    text-decoration: underline;
+td.row-header {
+    white-space: nowrap;
+}
+
+td.hover-effect:hover {
+    background-color: #ffff0077;
 }
 
 .changed-triangle {
-    border-color: transparent #efc081 transparent transparent;
+    border-color: transparent #ff9041 transparent transparent;
     border-style: solid;
     border-width: 0 8px 8px 8px;
     position: absolute;

@@ -3,6 +3,7 @@
         <button
             v-for="(action, name) in actions"
             :key="name"
+            :title="action.label"
             @click="emitAction(name)"
             :disabled="shouldDisable(action.disabledOnNoneFocused)"
         >
