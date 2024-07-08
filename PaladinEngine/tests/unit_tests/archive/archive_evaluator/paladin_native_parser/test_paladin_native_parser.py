@@ -16,7 +16,7 @@ from tests.unit_tests.archive.object_builder.test_object_builder import TestBasi
 class TestPaladinNativeParser(TestCommon, ABC):
 
     def setUp(self) -> None:
-        self.paladin_native_parser = PaladinNativeParser(self.archive)
+        self.paladin_native_parser = PaladinNativeParser(self.archive, parallel=True)
         self.read_aux_file()
 
     def _test_series_of_values(self, query: str, *expected):

@@ -39,12 +39,13 @@ class PaladinNativeParser(object):
     _COMPREHENSION_MAGIC_REPLACE_SYMBOL = '__COMP_SYMBOL__'
 
     def __init__(self, archive: Archive, object_builder_type: Type = DiffObjectBuilder,
-                 should_time_builder_construction: bool = False):
+                 should_time_builder_construction: bool = False, parallel: bool = True):
         self.archive: Archive = archive
         self._line_no: int = -1
         self.builder: ObjectBuilder = object_builder_type(archive, should_time_builder_construction)
         self.construction_time = self.builder.construction_time
         self.user_aux: Dict[str, Any] = {}
+        self.parallel = parallel
 
     class HasOperatorVisitor(ast.NodeVisitor):
         def visit(self, node: ast.AST):
@@ -91,7 +92,7 @@ class PaladinNativeParser(object):
             return node.left
 
     class OperatorLambdaReplacer(ast.NodeTransformer):
-        def __init__(self, times: Iterable[Time]):
+        def __init__(self, times: Iterable[Time], parallel: bool = True):
             super().__init__()
             self.times: Iterable[Time] = times
             self._lambda_var_seed: int = -1
@@ -99,6 +100,7 @@ class PaladinNativeParser(object):
             self.root_vars = []
             self._visited_root: bool = False
             self._extract_inner_ops: bool = True
+            self.parallel = parallel
 
         def visit(self, node: ast.AST) -> Any:
             if self._visited_root:
@@ -110,7 +112,8 @@ class PaladinNativeParser(object):
                 if isinstance(node, ast.Expr) and node.lineno != node.value.lineno:
                     node.lineno = node.value.lineno
                 var_name = self.create_operator_lambda_var()
-                self._add_operator(var_name, ast2str(node), Raw(ast2str(node), node.lineno, self.times))
+                self._add_operator(var_name, ast2str(node),
+                                   Raw(ast2str(node), node.lineno, self.times, parallel=self.parallel))
                 return ast.Name(id=var_name)
 
             return visit_result
@@ -137,7 +140,7 @@ class PaladinNativeParser(object):
 
             # noinspection PyArgumentList,PyUnresolvedReferences
             try:
-                op = (o := PaladinNativeParser.OPERATORS[node.func.id])(self.times, *arg_vars, **named_args)
+                op = (o := PaladinNativeParser.OPERATORS[node.func.id])(self.times, *arg_vars, **named_args, parallel=self.parallel)
             except TypeError as e:
                 raise SyntaxError(f'Error in operator {o.name()}')
             op.standalone = self._extract_inner_ops
@@ -171,13 +174,15 @@ class PaladinNativeParser(object):
                     parts.append(part)
                     continue
                 part_visit_result = self.visit(part)
-                if isinstance(part_visit_result, ast.Constant):
-                    parts.append(part_visit_result.value)
-                    continue
 
-                var_name = self.create_operator_lambda_var()
-                self._add_operator(var_name, ast2str(part), Raw(ast2str(part_visit_result), part.lineno, self.times))
-                parts.append(ast.Attribute(value=ast.Name(id=var_name), attr=ast2str(part)))
+                if isinstance(part_visit_result, ast.Name) and part_visit_result.id in self.operators:
+                    var_name = self.create_operator_lambda_var()
+                    self._add_operator(var_name, ast2str(part),
+                                       Raw(ast2str(part_visit_result), part.lineno, self.times, parallel=self.parallel))
+                    parts.append(ast.Attribute(value=ast.Name(id=var_name), attr=ast2str(part)))
+
+                else:
+                    parts.append(part_visit_result)
 
             return ast.Slice(lower=parts[0], upper=parts[1], step=parts[2])
 
@@ -185,7 +190,7 @@ class PaladinNativeParser(object):
             return ast.Call(func=ast.Name(id=AttributedDict.__name__), args=[node], keywords=[], lineno=node.lineno)
 
         def _create_raw_op_from_arg(self, arg: ast.AST):
-            r = Raw(ast2str(arg), arg.lineno, self.times)
+            r = Raw(ast2str(arg), arg.lineno, self.times, parallel=self.parallel)
             r.standalone = not self._extract_inner_ops
             return r
 
@@ -195,7 +200,7 @@ class PaladinNativeParser(object):
             return c
 
         def _create_type_op_from_arg(self, arg: ast.AST):
-            return TypeOp(self.times, Raw(ast2str(arg)), arg.lineno)
+            return TypeOp(self.times, Raw(ast2str(arg), parallel=self.parallel), arg.lineno)
 
         def visit_Compare(self, node: ast.Compare) -> Any:
             node.left = super().visit(node.left)
@@ -216,14 +221,14 @@ class PaladinNativeParser(object):
         def visit_Name(self, node: ast.Name) -> Any:
             if PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL in node.id:
                 name = node.id.replace(PaladinNativeParser._FUNCTION_CALL_MAGIC_REPLACE_SYMBOL, '')
-            elif PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL in node.id:
-                name = node.id.replace(PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL, '')
+            # elif PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL in node.id:
+            #     name = node.id.replace(PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL, '')
             else:
                 name = node.id
 
             if name != node.id:
                 var_name = self.create_operator_lambda_var()
-                self._add_operator(var_name, name, Raw(name, node.lineno, self.times))
+                self._add_operator(var_name, name, Raw(name, node.lineno, self.times, parallel=self.parallel))
                 name = var_name
 
             return ast.Name(id=name, lineno=node.lineno)
@@ -235,21 +240,21 @@ class PaladinNativeParser(object):
             node.lineno = node.value.lineno
             return node
 
-        def visit_comprehension(self, node: ast.comprehension) -> Any:
-            if not (isinstance(node.iter, ast.Call) and PaladinNativeParser.OperatorLambdaReplacer._is_operator_call(
-                    node.iter)):
-                class _Visitor(ast.NodeVisitor):
-                    def visit_Name(self, _node: ast.Name) -> Any:
-                        _node.id = PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL + _node.id
-
-                    def visit_Attribute(self, _node: ast.Attribute) -> Any:
-                        _node.attr = PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL + _node.attr
-
-                _Visitor().visit(cast(ast.AST, node.iter))
-
-            node.iter = super().visit(cast(ast.AST, node.iter))
-            node.target = super().visit(cast(ast.AST, node.target))
-            return node
+        # def visit_comprehension(self, node: ast.comprehension) -> Any:
+        #     if not (isinstance(node.iter, ast.Call) and PaladinNativeParser.OperatorLambdaReplacer._is_operator_call(
+        #             node.iter)):
+        #         class _Visitor(ast.NodeVisitor):
+        #             def visit_Name(self, _node: ast.Name) -> Any:
+        #                 _node.id = PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL + _node.id
+        #
+        #             def visit_Attribute(self, _node: ast.Attribute) -> Any:
+        #                 _node.attr = PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL + _node.attr
+        #
+        #         _Visitor().visit(cast(ast.AST, node.iter))
+        #
+        #     node.iter = super().visit(cast(ast.AST, node.iter))
+        #     node.target = super().visit(cast(ast.AST, node.target))
+        #     return node
 
         @staticmethod
         def _is_operator_call(node: ast.Call):
@@ -279,13 +284,14 @@ class PaladinNativeParser(object):
         class BinOpExtra(object):
             lhs_extra: object
 
-        def __init__(self, parser: 'PaladinNativeParser', times: Iterable[Time], root: ast.AST):
+        def __init__(self, parser: 'PaladinNativeParser', times: Iterable[Time], root: ast.AST, parallel: bool = True):
             self.parser = parser
             self.times = times
             self.root = root
             self._lambda_var_seed = -1
             self.lambda_vars = set()
             self.operators_map = {}
+            self.parallel = parallel
             super().__init__()
 
         @property
@@ -302,7 +308,7 @@ class PaladinNativeParser(object):
         def generic_visit(self, node: ast.AST) -> Any:
             has_operator = PaladinNativeParser.HasOperatorVisitor().visit(node)
             if not has_operator:
-                return Raw(ast2str(node), node.lineno, self.times)
+                return Raw(ast2str(node), node.lineno, self.times, parallel=self.parallel)
 
             visit_result = self.visit(node)
             if not visit_result:
@@ -413,7 +419,7 @@ class PaladinNativeParser(object):
             line_no_replacer.visit(query_ast)
 
             # Replace calling to operator with lambdas.
-            visitor = PaladinNativeParser.OperatorLambdaReplacer(times)
+            visitor = PaladinNativeParser.OperatorLambdaReplacer(times, parallel=self.parallel)
             query_ast = visitor.visit(query_ast)
 
             # Evaluate operators.

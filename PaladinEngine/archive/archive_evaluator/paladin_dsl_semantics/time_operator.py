@@ -20,8 +20,8 @@ class TimeOperator(Operator, ABC):
         return 'Evaluates to True/False for each time point based on their type.\n' \
                'These operators are used to filter time range by a certain criteria (see Where for more).'
 
-    def __init__(self, times: Iterable[Time]):
-        super().__init__(times)
+    def __init__(self, times: Iterable[Time], parallel: bool = False):
+        super().__init__(times, parallel)
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
              user_aux: Optional[Dict[str, Callable]] = None):
@@ -38,9 +38,9 @@ class TimeOperator(Operator, ABC):
 
 class BiTimeOperator(BiLateralOperator, TimeOperator, ABC):
     def __init__(self, times: Iterable[Time], first: Operator, second: Operator,
-                 bi_result_maker: Callable[[bool, bool], bool]):
-        BiLateralOperator.__init__(self, times, first, second)
-        TimeOperator.__init__(self, times)
+                 bi_result_maker: Callable[[bool, bool], bool], parallel: bool = False):
+        BiLateralOperator.__init__(self, times, first, second, parallel)
+        TimeOperator.__init__(self, times, parallel)
         self.bi_result_maker = bi_result_maker
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

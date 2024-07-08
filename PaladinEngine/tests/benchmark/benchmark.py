@@ -1,5 +1,7 @@
+import argparse
 import csv
 import os
+import signal
 import traceback
 from abc import ABC
 from contextlib import redirect_stdout
@@ -13,11 +15,12 @@ from archive.archive_evaluator.paladin_native_parser import PaladinNativeParser
 from archive.object_builder.diff_object_builder.diff_object_builder import DiffObjectBuilder
 from archive.object_builder.naive_object_builder.naive_object_builder import NaiveObjectBuilder
 from engine.engine import PaLaDiNEngine
+from tests.benchmark.benchmarker_timeout_error import BenchmarkerTimeoutError
 from tests.test_common.test_common import TestCommon
 
 TIME_FACTOR = 10 ** 4
 REPEAT_COUNT = 5
-TIMEOUT = 10
+TIMEOUT = 30
 
 
 def TimedTest(f):
@@ -49,10 +52,11 @@ class Benchmarker(ABC):
 
     def benchmark(self, progs: List[str | Path]):
         try:
-            self.header = ['test_name',
-                           *[f.__name__ for f in self.benchmark_tests] + [
-                               f'{self.paladin.__name__}/{self.pdb_cond.__name__}',
-                               f'{self.log_query_recursive.__name__}/{self.log_query_diff.__name__}']]
+            self.header = ['testName',
+                           *map(self._format, [f.__name__ for f in self.benchmark_tests] + [
+                               f'{self.paladin.__name__}0{self.pdb_cond.__name__}',
+                               f'{self.log_query_recursive.__name__}0{self.log_query_diff.__name__}',
+                           'speedup'])]
             self.writer.writerow(self.header)
 
             for prog in progs:
@@ -82,11 +86,37 @@ class Benchmarker(ABC):
     def pdb_cond(self):
         return self._pdb("break 1, False", 'continue', 'quit', pdbrc=True)
 
+    # noinspection PyBroadException
     def _measure(self, *cb):
+        def handler(_, __):
+            raise BenchmarkerTimeoutError()
+
+        signal.signal(signal.SIGALRM, handler)
+
         try:
-            self.rows.append([self.engine.source_path.name, *[str(c()) for c in cb]])
-        except Exception as e:
+            results = []
+            for c in cb:
+                signal.alarm(0)
+                signal.alarm(TIMEOUT)
+                try:
+                    print(f'Running {c.__name__} with timeout of {TIMEOUT} seconds.')
+                    result = str(c())
+                except TimeoutError:
+                    result = f'{0}'
+
+                except BaseException as e:
+                    traceback.print_exc()
+                    return
+                finally:
+                    signal.alarm(0)
+                results.append(result)
+
+            self.rows.append([self._format(self.engine.source_path.name), *results])
+
+        except BaseException:
             traceback.print_exc()
+        finally:
+            signal.alarm(0)
 
     def instrument(self):
         return self.engine.transformation_time
@@ -112,7 +142,7 @@ class Benchmarker(ABC):
 
     def _log_construction(self, object_builder_type: Type):
         self.parser = PaladinNativeParser(self.engine.run_data.archive, object_builder_type,
-                                          should_time_builder_construction=True)
+                                          should_time_builder_construction=True, parallel=False)
         return self.parser.construction_time
 
     def _query(self):
@@ -172,24 +202,56 @@ class Benchmarker(ABC):
 
     def _post_process(self, *calc_func_pairs: Tuple[Callable, Callable]):
         for calc_over, calc_under in calc_func_pairs:
-            calc_over_col_index = self.header.index(calc_over.__name__)
-            calc_under_col_index = self.header.index(calc_under.__name__)
-
             for r in self.rows:
+                calc_over_value = float(self._get_value(r, calc_over))
+                calc_under_value = float(self._get_value(r, calc_under))
                 try:
-                    r.append(str(float(r[calc_over_col_index]) / float(r[calc_under_col_index]))
-                             if float(r[calc_under_col_index]) != 0.0 else str(0))
+                    r.append(str(calc_over_value / calc_under_value) if calc_under_value != 0.0 else str(0))
                 except ZeroDivisionError as e:
                     pass
+
+        self._add_speedup()
+
+    def _add_speedup(self):
+        for r in self.rows:
+            log_query_diff = float(self._get_value(r, self.log_query_diff))
+            log_construction_diff = float(self._get_value(r, self.log_construction_diff))
+            log_query_recursive = float(self._get_value(r, self.log_query_recursive))
+
+            if log_construction_diff != 0 and log_query_diff != 0:
+                speedup = float(log_query_recursive / (log_query_diff + log_construction_diff))
+            else:
+                speedup = 0.0
+
+            r.append(str(speedup))
+
+    def _get_value(self, r: List, cb: Callable):
+        return r[self.header.index(self._format(cb.__name__))]
+
+    def _format(self, s: str):
+        parts = s.split('_')
+        camel_cased = parts[0] + ''.join(word.capitalize() for word in parts[1:])
+        return camel_cased.replace('.py', '')
 
     def _finalize(self):
         self.writer.writerows(self.rows)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', type=str, help='Input file to benchmark')
+    parser.add_argument('-o', '--output', type=str, help='Output .csv file', default=
+    Path.cwd().joinpath('benchmark.csv'))
+    args = parser.parse_args()
+
+    return args
+
+
 def main():
-    b = Benchmarker(output_path := Path.cwd().joinpath('benchmark.csv'), should_output=True)
+    args = parse_args()
+    b = Benchmarker(output_path := args.output, should_output=True)
     print(output_path)
-    b.benchmark(TestCommon.all_examples())
+    b.benchmark([Path(args.file)] if args.file else TestCommon.all_examples())
 
 
 if __name__ == '__main__':

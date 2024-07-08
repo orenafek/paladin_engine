@@ -17,8 +17,8 @@ class Changed(UniLateralOperator, TimeOperator):
                      either assigned to or internally (as for objects).
     """
 
-    def __init__(self, times: Iterable[Time], first: Raw):
-        UniLateralOperator.__init__(self, times, first)
+    def __init__(self, times: Iterable[Time], first: Raw, parallel: bool = False):
+        UniLateralOperator.__init__(self, times, first, parallel)
         TimeOperator.__init__(self, times)
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

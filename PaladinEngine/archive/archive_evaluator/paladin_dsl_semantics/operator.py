@@ -9,8 +9,9 @@ from archive.object_builder.object_builder import ObjectBuilder
 @dataclass
 class Operator(ABC):
 
-    def __init__(self, times: Optional[Iterable[Time]] = None):
+    def __init__(self, times: Optional[Iterable[Time]] = None, parallel: bool = False):
         self._times = times
+        self.parallel = parallel
         self.standalone = True
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
@@ -83,14 +84,15 @@ class Operator(ABC):
     def __str__(self):
         return f'{self.name()}({", ".join(str(self._get_args()))}'
 
+
 class NoArgOperator(Operator, ABC):
     def _get_args(self) -> Collection['Operator']:
         return []
 
 
 class UniLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], first: Operator):
-        super(UniLateralOperator, self).__init__(times)
+    def __init__(self, times: Iterable[Time], first: Operator, parallel: bool = False):
+        super(UniLateralOperator, self).__init__(times, parallel)
         self.first = first
 
     def _get_args(self) -> Collection['Operator']:
@@ -98,16 +100,16 @@ class UniLateralOperator(Operator, ABC):
 
 
 class OptionalArgOperator(UniLateralOperator, ABC):
-    def __init__(self, times: Iterable[Time], first: Optional[Operator] = None):
-        super().__init__(times, first)
+    def __init__(self, times: Iterable[Time], first: Optional[Operator] = None, parallel: bool = False):
+        super().__init__(times, first, parallel)
 
     def _get_args(self) -> Collection['Operator']:
         return [self.first] if self.first else []
 
 
 class BiLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
-        super(BiLateralOperator, self).__init__(times)
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator, parallel: bool = False):
+        super(BiLateralOperator, self).__init__(times, parallel)
         self.first: Operator = first
         self.second: Operator = second
 
@@ -116,8 +118,9 @@ class BiLateralOperator(Operator, ABC):
 
 
 class TriLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], first: Operator, second: Operator, third: Operator):
-        super(TriLateralOperator, self).__init__(times)
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator, third: Operator,
+                 parallel: bool = False):
+        super(TriLateralOperator, self).__init__(times, parallel)
         self.first: Operator = first
         self.second: Operator = second
         self.third: Operator = third
@@ -128,7 +131,8 @@ class TriLateralOperator(Operator, ABC):
 
 class VariadicLateralOperator(Operator, ABC):
     def __init__(self, times: Iterable[Time], *args: Operator, **kwargs: Operator):
-        super(VariadicLateralOperator, self).__init__(times)
+        parallel = kwargs['parallel'] if 'parallel' in kwargs else False
+        super(VariadicLateralOperator, self).__init__(times, parallel)
         self.args: List[Operator] = list(args)
         self.kwargs: Dict[str, Operator] = kwargs
 

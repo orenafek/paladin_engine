@@ -13,8 +13,8 @@ class LineHit(UniLateralOperator, TimeOperator):
     LineHit(ln): Satisfied for each time in which the program has hit line numbered ln.
                  This operator is useful to focus the queries on events that have happened only in a specific line.
     """
-    def __init__(self, times: Iterable[Time], line_no: int):
-        UniLateralOperator.__init__(self, times, Const(line_no, times))
+    def __init__(self, times: Iterable[Time], line_no: int, parallel: bool = False):
+        UniLateralOperator.__init__(self, times, Const(line_no, times), parallel)
         TimeOperator.__init__(self, times)
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None, user_aux: Optional[Dict[str, Callable]] = None):

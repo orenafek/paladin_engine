@@ -17,8 +17,8 @@ class InFunction(UniLateralOperator, TimeOperator):
     InFunction(f/f@ln): Satisfied for each time in which the program has run the code of f.
     """
 
-    def __init__(self, times: Iterable[Time], func_name: Raw | str, line_no: Optional[LineNo] = -1):
-        UniLateralOperator.__init__(self, times, Const(func_name, times))
+    def __init__(self, times: Iterable[Time], func_name: Raw | str, line_no: Optional[LineNo] = -1, parallel: bool = False):
+        UniLateralOperator.__init__(self, times, Const(func_name, times, parallel), parallel)
         TimeOperator.__init__(self, times)
         self.func_name = func_name.query if isinstance(func_name, Raw) else func_name
         self.line_no = line_no

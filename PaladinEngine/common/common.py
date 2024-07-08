@@ -15,11 +15,7 @@ def POID(v: Any) -> Union[Union[int, float, str, bool, complex], int]:
 
 
 def IS_ITERABLE(i: Union[Iterable, object]):
-    try:
-        _ = iter(i)
-        return True
-    except TypeError:
-        return False
+    return issubclass(type(i), Iterable)
 
 
 def ISFOM(t: type) -> bool:

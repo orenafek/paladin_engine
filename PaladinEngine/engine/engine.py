@@ -32,6 +32,7 @@ from module_transformer.module_transformator import ModuleTransformer
 from stubs.stubs import __FLI__, __POST_CONDITION__, archive, __AS__, __FC__, __FRAME__, __ARG__, \
     __DEF__, __UNDEF__, __AC__, __PIS__, __PALADIN_LIST__, __IS_STUBBED__, __BREAK__, __EOLI__, __SOLI__, __BMFCS__, \
     __PRINT__, __STUBS__
+from tests.benchmark.benchmarker_timeout_error import BenchmarkerTimeoutError
 
 
 # noinspection PyRedeclaration
@@ -239,6 +240,8 @@ class PaLaDiNEngine(object):
             else:
                 exec(compile(self.paladinized_code, 'PALADIN', 'exec'), variables)
 
+        except BenchmarkerTimeoutError as e:
+            raise e
         except (PaladinTimeoutError, BaseException) as e:
             thrown_exception = PaLaDiNEngine.PaladinRunExceptionData \
                 .create(self.source_code, self.paladinized_code,
@@ -246,7 +249,7 @@ class PaLaDiNEngine(object):
                         archive.time,
                         e.line_no if isinstance(e, PaladinTimeoutError) else -1)
         finally:
-            output = self.output_capture.getvalue()
+            output = self.output_capture.getvalue() if self.output_capture is not None else ''
 
         self._run_data = PaLaDiNEngine.PaladinRunData(output, archive, thrown_exception)
 

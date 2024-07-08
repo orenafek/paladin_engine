@@ -12,18 +12,18 @@ class Array(object):
         self.populate()
 
     def sort(self):
-        for i in range(self.dim):
-            for j in range(0, self.dim - i - 1):
+        for i in range(0, self.dim):
+            for j in range(0, self.dim - i - 2):
                 if self.data[j] > self.data[j + 1]:
                     self.data[j], self.data[j + 1] = self.data[j + 1], self.data[j]
 
     def populate(self):
         seed(2024)
-        for i in range(self.dim):
-            self.data[i] = randint(0, 100)
-        self.sum = sum(self.data)
+        for x in range(self.dim):
+            self.data[x] = randint(0, 100)
         self.min = min(self.data)
         self.max = max(self.data)
+        self.sum = sum(self.data)
 
     def __repr__(self):
         return repr(self.data)
@@ -31,11 +31,13 @@ class Array(object):
 
 def sort_array():
     a = Array(14)
+    print(a.data)
     a.sort()
     if sorted(a.data) == a.data:
         print('a is sorted :)')
     else:
         print('a is not sorted :(')
+    print(a.data)
 
 
 def pour_even(s: Set[int]):
@@ -43,7 +45,7 @@ def pour_even(s: Set[int]):
     while s:
         x = s.pop()
         if x % 2 == 0:
-            s1.add(x)
+            s1.add(x + 2)
 
         if len(s) == 0:
             s1.add(12)

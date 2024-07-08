@@ -11,8 +11,8 @@ class After(UniLateralOperator, TimeOperator):
         After(o): Satisfies on each time after o's last satisfaction
     """
 
-    def __init__(self, times: Iterable[Time], first: TimeOperator):
-        UniLateralOperator.__init__(self, times, first)
+    def __init__(self, times: Iterable[Time], first: TimeOperator, parallel: bool = False):
+        UniLateralOperator.__init__(self, times, first, parallel=parallel)
         TimeOperator.__init__(self, times)
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

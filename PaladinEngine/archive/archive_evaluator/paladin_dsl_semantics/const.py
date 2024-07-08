@@ -9,8 +9,8 @@ from archive.object_builder.object_builder import ObjectBuilder
 class Const(Operator):
     CONST_KEY = 'CONST'
 
-    def __init__(self, const, times: Iterable[Time] = None):
-        super(Const, self).__init__(times if times else [range(0, 1)])
+    def __init__(self, const, times: Iterable[Time] = None, parallel: bool = False):
+        super(Const, self).__init__(times if times else [range(0, 1)], parallel)
         self.const = const
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

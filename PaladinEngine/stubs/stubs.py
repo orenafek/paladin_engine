@@ -123,6 +123,9 @@ def __FC__(expression: str, function,
     ret_exc = None
     try:
         ret_value = function(*args, **kwargs)
+
+    except TimeoutError as e:
+        raise e
     except BaseException as e:
         ret_exc = e
         ret_value = ret_exc

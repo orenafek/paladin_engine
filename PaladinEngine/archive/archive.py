@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Type
 
-from pandas import DataFrame
-
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ContainerId, Rk, Rv, Rvf, \
     ObjectId
 from ast_common.ast_common import split_attr
@@ -276,11 +274,6 @@ class Archive(object):
         import pickle
         return pickle.dumps(self.records)
 
-    def __repr__(self):
-        header, rows = self.to_table()
-        data_frame = DataFrame(columns=header, data=rows)
-        return data_frame.to_markdown(index=True)
-
     def search_web(self, expression: str):
         raise NotImplementedError()
 
@@ -307,9 +300,6 @@ class Archive(object):
                 return _self._value
 
         return Builder_Key()
-
-    def __str__(self):
-        return self.__repr__()
 
     def pause_record(self):
         self.should_record = False

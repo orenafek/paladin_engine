@@ -27,7 +27,7 @@ class Array(object):
         __DEF__('Array.sort', line_no=14, frame=__FRAME__())
         __ARG__('Array.sort', __FRAME__(), 14, self=self)
         __SOL__(__FRAME__(), 15)
-        for __iter_3 in __FC__('range(self.dim)', range, locals(), globals(), __FRAME__(), 15, self.dim):
+        for __iter_3 in __FC__('range(0, self.dim)', range, locals(), globals(), __FRAME__(), 15, 0, self.dim):
             __SOLI__(15, __FRAME__())
             i = __iter_3
             __AS__('i = __iter_3', 'i', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=15)
@@ -52,17 +52,17 @@ class Array(object):
         __SOL__(__FRAME__(), 22)
         for __iter_1 in __FC__('range(self.dim)', range, locals(), globals(), __FRAME__(), 22, self.dim):
             __SOLI__(22, __FRAME__())
-            i = __iter_1
-            __AS__('i = __iter_1', 'i', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=22)
-            self.data[i] = __FC__('randint(0, 100)', randint, locals(), globals(), __FRAME__(), 23, 0, 100)
-            __AS__('self.data[i] = __FC__(@randint(0, 100)@, randint, locals(), globals(), __FRAME__(), 23, 0, 100)', 'self.data[i]', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=23)
+            x = __iter_1
+            __AS__('x = __iter_1', 'x', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=22)
+            self.data[x] = __FC__('randint(0, 100)', randint, locals(), globals(), __FRAME__(), 23, 0, 100)
+            __AS__('self.data[x] = __FC__(@randint(0, 100)@, randint, locals(), globals(), __FRAME__(), 23, 0, 100)', 'self.data[x]', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=23)
             __EOLI__(__FRAME__(), loop_start_line_no=22, loop_end_line_no=23)
-        self.sum = __FC__('sum(self.data)', sum, locals(), globals(), __FRAME__(), 24, self.data)
-        __AS__('self.sum = __FC__(@sum(self.data)@, sum, locals(), globals(), __FRAME__(), 24, self.data)', 'self.sum', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=24)
-        self.min = __FC__('min(self.data)', min, locals(), globals(), __FRAME__(), 25, self.data)
-        __AS__('self.min = __FC__(@min(self.data)@, min, locals(), globals(), __FRAME__(), 25, self.data)', 'self.min', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=25)
-        self.max = __FC__('max(self.data)', max, locals(), globals(), __FRAME__(), 26, self.data)
-        __AS__('self.max = __FC__(@max(self.data)@, max, locals(), globals(), __FRAME__(), 26, self.data)', 'self.max', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=26)
+        self.min = __FC__('min(self.data)', min, locals(), globals(), __FRAME__(), 24, self.data)
+        __AS__('self.min = __FC__(@min(self.data)@, min, locals(), globals(), __FRAME__(), 24, self.data)', 'self.min', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=24)
+        self.max = __FC__('max(self.data)', max, locals(), globals(), __FRAME__(), 25, self.data)
+        __AS__('self.max = __FC__(@max(self.data)@, max, locals(), globals(), __FRAME__(), 25, self.data)', 'self.max', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=25)
+        self.sum = __FC__('sum(self.data)', sum, locals(), globals(), __FRAME__(), 26, self.data)
+        __AS__('self.sum = __FC__(@sum(self.data)@, sum, locals(), globals(), __FRAME__(), 26, self.data)', 'self.sum', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=26)
         __UNDEF__('Array.populate', __FRAME__(), 26)
         return None
 
@@ -77,50 +77,52 @@ def sort_array():
     __ARG__('sort_array', __FRAME__(), 32)
     a = __FC__('Array(14)', Array, locals(), globals(), __FRAME__(), 33, 14)
     __AS__('a = __FC__(@Array(14)@, Array, locals(), globals(), __FRAME__(), 33, 14)', 'a', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=33)
-    __FC__('a.sort()', a.sort, locals(), globals(), __FRAME__(), 34)
-    if __FC__('sorted(a.data)', sorted, locals(), globals(), __FRAME__(), 35, a.data) == a.data:
-        __PRINT__(36, __FRAME__(), 'a is sorted :)')
+    __PRINT__(34, __FRAME__(), a.data)
+    __FC__('a.sort()', a.sort, locals(), globals(), __FRAME__(), 35)
+    if __FC__('sorted(a.data)', sorted, locals(), globals(), __FRAME__(), 36, a.data) == a.data:
+        __PRINT__(37, __FRAME__(), 'a is sorted :)')
     else:
-        __PRINT__(38, __FRAME__(), 'a is not sorted :(')
-    __UNDEF__('sort_array', __FRAME__(), 38)
+        __PRINT__(39, __FRAME__(), 'a is not sorted :(')
+    __PRINT__(40, __FRAME__(), a.data)
+    __UNDEF__('sort_array', __FRAME__(), 40)
     return None
 
 def pour_even(s: Set[int]):
-    __DEF__('pour_even', line_no=41, frame=__FRAME__())
-    __ARG__('pour_even', __FRAME__(), 41, s=s)
+    __DEF__('pour_even', line_no=43, frame=__FRAME__())
+    __ARG__('pour_even', __FRAME__(), 43, s=s)
     s1 = set()
-    __AS__('s1 = set()', 's1', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=42)
-    __SOL__(__FRAME__(), 43)
+    __AS__('s1 = set()', 's1', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=44)
+    __SOL__(__FRAME__(), 45)
     while s:
-        __SOLI__(43, __FRAME__())
-        x = __BMFCS__(__FC__('s.pop()', s.pop, locals(), globals(), __FRAME__(), 44), s, 's', 'pop', 44, __FRAME__(), locals(), globals())
-        __AS__('x = __BMFCS__(__FC__(@s.pop()@, s.pop, locals(), globals(), __FRAME__(), 44), s, @s@, @pop@, 44, __FRAME__(), locals(), globals())', 'x', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=44)
+        __SOLI__(45, __FRAME__())
+        x = __BMFCS__(__FC__('s.pop()', s.pop, locals(), globals(), __FRAME__(), 46), s, 's', 'pop', 46, __FRAME__(), locals(), globals())
+        __AS__('x = __BMFCS__(__FC__(@s.pop()@, s.pop, locals(), globals(), __FRAME__(), 46), s, @s@, @pop@, 46, __FRAME__(), locals(), globals())', 'x', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=46)
         if x % 2 == 0:
-            __BMFCS__(__FC__('s1.add(x)', s1.add, locals(), globals(), __FRAME__(), 46, x), s1, 's1', 'add', 46, __FRAME__(), locals(), globals(), x)
-        if __FC__('len(s)', len, locals(), globals(), __FRAME__(), 48, s) == 0:
-            __BMFCS__(__FC__('s1.add(12)', s1.add, locals(), globals(), __FRAME__(), 49, 12), s1, 's1', 'add', 49, __FRAME__(), locals(), globals(), 12)
-        __EOLI__(__FRAME__(), loop_start_line_no=43, loop_end_line_no=49)
-    __UNDEF__('pour_even', __FRAME__(), 51)
+            __BMFCS__(__FC__('s1.add(x + 2)', s1.add, locals(), globals(), __FRAME__(), 48, x + 2), s1, 's1', 'add', 48, __FRAME__(), locals(), globals(), x + 2)
+        if __FC__('len(s)', len, locals(), globals(), __FRAME__(), 50, s) == 0:
+            __BMFCS__(__FC__('s1.add(12)', s1.add, locals(), globals(), __FRAME__(), 51, 12), s1, 's1', 'add', 51, __FRAME__(), locals(), globals(), 12)
+        __EOLI__(__FRAME__(), loop_start_line_no=45, loop_end_line_no=51)
+    __UNDEF__('pour_even', __FRAME__(), 53)
     return s1
 
 def pour_even_example():
-    __DEF__('pour_even_example', line_no=54, frame=__FRAME__())
-    __ARG__('pour_even_example', __FRAME__(), 54)
+    __DEF__('pour_even_example', line_no=56, frame=__FRAME__())
+    __ARG__('pour_even_example', __FRAME__(), 56)
     nums = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-    __AS__('nums = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}', 'nums', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=55)
-    __PRINT__(56, __FRAME__(), 'nums: ', nums)
-    __PRINT__(57, __FRAME__(), 'Even nums:', pour_even(nums))
-    __UNDEF__('pour_even_example', __FRAME__(), 57)
+    __AS__('nums = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}', 'nums', locals=locals(), globals=globals(), frame=__FRAME__(), line_no=57)
+    __PRINT__(58, __FRAME__(), 'nums: ', nums)
+    __PRINT__(59, __FRAME__(), 'Even nums:', pour_even(nums))
+    __UNDEF__('pour_even_example', __FRAME__(), 59)
     return None
 
 def main():
-    __DEF__('main', line_no=60, frame=__FRAME__())
-    __ARG__('main', __FRAME__(), 60)
-    __FC__('seed(2024)', seed, locals(), globals(), __FRAME__(), 61, 2024)
-    __FC__('sort_array()', sort_array, locals(), globals(), __FRAME__(), 62)
-    __PRINT__(63, __FRAME__(), '--------')
-    __FC__('pour_even_example()', pour_even_example, locals(), globals(), __FRAME__(), 64)
-    __UNDEF__('main', __FRAME__(), 64)
+    __DEF__('main', line_no=62, frame=__FRAME__())
+    __ARG__('main', __FRAME__(), 62)
+    __FC__('seed(2024)', seed, locals(), globals(), __FRAME__(), 63, 2024)
+    __FC__('sort_array()', sort_array, locals(), globals(), __FRAME__(), 64)
+    __PRINT__(65, __FRAME__(), '--------')
+    __FC__('pour_even_example()', pour_even_example, locals(), globals(), __FRAME__(), 66)
+    __UNDEF__('main', __FRAME__(), 66)
     return None
 if __name__ == '__main__':
-    __FC__('main()', main, locals(), globals(), __FRAME__(), 68)
+    __FC__('main()', main, locals(), globals(), __FRAME__(), 70)

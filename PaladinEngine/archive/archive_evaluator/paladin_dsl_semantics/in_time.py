@@ -11,8 +11,8 @@ class InTime(TimeOperator):
         InTime(t): Satisfies only on time t. Useful if an event time is known.
     """
 
-    def __init__(self, times: Iterable[Time], const_time: int):
-        super().__init__(times)
+    def __init__(self, times: Iterable[Time], const_time: int, parallel: bool = False):
+        super().__init__(times, parallel)
         self.const_time = const_time
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

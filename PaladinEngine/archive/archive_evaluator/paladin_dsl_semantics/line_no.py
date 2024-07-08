@@ -18,6 +18,6 @@ class LineNo(UniLateralOperator, Selector):
 
         return EvalResult(
             [EvalResultEntry(e.time,
-                             [EvalResultPair('LineNo', builder.get_line_nos_for_time(e.time) if e.satisfies() else [])],
+                             [EvalResultPair('LineNo', builder.get_line_nos_for_time(e.time) if e.satisfies() else None)],
                              []) for e in
              evaled])

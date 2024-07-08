@@ -13,7 +13,6 @@ Werkzeug = "2.1.2"
 flask = "2.1.2"
 flask-restx = "0.5.1"
 Flask-Cors = "^3.0.10"
-pandas = "^2.2.2"
 pyparsing = "^3.0.9"
 more-itertools = "^8.14.0"
 Flask-Classful = "^0.14.2"
@@ -23,6 +22,7 @@ openpyxl = "^3.1.2"
 crcmod = "^1.7"
 intervaltree = "^3.1.0"
 sortedcontainers = "^2.4.0"
+art = "^6.2"
 
 
 [build-system]

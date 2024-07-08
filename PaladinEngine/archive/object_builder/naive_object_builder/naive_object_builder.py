@@ -1,4 +1,4 @@
-from typing import Optional, Type, Any, Dict
+from typing import Optional, Type, Any, Dict, Iterable
 
 from common.attributed_dict import AttributedDict
 from archive.archive import Archive
@@ -104,3 +104,6 @@ class NaiveObjectBuilder(ObjectBuilder):
             base_filters + [lambda vv: (vv.key.container_id, vv.key.field) in container_ids_and_fields])
 
         return sorted(list(set(records + scoped_records)), key=lambda r: r[1].time)
+
+    def get_var_names(self) -> Iterable[str]:
+        raise NotImplementedError()

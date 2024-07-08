@@ -12,8 +12,8 @@ class And(BiTimeOperator):
         And(o1, o2): Satisfied for each time that satisfies both o1 and o2.
     """
 
-    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
-        super().__init__(times, first, second, lambda r1, r2: r1 and r2)
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator, parallel: bool = False):
+        super().__init__(times, first, second, lambda r1, r2: r1 and r2, parallel)
 
 
 class Or(BiTimeOperator):
@@ -30,8 +30,8 @@ class Not(UniLateralOperator, TimeOperator):
         Not(o): Satisfies for each time that doesn't satisfy o.
     """
 
-    def __init__(self, times: Iterable[Time], first: Operator):
-        UniLateralOperator.__init__(self, times, first)
+    def __init__(self, times: Iterable[Time], first: Operator, parallel: bool = False):
+        UniLateralOperator.__init__(self, times, first, parallel)
         TimeOperator.__init__(self, times)
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

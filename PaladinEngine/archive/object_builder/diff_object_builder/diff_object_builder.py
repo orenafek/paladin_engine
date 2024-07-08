@@ -67,6 +67,7 @@ class DiffObjectBuilder(ObjectBuilder):
         def __repr__(self) -> str:
             return f'{self.__class__.__name__}({self.value})'
 
+
     class _Field(_ComparableField):
         def __init__(self, value: Any, kind: Optional[Archive.Record.StoreKind] = Archive.Record.StoreKind.VAR):
             super().__init__(value)
@@ -570,5 +571,4 @@ class DiffObjectBuilder(ObjectBuilder):
     @property
     def size(self) -> int:
         return super().size + sum(map(lambda o: sys.getsizeof(o),
-                                      [self._data, self._last_range, self._named_primitives, self._named_objects,
-                                       self._scopes]))
+                                      [self._data, self._named_primitives, self._named_objects, self._scopes]))

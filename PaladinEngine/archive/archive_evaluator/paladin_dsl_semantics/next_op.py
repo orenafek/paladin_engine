@@ -11,8 +11,8 @@ class Next(UniLateralOperator, TimeOperator):
         Next(o): Satisfies for the second time that o has been satisfied ("first after first").
     """
 
-    def __init__(self, times: Iterable[Time], first: Operator):
-        UniLateralOperator.__init__(self, times, first)
+    def __init__(self, times: Iterable[Time], first: Operator, parallel: bool = False):
+        UniLateralOperator.__init__(self, times, first, parallel)
         TimeOperator.__init__(self, times)
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

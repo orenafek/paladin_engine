@@ -17,9 +17,6 @@ subset of the graph's edges.
 
 import itertools
 
-from stubs.stubs import __PAUSE__, __RESUME__
-
-
 class UnionFind:
     """
     UnionFind data structure for disjoint-set operations.
