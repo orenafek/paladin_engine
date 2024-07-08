@@ -123,8 +123,9 @@ export default toNative(CodeEditor);
 
 <style lang="scss" scoped>
 .code-editor-container {
-    overflow-y: auto; /* Enable vertical scroll */
     background-color: #2b2b2b;
+    height: 100%;
+    width: 100%;
 }
 
 .code-editor-container::-webkit-scrollbar {

@@ -1,3 +1,7 @@
+@import '@fontsource/fira-sans/300.css';
+@import '@fontsource/fira-sans/400.css';
+
+
 body, html {
     margin: 0; padding: 0;
     height: 100%;
@@ -140,6 +144,15 @@ body {
     #vuebook-pane {
         @extend .query-pane;
         overflow-y: scroll;
+
+        .cell--output {
+            font-family: 'Fira Sans', sans-serif;
+            font-size: 90%;
+            table tbody { 
+                font-weight: 300;
+                td { border-color: #aaa !important; }
+            }
+        }
     }
 
     #program-output-pane {
@@ -149,6 +162,7 @@ body {
 
 thead {
     color: #efc081;
+    border-color: #efc081;
     align-content: center;
     align-items: center;
 }
