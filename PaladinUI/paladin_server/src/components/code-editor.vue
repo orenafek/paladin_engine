@@ -104,7 +104,6 @@ class CodeEditor extends Vue {
 
     private lineNo2Element(editor, lineNumber): HTMLElement {
         const lineElements: Array<HTMLElement> = editor.getWrapperElement().getElementsByClassName('CodeMirror-line');
-        console.log('les = ', lineElements, ' ln = ', lineNumber);
         return lineElements[lineNumber];
     }
 

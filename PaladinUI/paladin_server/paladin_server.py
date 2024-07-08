@@ -95,7 +95,7 @@ class PaladinServer(FlaskView):
         RUN_DATA = engine.run_data
         RUN_DATA.archive.global_map = ENGINE.global_map
         EVALUATOR = ArchiveEvaluator(RUN_DATA.archive)
-        PARSER = PaladinNativeParser(RUN_DATA.archive)
+        PARSER = PaladinNativeParser(RUN_DATA.archive, parallel=True)
         # PARSER = PaladinNativeParser(RUN_DATA.archive, object_builder_type=RecursiveObjectBuilder)
         # PARSER = PaladinNativeParser(RUN_DATA.archive, object_builder_type=NaiveObjectBuilder)
 

@@ -1,0 +1,2 @@
+class BenchmarkerTimeoutError(TimeoutError):
+    pass

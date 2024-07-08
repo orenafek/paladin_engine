@@ -15,6 +15,7 @@ class Let(VariadicLateralOperator, AuxOp):
     def __init__(self, times: Iterable[Time], *args: Operator, **kwargs: Operator):
         if len(args) != 1:
             raise SyntaxError('Only one non-var binding operand is permitted')
+        parallel = kwargs.pop('parallel', False)
         super().__init__(times, *args, **kwargs)
         self.expr = args[0]
         self.vars = kwargs
