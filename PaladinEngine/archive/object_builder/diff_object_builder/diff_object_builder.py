@@ -17,7 +17,7 @@ from common.common import ISP
 from stubs.stubs import __AS__, __BMFCS__, __FC__
 from utils.range_dict import RangeDict
 
-INNER_COLLECTION_DATA_TYPE = Dict[str, Dict[Scope, RangeDict]]
+NAMED_COLLECTION_DATA_TYPE = Dict[str, Dict[LineNo, Scope]]
 
 
 class DiffObjectBuilder(ObjectBuilder):
@@ -67,7 +67,6 @@ class DiffObjectBuilder(ObjectBuilder):
         def __repr__(self) -> str:
             return f'{self.__class__.__name__}({self.value})'
 
-
     class _Field(_ComparableField):
         def __init__(self, value: Any, kind: Optional[Archive.Record.StoreKind] = Archive.Record.StoreKind.VAR):
             super().__init__(value)
@@ -103,8 +102,8 @@ class DiffObjectBuilder(ObjectBuilder):
         ObjectBuilder.__init__(self, archive, should_time_construction)
         self._data: Dict[ObjectId, RangeDict] = {}
         self._built_objects: Dict[Tuple[ObjectId, Time], Any] = {}
-        self._named_primitives: INNER_COLLECTION_DATA_TYPE = {}
-        self._named_objects: INNER_COLLECTION_DATA_TYPE = {}
+        self._named_primitives: NAMED_COLLECTION_DATA_TYPE = {}
+        self._named_objects: NAMED_COLLECTION_DATA_TYPE = {}
         self._scopes: Dict[LineNo, Scope] = {}
         self._construction_time: float = 0
         self._construct()
@@ -221,17 +220,17 @@ class DiffObjectBuilder(ObjectBuilder):
         line_no_exist = line_no > -1
 
         if is_primitive:
-            named_collection: INNER_COLLECTION_DATA_TYPE = self._named_primitives
+            named_collection: NAMED_COLLECTION_DATA_TYPE = self._named_primitives
         elif name in self._named_objects:
-            named_collection: INNER_COLLECTION_DATA_TYPE = self._named_objects
+            named_collection: NAMED_COLLECTION_DATA_TYPE = self._named_objects
         else:
             return None, False
 
         if line_no_exist:
-            if line_no not in self._scopes:
+            if line_no not in named_collection[name]:
                 return None, is_primitive
 
-            return named_collection[name][self._scopes[line_no]], is_primitive
+            return named_collection[name][line_no].get_data_by_time(time), is_primitive
 
         else:
             match mode:
@@ -288,18 +287,24 @@ class DiffObjectBuilder(ObjectBuilder):
 
     def _find_closest(self, col, t: Time) -> Optional[RangeDict]:
         closest: Tuple[Time | float, Optional[RangeDict]] = float('inf'), None
-        for _, rd in col.items():
-            c, ct = rd.get_closest(t)
-            if not c:
-                continue
-
-            if ct == t:
+        for line_no, scope in col.items():
+            rd = scope.get_data_by_time(t)
+            if rd is not None:
                 return rd
-
-            if ct < closest[0]:
-                closest = ct, rd
-
-        return closest[1]
+        else:
+            return None
+        # for _, rd in col.items():
+        #     c, ct = rd.get_closest(t)
+        #     if not c:
+        #         continue
+        #
+        #     if ct == t:
+        #         return rd
+        #
+        #     if ct < closest[0]:
+        #         closest = ct, rd
+        #
+        # return closest[1]
 
     def _construct(self):
         if self._should_time_construction:
@@ -389,18 +394,22 @@ class DiffObjectBuilder(ObjectBuilder):
         collection = self._named_primitives if is_primitive else self._named_objects
         self.__init_named_collection_for_expression(collection, rv)
 
-        scope: Scope = self.__add_scope(rv)
+        scope: Scope = self.__get_or_add_scope(rv, collection)
 
         if is_primitive:
-            self._named_primitives[rv.expression][scope] = object_data
+            # FIXME: In here, if for the same line_no, there are multiple container_ids, meaning, the same variable is stored
+            # FIXME: in multiple calls for a function, it will have different container_ids thus different range dicts.
+            # FIXME: we should change the format for the named_primitives to hold a mapping between a container_id and its range dict.
+            scope.add_data(rv.key.container_id, object_data)
+
         else:
             value_to_store = DiffObjectBuilder._Field(rv.value)
-            if scope not in self._named_objects[rv.expression]:
-                self._named_objects[rv.expression][scope] = (rd := RangeDict(self.archive.last_time))
+            if rv.key.container_id not in scope:
+                scope.add_data(rv.key.container_id, rd := RangeDict(self.archive.last_time))
                 rd[rv.time] = (rv.rtype, value_to_store)
 
             else:
-                self._named_objects[rv.expression][scope][rv.time] = (rv.rtype, value_to_store)
+                scope.data[rv.key.container_id][rv.time] = (rv.rtype, value_to_store)
 
     @staticmethod
     def __get_field_change_from_dict(d: Dict) -> Optional[
@@ -413,9 +422,8 @@ class DiffObjectBuilder(ObjectBuilder):
         return field_changes[0]
 
     @staticmethod
-    def __init_named_collection_for_expression(
-            named_collection: Union[INNER_COLLECTION_DATA_TYPE, INNER_COLLECTION_DATA_TYPE],
-            rv: Archive.Record.RecordValue):
+    def __init_named_collection_for_expression(named_collection: Union[NAMED_COLLECTION_DATA_TYPE],
+                                               rv: Archive.Record.RecordValue):
         if rv.expression not in named_collection:
             named_collection[rv.expression] = {}
 
@@ -489,29 +497,24 @@ class DiffObjectBuilder(ObjectBuilder):
     def get_line_no_by_name_and_container_id(self, name: str, container_id: ContainerId = -1) -> LineNo:
         if name in self._named_primitives:
             col = self._named_primitives
-
         elif name in self._named_objects:
             col = self._named_objects
         else:
             return -1
 
-        scopes: List[Scope] = list(col[name].keys())
+        scopes: List[Scope] = list(col[name].values())
         if not scopes:
             return -1
 
-        if container_id != -1:
-            line_nos_of_container_id = list(
-                map(lambda s: s.line_no, filter(lambda s: container_id in s.container_ids, scopes)))
-            if not line_nos_of_container_id:
-                return -1
+        line_nos_of_container_id = list(map(lambda s: s.line_no, filter(lambda s: container_id in s, scopes)))
+        if not line_nos_of_container_id:
+            return -1
 
-            # As each name in a block should be stored with a line no. suited for its definition (first assignment),
-            # there should be no more than one.
-            # assert len(line_nos_of_container_id) == 1
+        # As each name in a block should be stored with a line no. suited for its definition (first assignment),
+        # there should be no more than one.
+        # assert len(line_nos_of_container_id) == 1
 
-            return line_nos_of_container_id[0]
-
-        return next(map(lambda s: s[0], scopes))
+        return line_nos_of_container_id[0]
 
     @staticmethod
     def __clear_field_changes(obj: Dict, new_field: str):
@@ -546,17 +549,20 @@ class DiffObjectBuilder(ObjectBuilder):
 
         return cleaned_obj
 
-    def __add_scope(self, rv: Archive.Record.RecordValue) -> Scope:
+    def __get_or_add_scope(self, rv: Archive.Record.RecordValue, named_collection: NAMED_COLLECTION_DATA_TYPE) -> Scope:
         if rv.line_no not in self._scopes:
             self._scopes[rv.line_no] = Scope(rv.line_no)
 
-        scope: Scope = self._scopes[rv.line_no]
-        scope.add_container_id(rv.key.container_id)
-
+        #scope: Scope = self._scopes[rv.line_no]
+        if rv.line_no not in named_collection[rv.expression]:
+            scope = Scope(rv.line_no)
+            named_collection[rv.expression][scope.line_no] = scope
+        else:
+            scope = named_collection[rv.expression][rv.line_no]
         return scope
 
     def get_container_ids_by_line_no(self, line_no: LineNo) -> Iterable[ContainerId]:
-        return self._scopes[line_no].container_ids if line_no in self._scopes else []
+        return self._scopes[line_no].data if line_no in self._scopes else []
 
     def get_line_nos_by_container_ids(self, container_ids: Set[ContainerId]) -> Iterable[LineNo]:
         return list(map(lambda t: t[0], filter(lambda t: t[1] in container_ids, self._scopes.items())))

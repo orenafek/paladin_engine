@@ -88,8 +88,9 @@ class PaladinNativeParser(object):
 
             # Set line no.
             node.left.lineno = node.right.value
-
+            node.left.ctx = '@'
             return node.left
+
 
     class OperatorLambdaReplacer(ast.NodeTransformer):
         def __init__(self, times: Iterable[Time], parallel: bool = True):
@@ -227,11 +228,15 @@ class PaladinNativeParser(object):
                 name = node.id
 
             if name != node.id:
-                var_name = self.create_operator_lambda_var()
-                self._add_operator(var_name, name, Raw(name, node.lineno, self.times, parallel=self.parallel))
-                name = var_name
+                name = self._create_raw(name, node)
 
-            return ast.Name(id=name, lineno=node.lineno)
+            return ast.Name(id=name, lineno=node.lineno, ctx=node.ctx if hasattr(node, 'ctx') else None)
+
+        def _create_raw(self, name, node):
+            var_name = self.create_operator_lambda_var()
+            self._add_operator(var_name, name, Raw(name, node.lineno, self.times, parallel=self.parallel))
+            name = var_name
+            return name
 
         def visit_Attribute(self, node: ast.Attribute) -> Any:
             if PaladinNativeParser._COMPREHENSION_MAGIC_REPLACE_SYMBOL in node.attr:
@@ -239,6 +244,18 @@ class PaladinNativeParser(object):
             super().visit(node.value)
             node.lineno = node.value.lineno
             return node
+
+        # FIXME: This is a patch for the experiment's tutorial.
+        def visit_BinOp(self, node):
+            for operand, attr in [(node.left, 'left'), (node.right, 'right')]:
+                op_visited = self.visit(cast(ast.AST, operand))
+                if hasattr(op_visited, 'ctx') and op_visited.ctx == '@':
+                    operator_name = self._create_raw(ast2str(op_visited), op_visited)
+                    setattr(node, attr, ast.Name(id=operator_name, lineno=op_visited.lineno))
+                else:
+                    setattr(node, attr, op_visited)
+            return node
+
 
         # def visit_comprehension(self, node: ast.comprehension) -> Any:
         #     if not (isinstance(node.iter, ast.Call) and PaladinNativeParser.OperatorLambdaReplacer._is_operator_call(

@@ -1,3 +1,4 @@
+import math
 import os
 import re
 from collections import OrderedDict
@@ -12,6 +13,7 @@ import frozendict
 
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 from common.attributed_dict import AttributedDict
+from utils.range_dict import RangeDict
 
 ExpressionMapper = Mapping[str, Dict[int, object]]
 
@@ -40,15 +42,50 @@ BAD_JSON_VALUES = {'-Infinity': '"-∞"', 'Infinity': '"∞"', 'NaN': '"NaN"'}
 @dataclass
 class Scope(object):
     line_no: LineNo
-    container_ids: Set[ContainerId] = field(default_factory=lambda: set())
+    data: Dict[ContainerId, RangeDict] = field(default_factory=lambda: {})
 
-    def add_container_id(self, container_id: ContainerId):
-        self.container_ids.add(container_id)
+    def add_data(self, container_id: ContainerId, data: RangeDict):
+        self.data[container_id] = data
+        return data
 
     def __hash__(self) -> int:
         return hash(self.line_no)
 
+    def __getitem__(self, item):
+        if not isinstance(item, ContainerId):
+            return None
 
+        return self.data[item] if item in self.data else None
+
+    def __contains__(self, item):
+        return item in self.data
+
+    def get_data_by_time(self, time: Time):
+        proximity_list = filter(lambda i: i[0] is not None, [(rd.get_closest(time)[1], rd) for rd in self.data.values()])
+        min_diff = math.inf
+        closest = None
+        for t, data in proximity_list:
+            diff = abs(t - time)
+            if diff < min_diff:
+                closest = data
+                min_diff = diff
+
+        if closest is None:
+            return None
+
+        return closest
+        # for rd in self.data.values():
+        #     closest_value, closest_time = rd.get_closest(time)
+        #     if closest_time is not None:
+        #         return rd
+        # for min_time, max_time in sorted(self.time_mapping.keys()):
+        #     if min_time <= time <= max_time:
+        #         return self.data[self.time_mapping[(min_time, max_time)]]
+        # else:
+        #     return None
+    @property
+    def container_ids(self) -> List[ContainerId]:
+        return list(self.data.keys())
 @dataclass
 class EvalResultPair(object):
     key: str

@@ -81,8 +81,8 @@ class LoopSummary(UniLateralOperator, SummaryOp):
 
     ITERATION_KEY = 'Iteration'
 
-    def __init__(self, times: Iterable[Time], line_no: int, short: bool = False):
-        UniLateralOperator.__init__(self, times, Const(line_no, times))
+    def __init__(self, times: Iterable[Time], line_no: int, short: bool = False, parallel: bool = False):
+        UniLateralOperator.__init__(self, times, Const(line_no, times, parallel=parallel), parallel=parallel)
         self.is_short = short
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

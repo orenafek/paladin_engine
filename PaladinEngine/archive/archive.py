@@ -508,4 +508,4 @@ class Archive(object):
         return {rv.time: (rv.extra, rv.expression) for rk, rv in local_func_records}
 
     def exists(self, value: ObjectId):
-        return len(self.filter(lambda vv: vv.value == value)) > 0
+        return len(self.filter(Archive.Filters.VALUE_FILTER(value))) > 0

@@ -19,8 +19,8 @@ class Array(object):
 
     def populate(self):
         seed(2024)
-        for x in range(self.dim):
-            self.data[x] = randint(0, 100)
+        for i in range(self.dim):
+            self.data[i] = randint(0, 100)
         self.min = min(self.data)
         self.max = max(self.data)
         self.sum = sum(self.data)
@@ -31,13 +31,11 @@ class Array(object):
 
 def sort_array():
     a = Array(14)
-    print(a.data)
     a.sort()
     if sorted(a.data) == a.data:
         print('a is sorted :)')
     else:
         print('a is not sorted :(')
-    print(a.data)
 
 
 def pour_even(s: Set[int]):
