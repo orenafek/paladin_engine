@@ -3,9 +3,6 @@ a.data$ Retrieves the field 'data' of variable 'a'.
 Where(self, a.sum == 873)$ Retrieves self only when a.sum equals 873.
 Where(self.data, InFunction(sort))$ Retrieves self.data only in times "sort" function was executed.
 Where(self.data, After(InFunction(populate)))$ Retrieves self.data after populate function has finished.
-i@15$ Retrieves i from line 12.
-(self@14).data$ Retrieves the field data of self from line 14.
-Union(i@15, j)$ Retrieves both i at line 15 and j.
+Union(i, j)$ Retrieves both i and j.
 LoopSummary(15)$ Retrieves all events that have happened in the loop starting at line 15.
-Where(s1, not(old(s1) <= s1 and s1 - old(s1) <= (s | {x})))$ Example of the use of old.
-Let(o:=old(s1), Where(s1, not(o <= s1 and s1 - o <= s | {x})))$ Example of the use of Let.
+Where(s1, not(Old(s1) <= s1 and s1 - Old(s1) <= (s | {x})))$ Example of the use of old.

@@ -19,8 +19,8 @@ class Array(object):
 
     def populate(self):
         seed(2024)
-        for i in range(self.dim):
-            self.data[i] = randint(0, 100)
+        for k in range(self.dim):
+            self.data[k] = randint(0, 100)
         self.min = min(self.data)
         self.max = max(self.data)
         self.sum = sum(self.data)
@@ -43,7 +43,7 @@ def pour_even(s: Set[int]):
     while s:
         x = s.pop()
         if x % 2 == 0:
-            s1.add(x + 2)
+            s1.add(x)
 
         if len(s) == 0:
             s1.add(12)
