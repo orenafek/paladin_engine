@@ -237,7 +237,7 @@ class PaladinServer(FlaskView):
             [{'label': var_name, 'type': 'variable'} for var_name in PARSER.var_names]
         )
 
-    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>/')
+    @route('/debug_info/query/<string:select_query>/<int:start_time>/<int:end_time>')
     def query(self, select_query: str, start_time: int, end_time: int):
         result = PARSER.parse(select_query.replace('<br>', '\n'), start_time, end_time)
         self.record(select_query, result, **{'start_time': start_time, 'end_time': end_time})

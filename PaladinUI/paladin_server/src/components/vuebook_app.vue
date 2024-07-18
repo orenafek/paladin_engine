@@ -120,7 +120,7 @@ class Vuebook extends Vue {
         }
 
         cell.loading = true;
-        let queryRunResult = await request_debug_info("query", ...[cell.input, 0, this.lastRunTime, ""]) as string;
+        let queryRunResult = await request_debug_info("query", ...[cell.input, 0, this.lastRunTime]) as string;
         this.model.clearOutputs(cell);
         this.model.addResult(cell,
             !this.isError(queryRunResult) ?
