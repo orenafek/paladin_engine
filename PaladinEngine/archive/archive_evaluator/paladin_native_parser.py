@@ -157,6 +157,10 @@ class PaladinNativeParser(object):
             elif isinstance(arg_visit_result, ast.Constant):
                 return arg_visit_result.value
 
+            elif ast2str(arg) in map(lambda o: o[1], self.operators):
+                return self._create_raw_op_from_arg(self.operators[ast2str(arg_visit_result)])
+
+
             return self._create_raw_op_from_arg(arg_visit_result)
 
         def _handle_special_calls(self, node: ast.Call):
@@ -206,6 +210,7 @@ class PaladinNativeParser(object):
         def visit_Compare(self, node: ast.Compare) -> Any:
             node.left = super().visit(node.left)
             line_no = node.left.lineno
+            comps = []
             for comp in node.comparators:
                 comp = super().visit(comp)
                 if line_no != -1 and comp.lineno != -1 and comp.lineno != line_no:
@@ -216,6 +221,9 @@ class PaladinNativeParser(object):
                     # If there is no line_no yet, take the comp's one.
                     line_no = comp.lineno
 
+                comps.append(comp)
+
+            node.comparators = comps
             node.lineno = line_no
             return node
 

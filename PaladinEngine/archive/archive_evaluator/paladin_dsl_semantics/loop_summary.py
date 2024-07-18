@@ -26,8 +26,8 @@ class LoopIteration(BiLateralOperator, SummaryOp):
                           of the loop that starts in line ln.
     """
 
-    def __init__(self, times: Iterable[Time], line_no: int, index: int, short: bool = False):
-        BiLateralOperator.__init__(self, times, Const(line_no, times), Const(index, times))
+    def __init__(self, times: Iterable[Time], line_no: int, index: int, short: bool = False, parallel: bool = True):
+        BiLateralOperator.__init__(self, times, Const(line_no, times, parallel), Const(index, times, parallel), parallel)
         self.is_short = short
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,

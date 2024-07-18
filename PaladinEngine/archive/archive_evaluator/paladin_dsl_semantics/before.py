@@ -10,8 +10,8 @@ class Before(UniLateralOperator, TimeOperator):
     """
         Before(o): Satisfies on each time before o has been satisfied.
     """
-    def __init__(self, times: Iterable[Time], first: TimeOperator):
-        UniLateralOperator.__init__(self, times, first)
+    def __init__(self, times: Iterable[Time], first: TimeOperator, parallel: bool = False):
+        UniLateralOperator.__init__(self, times, first, parallel)
         TimeOperator.__init__(self, times)
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
