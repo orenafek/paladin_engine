@@ -31,6 +31,9 @@ import tabular from "./tabular.vue";
 import QueryError from "./query_error.vue"
 
 //@ts-ignore
+import EmptyResults from "./empty_results.vue";
+
+//@ts-ignore
 import {builtinVisualizers} from "./settings.vue";
 
 import {Visualizers} from "./visualizers"
@@ -122,8 +125,19 @@ class Vuebook extends Vue {
         cell.loading = true;
         let queryRunResult = await request_debug_info("query", ...[cell.input, 0, this.lastRunTime]) as string;
         this.model.clearOutputs(cell);
+        const queryError: boolean = this.isError(queryRunResult);
+        const emptyResults: boolean = !queryError && this.isResultsEmpty(queryRunResult);
         this.model.addResult(cell,
-            !this.isError(queryRunResult) ?
+            queryError ? {
+                'application/vue3': {
+                    is: h(QueryError),
+                    props: {"error": JSON.parse(queryRunResult)['error']}
+                }
+            } : (emptyResults ? {
+                    'application/vue3': {
+                        is: h(EmptyResults)
+                    }
+                } :
                 {
                     'application/vue3': {
                         is: h(tabular),
@@ -133,19 +147,17 @@ class Vuebook extends Vue {
                             "emit-event": this.emitEvent
                         }
                     }
-                } :
-                {
-                    'application/vue3': {
-                        is: h(QueryError),
-                        props: {"error": JSON.parse(queryRunResult)['error']}
-                    }
-                });
+                }));
 
         cell.loading = false;
     }
 
     private isError(result: string): boolean {
         return JSON.parse(result)['error'] != undefined
+    }
+
+    private isResultsEmpty(result: string): boolean {
+        return this.formatResults(result).rowHeaders.length == 0;
     }
 
     async findCausingLineByTime(time: number): Promise<number> {
