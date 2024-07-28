@@ -49,7 +49,7 @@ class LoopIteration(BiLateralOperator, SummaryOp):
         return Union(self.times,
                      *self._create_iteration_operators(iterator_values_times, builder, query_locals, user_aux,
                                                        range(loop_iteration_start[1].line_no,
-                                                             loop_iteration_end[1].line_no + 1))).eval(builder, query_locals, user_aux)
+                                                             loop_iteration_end[1].line_no + 1)), parallel=True).eval(builder, query_locals, user_aux)
 
     def _create_iteration_operators(self, time_range_operator: Range, builder: ObjectBuilder,
                                     query_locals: Optional[Dict[str, EvalResult]],

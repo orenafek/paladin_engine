@@ -28,8 +28,8 @@ class InTimeRange(TimeOperator):
         InTimeRange(t1, t2): Satisfies for times in the inclusive range of t1 and t2. I.e.: True ⟺ t ∈ [t1, t2]
     """
 
-    def __init__(self, times: Iterable[Time], left: Time, right: Time):
-        super().__init__(times)
+    def __init__(self, times: Iterable[Time], left: Time, right: Time, parallel: bool = False):
+        super().__init__(times, parallel)
         self.const_time_range = range(left, right + 1)
 
     def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
