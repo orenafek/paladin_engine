@@ -1,9 +1,10 @@
 import math
 import os
 import re
+from asyncio import as_completed
 from collections import OrderedDict
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import reduce
 from typing import *
@@ -61,7 +62,8 @@ class Scope(object):
         return item in self.data
 
     def get_data_by_time(self, time: Time):
-        proximity_list = filter(lambda i: i[0] is not None, [(rd.get_closest(time)[1], rd) for rd in self.data.values()])
+        proximity_list = filter(lambda i: i[0] is not None,
+                                [(rd.get_closest(time)[1], rd) for rd in self.data.values()])
         min_diff = math.inf
         closest = None
         for t, data in proximity_list:
@@ -83,9 +85,12 @@ class Scope(object):
         #         return self.data[self.time_mapping[(min_time, max_time)]]
         # else:
         #     return None
+
     @property
     def container_ids(self) -> List[ContainerId]:
         return list(self.data.keys())
+
+
 @dataclass
 class EvalResultPair(object):
     key: str
@@ -153,10 +158,9 @@ class EvalResultEntry(OrderedDict):
         return all([r.value is not None and r.value is not False and r.value != [None] for r in self.evaled_results])
 
     def extend_with_empty_keys(self, keys: Iterable[str]):
-        self_keys = self.keys
-        attributes = self.populate([EvalResultPair(k, None) for k in keys if k not in self_keys])
-        self.update(attributes)
-        return self
+        return EvalResultEntry(self.time, EvalResultEntry.join_evaled_results(self,
+                                                                              EvalResultEntry.empty_with_keys(self.time,
+                                                                                                              keys)))
 
     @classmethod
     def empty(cls, t: Time = -1) -> 'EvalResultEntry':
@@ -177,10 +181,10 @@ class EvalResultEntry(OrderedDict):
         if e1.time != e2.time:
             return EvalResultEntry.empty()
 
-        return EvalResultEntry(e1.time, EvalResultEntry.__join_evalued_results(e1, e2), [])
+        return EvalResultEntry(e1.time, EvalResultEntry.join_evaled_results(e1, e2), [])
 
     @staticmethod
-    def __join_evalued_results(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> List[EvalResultPair]:
+    def join_evaled_results(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> List[EvalResultPair]:
 
         res = []
         all_keys = OrderedDict.fromkeys([*e1.keys, *e2.keys])
@@ -364,6 +368,7 @@ class EvalResult(List[EvalResultEntry]):
     def times(self):
         return sorted([e.time for e in self])
 
+
     @classmethod
     def join(cls, r1: 'EvalResult', r2: 'EvalResult'):
 
@@ -373,6 +378,7 @@ class EvalResult(List[EvalResultEntry]):
         if not r2:
             return r1
 
+        results = []
         r1_times = r1.times()
         r2_times = r2.times()
 
@@ -382,60 +388,17 @@ class EvalResult(List[EvalResultEntry]):
         r1_keys = r1.all_keys()
         r2_keys = r2.all_keys()
 
-        times = range(min(r1_times + r2_times), max(r1_times + r2_times) + 1)
-
-        results = []
-
-        def process_time_point(t, r1_map, r2_map, r1_keys, r2_keys):
-            if t in r1_map and t in r2_map:
-                return EvalResultEntry.join(r1_map[t], r2_map[t])
-            elif t in r1_map:
-                return r1_map[t].extend_with_empty_keys(r2_keys)
-            elif t in r2_map:
-                return r2_map[t].extend_with_empty_keys(r1_keys)
-            return None
-
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            future_to_time = {
-                executor.submit(process_time_point, t, r1_time_mapped, r2_time_mapped, r1_keys, r2_keys): t for t in
-                times}
-            for future in as_completed(future_to_time):
-                result = future.result()
-                if result is not None:
-                    results.append(result)
+        for t in range(min(r1_times + r2_times), max(r1_times + r2_times) + 1):
+            if t not in r1_time_mapped and t not in r2_time_mapped:
+                continue
+            elif t in r1_time_mapped and t in r2_time_mapped:
+                results.append(EvalResultEntry.join(r1_time_mapped[t], r2_time_mapped[t]))
+            elif t not in r2_time_mapped:
+                results.append(r1_time_mapped[t].extend_with_empty_keys(r2_keys))
+            elif t not in r1_time_mapped:
+                results.append(r2_time_mapped[t].extend_with_empty_keys(r1_keys))
 
         return EvalResult(results)
-
-    # @classmethod
-    # def join(cls, r1: 'EvalResult', r2: 'EvalResult'):
-    #
-    #     if not r1:
-    #         return r2
-    #
-    #     if not r2:
-    #         return r1
-    #
-    #     results = []
-    #     r1_times = r1.times()
-    #     r2_times = r2.times()
-    #
-    #     r1_time_mapped: Dict[Time, EvalResultEntry] = {e.time: e for e in r1}
-    #     r2_time_mapped: Dict[Time, EvalResultEntry] = {e.time: e for e in r2}
-    #
-    #     r1_keys = r1.all_keys()
-    #     r2_keys = r2.all_keys()
-    #
-    #     for t in range(min(r1_times + r2_times), max(r1_times + r2_times) + 1):
-    #         if t not in r1_time_mapped and t not in r2_time_mapped:
-    #             continue
-    #         elif t in r1_time_mapped and t in r2_time_mapped:
-    #             results.append(EvalResultEntry.join(r1_time_mapped[t], r2_time_mapped[t]))
-    #         elif t not in r2_time_mapped:
-    #             results.append(r1_time_mapped[t].extend_with_empty_keys(r2_keys))
-    #         elif t not in r1_time_mapped:
-    #             results.append(r2_time_mapped[t].extend_with_empty_keys(r1_keys))
-    #
-    #     return EvalResult(results)
 
     def __add__(self, other: 'EvalResult') -> 'EvalResult':
         return EvalResult.join(self, other)
