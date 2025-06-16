@@ -97,10 +97,6 @@ class PaladinDSLParser(object):
         # Parse the select query.
         return json.dumps(self.parse(query).group())
 
-    @classmethod
-    def docs(cls):
-        return '```' '\n' + '\n'.join(
-            sorted([op.__doc__.strip() for op in Operator.all() if op.__doc__])) + '\n' + '```'
 
 
 if __name__ == '__main__':

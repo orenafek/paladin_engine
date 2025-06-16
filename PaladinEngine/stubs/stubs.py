@@ -1,4 +1,5 @@
 import abc
+import inspect
 import re
 import sys
 from collections import deque
@@ -9,9 +10,10 @@ from types import NoneType
 from typing import Optional, Union, TypeVar, Tuple, List, Dict, Set, Callable, Any
 
 from archive.archive import Archive
+from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
 from ast_common.ast_common import separate_to_container_and_field
 from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, EMPTY, EMPTY_COLLECTION
-from common.common import POID, PALADIN_OBJECT_COLLECTION_FIELD, PALADIN_OBJECT_COLLECTION_EXPRESSION, ISP
+from common.common import POID, ISP
 
 archive = Archive()
 
@@ -42,18 +44,13 @@ def __AC__(obj: object, attr: str, expr: str, locals: dict, globals: dict, line_
     return field
 
 
-def __ARG__(func_name: str, arg: str, value: object, locals: dict, globals: dict, frame,
-            line_no: int):
-    archive.store_new \
-        .key(id(frame), arg, __AS__.__name__) \
-        .value(type(value), POID(value), arg, line_no)
-
-    if func_name == '__init__' and arg == 'self':
-        # FIXME: Handling only cases when __init__ is called as __init__(self [,...]),
-        # FIXME: Meaning that if __init__ is called with a firs arg which is not "self", this wouldn't work.
-        archive.store_new \
-            .key(id(frame), PALADIN_OBJECT_COLLECTION_FIELD, __AS__.__name__) \
-            .value(type(value), value, PALADIN_OBJECT_COLLECTION_EXPRESSION, line_no)
+def __ARG__(func_name: str, frame, line_no: int, **kwargs):
+    time = -1
+    for arg, value in kwargs.items():
+        rv = archive.store_new \
+            .key(id(frame), arg, __AS__.__name__) \
+            .value(type(value), POID(value), arg, line_no, time)
+        time = rv.time
 
 
 def __AS__(expression: str, target: str, locals: dict, globals: dict, frame, line_no: int) -> None:
@@ -82,10 +79,11 @@ def __BMFCS__(func_stub_wrapper, caller: object, caller_str: str, func_name: str
         # Store args that are temporary objects.
         # E.g.: l.add(Animal(...))
         if not ISP(type(arg)) and not id(arg) in [id(x) for x in {**locals, **globals}.values()] and arg != EMPTY:
-            __store(frame, '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
+            __store(id(frame), '', line_no, id(arg), arg, locals, globals, __BMFCS__, rv.time,
                     Archive.Record.StoreKind.UNAMED_OBJECT)
 
     return func_stub_wrapper
+
 
 def __BREAK__(line_no: int, frame):
     if archive.should_record:
@@ -125,6 +123,9 @@ def __FC__(expression: str, function,
     ret_exc = None
     try:
         ret_value = function(*args, **kwargs)
+
+    except TimeoutError as e:
+        raise e
     except BaseException as e:
         ret_exc = e
         ret_value = ret_exc
@@ -134,12 +135,9 @@ def __FC__(expression: str, function,
     # Find container.
     container_id = _separate_to_container_and_func(function, expression, frame, vars_dict)
 
-    # args_string = ', '.join([str(a) if function.__name__ != '__str__' else '@@@@ self @@@@' for a in args])
-    # kwargs_string = ', '.join(f"{t[0]}={t[1]}" for t in kwargs.items())
-
-    # Create an extra with the args and keywords.
-    # extra = f'args = {args_string}, kwargs = {kwargs_string}'
-    extra = ''
+    # Set calling function name and line number as extra.
+    calling_frame_info = inspect.getframeinfo(frame)
+    extra = f'{calling_frame_info.function}{SCOPE_SIGN}{calling_frame_info.lineno}'
 
     if archive.should_record:
         # Store with a "None" value, to make sure that the __FC__ will be recorded before the function has been called.
@@ -342,11 +340,13 @@ def __store(container_id, field, line_no, target, value, locals, globals,
     stored_objects = set()
 
     value_to_store = POID(value)
+    value_exists = archive.exists(value_to_store)
+
     rv = archive.store_new \
         .key(container_id, field, stub.__name__, kind) \
         .value(type(value), value_to_store, str(target), line_no, extra=extra)
 
-    if _time:
+    if _time is not None:
         rv.time = _time
 
     def _store_inner(v: object) -> None:
@@ -394,5 +394,5 @@ def __store(container_id, field, line_no, target, value, locals, globals,
             _store_inner(k)
             _store_inner(v)
 
-    if not ISP(type(value)) and not id(value) in {id(x) for x in stored_objects}:
+    if not ISP(type(value)) and not id(value) in {id(x) for x in stored_objects} and (kind == Archive.Record.StoreKind.FUNCTION_CALL or not value_exists):
         _store_inner(value)

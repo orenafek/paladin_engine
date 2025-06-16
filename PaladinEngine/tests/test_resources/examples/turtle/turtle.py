@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import openpyxl
 
-import pandas as pd
+walls = []
+start = (4, 7)
+robot_pos = start
+robot_dir = (1, 0)
 
 
 # for the testing part
@@ -90,25 +94,27 @@ def IrobotClean(walls):
 
 
 def main():
-    df = pd.read_excel(
-        '/Users/orenafek/Projects/Paladin/PaladinEngine/PaladinEngine/tests/test_resources/examples/turtle/irobot_kelet.xlsx')
+    # Load the workbook and select the active worksheet
+    workbook = openpyxl.load_workbook(
+        '/Users/oren.afek/Projects/Paladin/paladin_engine/PaladinEngine/tests/test_resources/examples/turtle/irobot_kelet.xlsx')
+    sheet = workbook.active
 
-    df = df.dropna()
+    # Extract the data from the worksheet
+    data = []
+    for row in sheet.iter_rows(values_only=True):
+        data.append(list(row))
 
-    df = df.transpose()
+    # Drop rows with None values
+    data = [row for row in data if all(cell is not None for cell in row)]
 
-    print(df)
+    # Transpose the data
+    transposed_data = list(map(list, zip(*data)))
 
-    walls = [(int(x[0]), int(x[1])) for x in df.values.tolist()[1:]]
-    start = (4, 7)
-    robot_pos = start
-    robot_dir = (1, 0)
-
-    def add_v(x, y):
-        return (x[0] + y[0], x[1] + y[1])
-
-    # # Turtle
+    # Convert the required section to a list of tuples (assuming the first row is headers)
+    global walls
+    walls = [(int(x[0]), int(x[1])) for x in transposed_data[1:]]
 
     IrobotClean(walls)
+
 
 main()

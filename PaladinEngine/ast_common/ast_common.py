@@ -1,5 +1,4 @@
 import ast
-from dataclasses import dataclass, field
 from typing import *
 
 LiteralTypes = [int, float, str, bool, complex]
@@ -135,3 +134,36 @@ def separate_to_container_and_field(expression: str, frame, locals: dict, global
     field = expression_ast.attr if type(expression_ast.attr) is str else ast2str(expression_ast.attr)
 
     return id(container), field, container, False, False
+
+
+def split_attr(expression: str):
+    return expression.split(".")
+
+
+def get_op_sign(op: ast.operator):
+    return ast._Unparser.binop[op.__class__.__name__]
+
+
+def deconstruct(s: str) -> Tuple[str, str, str]:
+    class Visitor(ast.NodeVisitor):
+        def __init__(self):
+            self.base = ''
+            self.attr = ''
+            self.other = ''
+
+        def visit_Attribute(self, node: ast.Attribute) -> Any:
+            self.base = ast2str(node.value)
+            self.attr = node.attr
+
+        def visit_Slice(self, node: ast.Slice) -> Any:
+            self.other = node.lower, node.step, node.upper
+
+        def visit_Subscript(self, node: ast.Subscript) -> Any:
+            self.base = ast2str(node.value)
+
+        def visit_Name(self, node: ast.Name):
+            self.base = node.id
+
+    v = Visitor()
+    v.visit(str2ast(s))
+    return v.base, v.attr, v.other

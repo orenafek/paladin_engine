@@ -1,11 +1,20 @@
+import math
+import os
+import re
+from asyncio import as_completed
+from collections import OrderedDict
 from collections import deque
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from functools import reduce
 from typing import *
+from typing import Callable
 
 import frozendict
 
 from archive.archive_evaluator.paladin_dsl_config.paladin_dsl_config import SCOPE_SIGN
+from common.attributed_dict import AttributedDict
+from utils.range_dict import RangeDict
 
 ExpressionMapper = Mapping[str, Dict[int, object]]
 
@@ -20,15 +29,66 @@ Time = int
 ObjectId = int
 LineNo = int
 ContainerId = int
-Scope = Tuple[LineNo, ContainerId]
 
 Identifier: Type = Union[str, ObjectId]
 ParseResults: Type = Dict[str, Dict[str, Any]]
 
 BUILTIN_CONSTANTS_STRINGS = ['inf', '-inf', 'nan']
 BUILTIN_SPECIAL_FLOATS = {c: float(c) for c in BUILTIN_CONSTANTS_STRINGS}
-EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict, deque.__name__: deque}
+EVAL_BUILTIN_CLOSURE = {**BUILTIN_SPECIAL_FLOATS, frozendict.__name__: frozendict, deque.__name__: deque,
+                        list.__name__: list, AttributedDict.__name__: AttributedDict}
 BAD_JSON_VALUES = {'-Infinity': '"-∞"', 'Infinity': '"∞"', 'NaN': '"NaN"'}
+
+
+@dataclass
+class Scope(object):
+    line_no: LineNo
+    data: Dict[ContainerId, RangeDict] = field(default_factory=lambda: {})
+
+    def add_data(self, container_id: ContainerId, data: RangeDict):
+        self.data[container_id] = data
+        return data
+
+    def __hash__(self) -> int:
+        return hash(self.line_no)
+
+    def __getitem__(self, item):
+        if not isinstance(item, ContainerId):
+            return None
+
+        return self.data[item] if item in self.data else None
+
+    def __contains__(self, item):
+        return item in self.data
+
+    def get_data_by_time(self, time: Time):
+        proximity_list = filter(lambda i: i[0] is not None,
+                                [(rd.get_closest(time)[1], rd) for rd in self.data.values()])
+        min_diff = math.inf
+        closest = None
+        for t, data in proximity_list:
+            diff = abs(t - time)
+            if diff < min_diff:
+                closest = data
+                min_diff = diff
+
+        if closest is None:
+            return None
+
+        return closest
+        # for rd in self.data.values():
+        #     closest_value, closest_time = rd.get_closest(time)
+        #     if closest_time is not None:
+        #         return rd
+        # for min_time, max_time in sorted(self.time_mapping.keys()):
+        #     if min_time <= time <= max_time:
+        #         return self.data[self.time_mapping[(min_time, max_time)]]
+        # else:
+        #     return None
+
+    @property
+    def container_ids(self) -> List[ContainerId]:
+        return list(self.data.keys())
 
 
 @dataclass
@@ -43,13 +103,18 @@ class EvalResultPair(object):
         return isinstance(other, EvalResultPair) and self.key == other.key and self.value == other.value
 
 
-class EvalResultEntry(dict):
+class EvalResultEntry(OrderedDict):
 
     def __init__(self, time: Time, results: List[EvalResultPair],
                  replacements: Optional[List[Replacement]] = None) -> None:
         self.time = time
         self.evaled_results = results
         self.replacements = replacements
+        attributes = self.populate(results)
+
+        dict.__init__(self, **attributes)
+
+    def populate(self, results):
         attributes = {}
         for p in results:
             if SCOPE_SIGN in p.key:
@@ -58,11 +123,10 @@ class EvalResultEntry(dict):
                 attributes[var_without_scope] = p.value
             else:
                 attributes[p.key] = p.value
-
         for attr_k, attr_v in attributes.items():
             self.__setattr__(attr_k, attr_v)
 
-        dict.__init__(self, **attributes)
+        return attributes
 
     def create_const_copy(self, c: object):
         """
@@ -70,16 +134,33 @@ class EvalResultEntry(dict):
         """
         return EvalResultEntry(self.time, [EvalResultPair(rr.key, c) for rr in self.evaled_results], self.replacements)
 
-    @property
-    def keys(self) -> Iterable[str]:
-        return list({rr.key for rr in self.evaled_results})
+    @classmethod
+    def create_const(cls, t: Time, k: str, c: object):
+        return EvalResultEntry(t, [EvalResultPair(k, c)], [])
 
     @property
-    def values(self) -> Iterable[Optional[object]]:
+    def keys(self) -> List[str]:
+        return list(dict.fromkeys(map(lambda rr: rr.key, self.evaled_results)))
+
+    @property
+    def values(self) -> List[Optional[object]]:
         return [rr.value for rr in self.evaled_results]
+
+    @property
+    def items(self) -> List[Tuple[Any, Any]]:
+        return [(rr.key, rr.value) for rr in self.evaled_results]
+
+    @property
+    def items_no_scope_signs(self) -> 'AttributedDict':
+        return AttributedDict([(re.sub(r'\b(.+?)@\d+\b', r'\1', rr[0]), rr[1]) for rr in self.items])
 
     def satisfies(self) -> bool:
         return all([r.value is not None and r.value is not False and r.value != [None] for r in self.evaled_results])
+
+    def extend_with_empty_keys(self, keys: Iterable[str]):
+        return EvalResultEntry(self.time, EvalResultEntry.join_evaled_results(self,
+                                                                              EvalResultEntry.empty_with_keys(self.time,
+                                                                                                              keys)))
 
     @classmethod
     def empty(cls, t: Time = -1) -> 'EvalResultEntry':
@@ -100,24 +181,22 @@ class EvalResultEntry(dict):
         if e1.time != e2.time:
             return EvalResultEntry.empty()
 
-        return EvalResultEntry(e1.time, EvalResultEntry.__join_evalued_results(e1, e2),
-                               e1.replacements + e2.replacements)
+        return EvalResultEntry(e1.time, EvalResultEntry.join_evaled_results(e1, e2), [])
 
     @staticmethod
-    def __join_evalued_results(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> List[EvalResultPair]:
+    def join_evaled_results(e1: 'EvalResultEntry', e2: 'EvalResultEntry') -> List[EvalResultPair]:
 
         res = []
-        all_keys = {*e1.keys, *e2.keys}
+        all_keys = OrderedDict.fromkeys([*e1.keys, *e2.keys])
 
         # Add keys only from e1.
-        res.extend([e1[k] for k in all_keys.difference({*e2.keys})])
+        res.extend([e1[k] for k in all_keys.keys() if k not in e2.keys])
 
         # Add keys only from e2.
-        res.extend([e2[k] for k in all_keys.difference({*e1.keys})])
+        res.extend([e2[k] for k in all_keys.keys() if k not in e1.keys])
 
         # Add values from mutual keys.
-        pair = None
-        for k in {*e1.keys}.intersection({*e2.keys}):
+        for k in filter(lambda k: k in e1.keys and k in e2.keys, all_keys.keys()):
             if e1[k].value is e2[k].value is None:
                 pair = e1[k]
             elif e1[k].value is not None and e2[k].value is None:
@@ -158,14 +237,26 @@ class EvalResultEntry(dict):
         return super().__iter__()
 
     def __repr__(self):
-        return super().__repr__() + ' {' + str(self.time) + '}'
+        return repr(self.items)
 
 
 class EvalResult(List[EvalResultEntry]):
 
+    def __init__(self, seq=()):
+        super().__init__(seq)
+        self._last_hash = -1
+        self._all_keys = []
+
+    def __hash__(self) -> int:
+        return hash(sum([hash(x for x in self)]))
+
     @classmethod
     def create_const_copy(cls, r: 'EvalResult', c: object):
-        return [EvalResultEntry.create_const_copy(e, c) for e in r]
+        return EvalResult([EvalResultEntry.create_const_copy(e, c) for e in r])
+
+    @classmethod
+    def create_const(cls, times: Iterable[Time], k: str, c: object):
+        return EvalResult([EvalResultEntry.create_const(t, k, c) for t in times])
 
     def all_satisfies(self):
         return all([e.satisfies() for e in self])
@@ -225,7 +316,13 @@ class EvalResult(List[EvalResultEntry]):
         return str((min(entries), max(entries)))
 
     def all_keys(self) -> Iterable[str]:
-        return reduce(lambda s, keys: s.union(keys), map(lambda e: set(e.keys), self), set())
+        if hash(self) == self._last_hash:
+            return self._all_keys
+
+        self._last_hash = hash(self)
+        self._all_keys = reduce(lambda acc, new_keys: OrderedDict.fromkeys([*acc.keys(), *new_keys]),
+                                map(lambda e: list(OrderedDict.fromkeys(e.keys)), self), OrderedDict()).keys()
+        return self._all_keys
 
     def create_results_dict(self, e: EvalResultEntry) -> Dict[str, Optional[object]]:
         return {k: e[k].value if e[k] else None for k in self.all_keys()}
@@ -238,7 +335,7 @@ class EvalResult(List[EvalResultEntry]):
 
         rng = []
         vals = None
-        for e in self:
+        for e in sorted(self, key=lambda e: e.time):
             if not vals:
                 # New range.
                 vals = self.create_results_dict(e)
@@ -261,7 +358,16 @@ class EvalResult(List[EvalResultEntry]):
         if rng and vals:
             res[EvalResult._create_key(rng)] = vals
 
+        # Filter out empty results.
+        res = {k: v for k, v in res.items() if not all([vv is None for vv in v.values()])}
         return res
+
+    def is_empty(self):
+        return len(self) == 0
+
+    def times(self):
+        return sorted([e.time for e in self])
+
 
     @classmethod
     def join(cls, r1: 'EvalResult', r2: 'EvalResult'):
@@ -273,18 +379,24 @@ class EvalResult(List[EvalResultEntry]):
             return r1
 
         results = []
-        r1_time_mapped = {e.time: e for e in r1}
-        r2_time_mapped = {e.time: e for e in r2}
+        r1_times = r1.times()
+        r2_times = r2.times()
 
-        for t in set(r1_time_mapped).union(r2_time_mapped):
-            if t in r1_time_mapped and t not in r2_time_mapped:
-                results.append(r1_time_mapped[t])
+        r1_time_mapped: Dict[Time, EvalResultEntry] = {e.time: e for e in r1}
+        r2_time_mapped: Dict[Time, EvalResultEntry] = {e.time: e for e in r2}
 
-            elif t not in r1_time_mapped and t in r2_time_mapped:
-                results.append(r2_time_mapped[t])
+        r1_keys = r1.all_keys()
+        r2_keys = r2.all_keys()
 
-            else:
+        for t in range(min(r1_times + r2_times), max(r1_times + r2_times) + 1):
+            if t not in r1_time_mapped and t not in r2_time_mapped:
+                continue
+            elif t in r1_time_mapped and t in r2_time_mapped:
                 results.append(EvalResultEntry.join(r1_time_mapped[t], r2_time_mapped[t]))
+            elif t not in r2_time_mapped:
+                results.append(r1_time_mapped[t].extend_with_empty_keys(r2_keys))
+            elif t not in r1_time_mapped:
+                results.append(r2_time_mapped[t].extend_with_empty_keys(r1_keys))
 
         return EvalResult(results)
 
@@ -305,14 +417,13 @@ class EvalResult(List[EvalResultEntry]):
     def empty(cls, time_range: Iterable[Time]) -> 'EvalResult':
         return EvalResult([EvalResultEntry.empty(t) for t in time_range])
 
-    @staticmethod
-    def rename_key(result: 'EvalResult', operator_original_name: str, var_name: str) -> 'EvalResult':
-        for e in result:
+    def rename_key(self, new: str, old: str):
+        for e in self:
             for k in e.keys:
-                if var_name in k:
-                    e.replace_key(k, k.replace(var_name, operator_original_name))
+                if old in k:
+                    e.replace_key(k, k.replace(old, new))
 
-        return result
+        self._last_hash = -1
 
     def by_key(self, key: str) -> 'EvalResult':
         if key not in self.all_keys():
@@ -326,3 +437,7 @@ class EvalResult(List[EvalResultEntry]):
 
 EvalFunction = Callable[[int, int, int, int], EvalResult]
 SemanticsArgType = Union[bool, EvalResult]
+
+Rk = 'Archive.Record.RecordKey'
+Rv = 'Archive.Record.RecordValue'
+Rvf = Callable[['Archive.Record.RecordValue'], bool]

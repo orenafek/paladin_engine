@@ -1,10 +1,11 @@
 const webpack = require('webpack');
-const { VueLoaderPlugin } = require('vue-loader')
+const {VueLoaderPlugin} = require('vue-loader')
+const path = require(`path`);
 
 module.exports = (env, argv) => ({
     name: 'paladin-ui',
     mode: argv.mode || 'development',
-    entry: './src/main.js',
+    entry: './src/main.ts',
     devtool: argv.mode !== 'production' ? "source-map" : undefined,
     stats: {
         hash: false, version: false, modules: false  // reduce verbosity
@@ -17,7 +18,12 @@ module.exports = (env, argv) => ({
         rules: [
             {
                 test: /\.tsx?$/,
-                use: 'ts-loader'
+                loader: 'ts-loader',
+                options: {
+                    appendTsSuffixTo: [/\.vue$/],
+                    allowTsInNodeModules: true
+                }
+
             },
             {
                 test: /\.css$/i,
@@ -35,13 +41,22 @@ module.exports = (env, argv) => ({
                 }
             },
             {
+                test: /\.(woff|woff2|eot|ttf|otf)$/i,
+                type: 'asset/resource',
+            },            
+            {
                 test: /\.vue$/,
                 use: 'vue-loader'
             }
         ],
     },
     resolve: {
-        extensions: ['.tsx', '.ts', '.js'],
+        extensions: ['.*', '.js', '.jsx', '.vue', '.ts', '.tsx'],
+        symlinks: false,
+        alias: {
+            vue: path.resolve(`node_modules/vue/dist/vue.esm-bundler.js`),
+            infra: path.resolve(`src/infra`)
+        },
     },
     externals: {
         fs: '{}'
@@ -52,6 +67,9 @@ module.exports = (env, argv) => ({
             __VUE_OPTIONS_API__: true,
             __VUE_PROD_DEVTOOLS__: true
         }),
-        new webpack.ProvidePlugin({'Buffer': 'buffer'})
+        new webpack.ProvidePlugin({'Buffer': 'buffer'}),
+        new webpack.DefinePlugin({
+            '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__': JSON.stringify(false)
+        })
     ]
 });

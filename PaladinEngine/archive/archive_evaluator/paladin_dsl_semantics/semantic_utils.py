@@ -91,5 +91,5 @@ class SemanticsUtils(object):
         return res[times[0]].values[0]
 
 
-FALSE = Const(False)
-TRUE = Const(True)
+FALSE = lambda times: Const(False, times)
+TRUE = lambda times: Const(True, times)

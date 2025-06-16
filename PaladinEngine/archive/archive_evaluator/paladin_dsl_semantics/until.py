@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Dict
+from typing import Iterable, Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
 from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOperator, Operator
@@ -14,10 +14,11 @@ class Until(BiLateralOperator, TimeOperator):
         BiLateralOperator.__init__(self, times, first, second)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = Whenever(self.times, self.first).eval(builder, query_locals)
-        second = self.second.eval(builder, query_locals)
-        not_second = Not(self.times, self.second).eval(builder, query_locals)
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
+        first = Whenever(self.times, self.first).eval(builder, query_locals, user_aux)
+        second = self.second.eval(builder, query_locals, user_aux)
+        not_second = Not(self.times, self.second).eval(builder, query_locals, user_aux)
 
         min_max_times = range(first.first_satisfaction().time,
                               min(second.last_satisfaction().time + 1, self.times.stop))

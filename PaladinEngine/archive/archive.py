@@ -5,22 +5,18 @@
     :since: 05/04/2019
 """
 import dataclasses
-import json
+import re
 from ast import *
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Callable, Type
+from typing import Optional, Iterable, Dict, List, Tuple, Union, Any, Type
 
-import pandas as pd
-
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time
-from ast_common.ast_common import ast2str
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import Time, ContainerId, Rk, Rv, Rvf, \
+    ObjectId
+from ast_common.ast_common import split_attr
 from common.common import ISP, IS_ITERABLE
-
-Rk = 'Archive.Record.RecordKey'
-Rv = 'Archive.Record.RecordValue'
-Rvf = Callable[['Archive.Record.RecordValue'], bool]
+from module_transformer.global_map import GlobalMap
 
 
 def represent(o: object):
@@ -62,17 +58,18 @@ def represent(o: object):
 class Archive(object):
     GLOBAL_PALADIN_CONTAINER_ID = 1337
 
-    class _Filters(object):
+    class Filters(object):
         AS_OR_BMFCS_FILTER = lambda vv: vv.key.stub_name in {'__AS__', '__BMFCS__'}
         DEF_FILTER = lambda vv: vv.key.stub_name in {'__DEF__'}
         UNDEF_FILTER = lambda vv: vv.key.stub_name in {'__UNDEF__'}
+        FC_FILTER = lambda vv: vv.key.stub_name in {'__FC__'}
 
         @classmethod
         def OR(cls, *filters):
             return lambda vv: any([f(vv) for f in filters])
 
         @staticmethod
-        def TIME_RANGE_FILTER(time_range: range):
+        def TIME_RANGE_FILTER(time_range: range | Iterable[int]):
             return lambda vv: vv.time in time_range if time_range else lambda vv: True
 
         @staticmethod
@@ -88,8 +85,28 @@ class Archive(object):
             return lambda vv: vv.value == value
 
         @staticmethod
+        def REGEX_VALUE_FILTER(regex: str):
+            return lambda vv: re.match(regex, str(vv.value))
+
+        @staticmethod
         def TIME_EQUAL_OR_LATER_FILTER(time: int):
             return lambda vv: vv.time >= time
+
+        @staticmethod
+        def TIME_BEFORE_OR_EQUAL_FILTER(time: int):
+            return lambda vv: vv.time <= time
+
+        @staticmethod
+        def CONTAINER_ID_EQUALS(container_id: ContainerId):
+            return lambda vv: vv.key.container_id == container_id
+
+        @staticmethod
+        def FIELD_EQUALS(field: str):
+            return lambda vv: vv.key.field == field
+
+        @staticmethod
+        def TIME_EQUAL_FILTER(time: Time):
+            return lambda vv: vv.time == time
 
     class Record(object):
 
@@ -185,10 +202,14 @@ class Archive(object):
             def __repr__(self):
                 return self.__str__()
 
+            def __hash__(self):
+                return sum([hash(v) for v in self.__dict__.values()])
+
     def __init__(self) -> None:
         self.records: Dict[Archive.Record.RecordKey, List[Archive.Record.RecordValue]] = {}
-        self._time = -1
-        self.should_record = True
+        self._time: Time = -1
+        self.should_record: bool = True
+        self.global_map: Optional[GlobalMap] = None
 
     @property
     def time(self):
@@ -215,7 +236,7 @@ class Archive(object):
         return self.records[record_key]
 
     def reset(self):
-        self.records.clear()
+        self.__init__()
 
     def to_table(self):
         try:
@@ -253,14 +274,6 @@ class Archive(object):
         import pickle
         return pickle.dumps(self.records)
 
-    def __repr__(self):
-        header, rows = self.to_table()
-        data_frame = pd.DataFrame(columns=header, data=rows)
-        return data_frame.to_markdown(index=True)
-
-    def build_object(self, object_id: int, rtype: type = Any, time: int = -1) -> Any:
-        return self.object_builder.build(object_id, rtype, time)
-
     def search_web(self, expression: str):
         raise NotImplementedError()
 
@@ -288,9 +301,6 @@ class Archive(object):
 
         return Builder_Key()
 
-    def __str__(self):
-        return self.__repr__()
-
     def pause_record(self):
         self.should_record = False
 
@@ -308,17 +318,17 @@ class Archive(object):
                 (IS_ITERABLE(filters) and all([f(vv) for f in filters])) or (not IS_ITERABLE(filters) and filters(vv))]
 
     def get_by_line_no(self, line_no: int) -> Dict[Rk, List[Rv]]:
-        return self.filter(Archive._Filters.LINE_NO_FILTER(line_no))
+        return self.filter(Archive.Filters.LINE_NO_FILTER(line_no))
 
     def get_loop_iterations(self, loop_line_no: int) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(
             [lambda vv: vv.key.stub_name in {'__SOLI__', '__EOLI__'},
-             Archive._Filters.VALUE_FILTER(loop_line_no)])
+             Archive.Filters.VALUE_FILTER(loop_line_no)])
 
     def get_loop_starts(self, loop_line_no: int) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(
             [lambda vv: vv.key.stub_name == '__SOL__',
-             Archive._Filters.VALUE_FILTER(loop_line_no)])
+             Archive.Filters.VALUE_FILTER(loop_line_no)])
 
     def get_by_container_id(self, container_id: int):
         return self.filter([lambda vv: vv.key.container_id == container_id, lambda vv: vv.key.stub_name == '__AS__'])
@@ -368,27 +378,31 @@ class Archive(object):
     def get_assignments(self, time_range: range = None, line_nos: Iterable[int] = None) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(
             [
-                Archive._Filters.AS_OR_BMFCS_FILTER,
-                Archive._Filters.TIME_RANGE_FILTER(time_range),
-                Archive._Filters.LINE_NOS_FILTER(line_nos),
-                lambda vv: vv.key.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.BUILTIN_MANIP}
+                Archive.Filters.AS_OR_BMFCS_FILTER,
+                Archive.Filters.TIME_RANGE_FILTER(time_range),
+                Archive.Filters.LINE_NOS_FILTER(line_nos),
+                lambda vv: vv.key.kind in {Archive.Record.StoreKind.VAR, Archive.Record.StoreKind.BUILTIN_MANIP, Archive.Record.StoreKind.OBJ_ITEM}
             ])
 
     def get_function_entries(self, func_name: str, line_no: Optional[int] = -1, entrances: bool = True,
-                             in_func: bool = True, exits: bool = True):
+                             in_func: bool = True, exits: bool = True, ass_and_bmfcs_only: bool = False):
 
-        def_or_undef = Archive._Filters.OR(Archive._Filters.DEF_FILTER, Archive._Filters.UNDEF_FILTER)
-        filters = [Archive._Filters.VALUE_FILTER(func_name)]
+        def_or_undef = Archive.Filters.OR(Archive.Filters.DEF_FILTER, Archive.Filters.UNDEF_FILTER)
+        split_func_name = split_attr(func_name)
+        if len(split_func_name) > 1:
+            filters = [Archive.Filters.VALUE_FILTER(func_name)]
+        else:
+            filters = [Archive.Filters.REGEX_VALUE_FILTER(r"(?:\b\w+\.)?" + re.escape(func_name) + r"\b")]
 
         if line_no is not None and line_no > 0:
-            filters.append(Archive._Filters.LINE_NO_FILTER(line_no))
+            filters.append(Archive.Filters.LINE_NO_FILTER(line_no))
 
         if not in_func:
             if entrances and not exits:
-                filters.append(Archive._Filters.DEF_FILTER)
+                filters.append(Archive.Filters.DEF_FILTER)
 
             if not entrances and exits:
-                filters.append(Archive._Filters.UNDEF_FILTER)
+                filters.append(Archive.Filters.UNDEF_FILTER)
 
             if entrances and exits:
                 filters.append(def_or_undef)
@@ -403,15 +417,17 @@ class Archive(object):
             function_entrances_and_exits.append(None)
 
         entries = function_entrances_and_exits
-        for func_entrance, func_exit in zip(function_entrances_and_exits, function_entrances_and_exits[1::]):
-            filters = [self._Filters.LINE_NOS_FILTER(range(func_entrance[1].line_no, func_exit[1].line_no + 1))]
+        for func_entrance, func_exit in zip(function_entrances_and_exits[::2], function_entrances_and_exits[1::2]):
+            filters = [self.Filters.LINE_NOS_FILTER(range(*self.global_map.functions[func_entrance[1].value]))] + \
+                      [Archive.Filters.AS_OR_BMFCS_FILTER] if ass_and_bmfcs_only else []
             if func_exit is not None:
-                filters.append(self._Filters.TIME_RANGE_FILTER(range(func_entrance[1].time + 1, func_exit[1].time)))
+                filters.append(self.Filters.TIME_RANGE_FILTER(range(func_entrance[1].time + 1, func_exit[1].time)))
             else:
-                filters.append(self._Filters.TIME_EQUAL_OR_LATER_FILTER(func_entrance[1].time))
+                filters.append(self.Filters.TIME_EQUAL_OR_LATER_FILTER(func_entrance[1].time))
 
             entries.extend(self.flatten_and_filter(filters))
 
+        entries = list(filter(lambda e: e is not None, entries))
         if not entrances:
             entries = filter(lambda r: r[0].stub_name != '__DEF__', entries)
 
@@ -420,11 +436,15 @@ class Archive(object):
 
         return sorted(entries, key=lambda r: r[1].time)
 
-    def find_events(self, line_no: int) -> List[Tuple[Rk, Rv]]:
-        return self.flatten_and_filter([
-            Archive._Filters.LINE_NO_FILTER(line_no),
-            lambda vv: vv.key.stub_name not in {'__SOLI__', '__EOLI__'}
-        ])
+    def find_events(self, line_no: int = -1, time_range: Iterable[int] = None) -> List[Tuple[Rk, Rv]]:
+        filters = [lambda vv: vv.key.stub_name not in {'__SOLI__', '__EOLI__'}]
+        if line_no > -1:
+            filters.append(Archive.Filters.LINE_NO_FILTER(line_no))
+
+        if time_range is not None:
+            filters.append(Archive.Filters.TIME_RANGE_FILTER(time_range))
+
+        return self.flatten_and_filter(filters)
 
     def get_print_events(self, output: str) -> List[Tuple[Rk, Rv]]:
         return self.flatten_and_filter(lambda vv: vv.key.stub_name == '__PRINT__' and vv.value == output)
@@ -438,3 +458,54 @@ class Archive(object):
 
     def get_line_nos_for_time(self, time: int) -> Iterable[int]:
         return {rv.line_no for _, rv in self.flatten() if rv.time == time}
+
+    def get_function_line_nos(self, func_name: str) -> Tuple[int, int]:
+        func_entries = self.get_function_entries(func_name)
+        func_defs = map(lambda t: t[1].line_no, filter(lambda t: Archive.Filters.DEF_FILTER(t[1]), func_entries))
+        func_start_line_no = list(func_defs)[0]
+        assert all([func_def == func_start_line_no for func_def in func_defs])
+
+        func_undefs = map(lambda t: t[1].line_no, filter(lambda t: Archive.Filters.UNDEF_FILTER(t[1]), func_entries))
+        func_end_line_no = max(func_undefs)
+
+        return func_end_line_no, func_end_line_no
+
+    def get_call_chain(self, include_builtin=True) -> Dict[Time, Tuple[str, str]]:
+        out_format = lambda rv: (rv.extra, rv.expression)
+        if include_builtin:
+            return {rv.time: out_format(rv) for rk, rv in
+                    sorted(self.flatten_and_filter(self.Filters.FC_FILTER), key=lambda t: t[1].time)}
+
+        records = sorted(
+            self.flatten_and_filter(self.Filters.OR(self.Filters.FC_FILTER, self.Filters.DEF_FILTER)),
+            key=lambda t: t[1].time)
+
+        if len(records) == 0:
+            return {}
+
+        if len(records) == 1:
+            return {rv.time: out_format(rv) for rk, rv in records}
+
+        def records_match(rv1: Archive.Record.RecordValue, rv2: Archive.Record.RecordValue):
+            """
+            Should be looking for same function name in FC and DEF, but some functions are not stored the same.
+            E.g.: Constructors: for A(), the __FC__ is for "A" and the __DEF__ is for "A.__init__"
+            """
+            if not (rv1.key.stub_name == '__FC__' and rv2.key.stub_name == '__DEF__'):
+                return False
+
+            if rv1.expression == rv2.expression:
+                return True
+
+            # Deal with constructors.
+            if f'{rv1.expression}.__init__' == rv2.expression:
+                return True
+
+            return False
+
+        local_func_records = [records[i] for i in range(len(records) - 1) if
+                              records_match(records[i][1], records[i + 1][1])]
+        return {rv.time: (rv.extra, rv.expression) for rk, rv in local_func_records}
+
+    def exists(self, value: ObjectId):
+        return len(self.filter(Archive.Filters.VALUE_FILTER(value))) > 0

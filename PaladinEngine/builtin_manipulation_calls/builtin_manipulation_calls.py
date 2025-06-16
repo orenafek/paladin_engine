@@ -40,14 +40,19 @@ class BuiltinCollectionsUtils(object):
         return t in __BUILTIN_COLLECTIONS__
 
     @staticmethod
+    def is_builtin_collection(i: Any) -> bool:
+        return any([isinstance(i, t) for t in __BUILTIN_COLLECTIONS__])
+
+    @staticmethod
     def update_dict_object_with_builtin_method(d: Dict, col_type: Type, manip_name: str, v: Any) -> Dict[
         Tuple[int, Type], Any]:
         collection = col_type(d.values())
         if v != EMPTY:
             collection.__getattribute__(manip_name)(v)
         else:
-            collection.__getattribute__(manip_name)()
-        return {(i, type(e)): e for i, e in enumerate(collection)}
+            if d:
+                collection.__getattribute__(manip_name)()
+        return {(type(e), i): e for i, e in enumerate(collection)}
 
     @staticmethod
     def is_function_suspicious_as_builtin_collection_method(func_name: str) -> bool:
@@ -63,5 +68,5 @@ class BuiltinCollectionsUtils(object):
                                                                      arg_type: Type,
                                                                      arg_value: Any):
         d_new = copy(obj)
-        d_new[(len(obj.keys()), Postpone)] = Postpone(manipulation_function_name, builtin_type, arg_type, arg_value)
+        d_new[(Postpone, len(obj.keys()))] = Postpone(manipulation_function_name, builtin_type, arg_type, arg_value)
         return d_new

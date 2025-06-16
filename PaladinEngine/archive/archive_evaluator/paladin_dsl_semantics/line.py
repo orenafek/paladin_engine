@@ -1,25 +1,27 @@
-from typing import Iterable, Optional, Dict, List, Tuple
+from typing import Iterable, Optional, Dict, List, Tuple, Callable
 
-from archive.archive import Rk, Rv
-from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Rk, Rv
 from archive.archive_evaluator.paladin_dsl_semantics.const import Const
+from archive.archive_evaluator.paladin_dsl_semantics.deprecated import Deprecated
 from archive.archive_evaluator.paladin_dsl_semantics.operator import UniLateralOperator
-from archive.archive_evaluator.paladin_dsl_semantics.semantic_utils import Time
 from archive.archive_evaluator.paladin_dsl_semantics.raw import Raw
+from archive.archive_evaluator.paladin_dsl_semantics.selector_op import Selector
+from archive.archive_evaluator.paladin_dsl_semantics.semantic_utils import Time
 from archive.archive_evaluator.paladin_dsl_semantics.var_selector import VarSelector, VarSelectorByLineNo
 from archive.object_builder.object_builder import ObjectBuilder
 
 
-class Line(UniLateralOperator):
+@Deprecated
+class Line(UniLateralOperator, Selector):
     """
-        Line(<number>): Returns values of all values in the scope of <number> when the program hit line numbered <number>.
+        Line(ln): Returns all values in the scope of ln when the program hit line numbered ln.
     """
 
     def __init__(self, times: Iterable[Time], line_no: int):
         UniLateralOperator.__init__(self, times, Const(line_no, times))
 
-    def eval(self, builder: ObjectBuilder,
-             query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
         line_no = self.first.eval(builder)[self.times[0]].values[0]
         events_by_line_no: List[Tuple[Rk, Rv]] = builder.find_events(line_no)
         if not events_by_line_no:

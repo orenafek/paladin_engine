@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult
 from archive.archive_evaluator.paladin_dsl_semantics.operator import BiLateralOperator
@@ -8,11 +8,8 @@ from archive.object_builder.object_builder import ObjectBuilder
 
 
 class Diff(BiLateralOperator):
-    """
-          Diff(<selector>, <cond>): Selects <selector> when <cond> and t-1 before <cond>
-    """
-
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         time_range = self.second.eval(builder)
         selector_results = {}
         for r in satisfaction_ranges(time_range):

@@ -75,3 +75,8 @@ optional arguments:
                         Should run PaLaDiN-Debug server
   --port PORT           The port no of the server to run on.
 ```
+
+## Further reading
+
+More documents can be found
+here: https://docs.google.com/document/d/1RRd4eSY7IgA-JJTm2encSWZikEQycJFOMqI2pc3_nrU/edit?usp=drive_link

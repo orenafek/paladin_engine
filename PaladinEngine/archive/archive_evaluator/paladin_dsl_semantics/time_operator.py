@@ -1,5 +1,4 @@
 from abc import ABC
-from functools import reduce
 from typing import Iterable, Optional, Dict, Collection, List, Callable
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Replacement, \
@@ -16,10 +15,16 @@ class TimeOperator(Operator, ABC):
     def make(cls, op: Operator):
         return op if isinstance(op, TimeOperator) else Whenever(op.times, op)
 
-    def __init__(self, times: Iterable[Time]):
-        super().__init__(times)
+    @classmethod
+    def explanation(cls) -> str:
+        return 'Evaluates to True/False for each time point based on their type.\n' \
+               'These operators are used to filter time range by a certain criteria (see Where for more).'
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
+    def __init__(self, times: Iterable[Time], parallel: bool = False):
+        super().__init__(times, parallel)
+
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
         raise NotImplementedError()
 
     def _get_args(self) -> Collection['Operator']:
@@ -33,14 +38,15 @@ class TimeOperator(Operator, ABC):
 
 class BiTimeOperator(BiLateralOperator, TimeOperator, ABC):
     def __init__(self, times: Iterable[Time], first: Operator, second: Operator,
-                 bi_result_maker: Callable[[bool, bool], bool]):
-        BiLateralOperator.__init__(self, times, first, second)
-        TimeOperator.__init__(self, times)
+                 bi_result_maker: Callable[[bool, bool], bool], parallel: bool = False):
+        BiLateralOperator.__init__(self, times, first, second, parallel)
+        TimeOperator.__init__(self, times, parallel)
         self.bi_result_maker = bi_result_maker
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first = TimeOperator.make(self.first).eval(builder, query_locals)
-        second = TimeOperator.make(self.second).eval(builder, query_locals)
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
+        first = TimeOperator.make(self.first).eval(builder, query_locals, user_aux)
+        second = TimeOperator.make(self.second).eval(builder, query_locals, user_aux)
 
         return EvalResult([
             TimeOperator.create_time_eval_result_entry(e1.time, self._make_res(e1, e2),
@@ -57,12 +63,14 @@ class Whenever(VariadicLateralOperator, TimeOperator):
     Whenever(o): Convert any operator into a TimeOperator, by generating a result with a single output
                  of the satisfaction for each of o's entries.
     """
+
     def __init__(self, times: Iterable[Time], *args: Operator):
         VariadicLateralOperator.__init__(self, times, *args)
         TimeOperator.__init__(self, times)
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        evaled_args = list(map(lambda arg: arg.eval(builder, query_locals), self.args))
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
+        evaled_args = list(map(lambda arg: arg.eval(builder, query_locals, user_aux), self.args))
         arg_results = list(map(lambda er: lambda t: er[t].satisfies(), evaled_args))
 
         return EvalResult([
@@ -73,8 +81,9 @@ class Whenever(VariadicLateralOperator, TimeOperator):
 
 class FirstTime(UniLateralOperator, TimeOperator):
 
-    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None):
-        first_satisfaction = self.first.eval(builder, query_locals).first_satisfaction()
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None):
+        first_satisfaction = self.first.eval(builder, query_locals, user_aux).first_satisfaction()
         if first_satisfaction == -1:
             return EvalResult.empty(self.times)
 

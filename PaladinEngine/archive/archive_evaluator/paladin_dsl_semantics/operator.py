@@ -1,7 +1,6 @@
-import copy
 from abc import ABC
 from dataclasses import dataclass
-from typing import Optional, Iterable, Dict, Collection, List, Type
+from typing import Optional, Iterable, Dict, Collection, List, Type, Callable, Any
 
 from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import EvalResult, Time
 from archive.object_builder.object_builder import ObjectBuilder
@@ -10,16 +9,22 @@ from archive.object_builder.object_builder import ObjectBuilder
 @dataclass
 class Operator(ABC):
 
-    def __init__(self, times: Optional[Iterable[Time]] = None):
+    def __init__(self, times: Optional[Iterable[Time]] = None, parallel: bool = False):
         self._times = times
+        self.parallel = parallel
+        self.standalone = True
 
-    def eval(self, builder: ObjectBuilder,
-             query_locals: Optional[Dict[str, EvalResult]] = None) -> EvalResult:
+    def eval(self, builder: ObjectBuilder, query_locals: Optional[Dict[str, EvalResult]] = None,
+             user_aux: Optional[Dict[str, Callable]] = None) -> EvalResult:
         raise NotImplementedError()
 
     @classmethod
     def name(cls) -> str:
         return cls.__name__
+
+    @classmethod
+    def explanation(cls) -> str:
+        return ''
 
     @property
     def times(self):
@@ -50,7 +55,7 @@ class Operator(ABC):
     def update_times(self, times) -> 'Operator':
         self.times = times
 
-        for a in self._get_args():
+        for a in filter(lambda arg: isinstance(arg, Operator), self._get_args()):
             a.times = times
             a.update_times(times)
 
@@ -62,25 +67,49 @@ class Operator(ABC):
         for subclass in subclasses:
             subclasses.extend(subclass.all())
 
-        return list(set(subclasses))
+        return list(filter(lambda sc: not sc.is_deprecated(), set(subclasses)))
 
     @classmethod
     def _all(cls):
         return cls.__subclasses__()
 
+    @classmethod
+    def is_operator(cls, name: Any) -> bool:
+        return any(map(lambda o: o.name() == name, cls.all()))
+
+    @classmethod
+    def is_deprecated(cls) -> bool:
+        return hasattr(cls, 'deprecated')
+
+    def __str__(self):
+        return f'{self.name()}({", ".join(str(self._get_args()))}'
+
+
+class NoArgOperator(Operator, ABC):
+    def _get_args(self) -> Collection['Operator']:
+        return []
+
 
 class UniLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], first: Operator):
-        super(UniLateralOperator, self).__init__(times)
+    def __init__(self, times: Iterable[Time], first: Operator, parallel: bool = False):
+        super(UniLateralOperator, self).__init__(times, parallel)
         self.first = first
 
     def _get_args(self) -> Collection['Operator']:
         return [self.first]
 
 
+class OptionalArgOperator(UniLateralOperator, ABC):
+    def __init__(self, times: Iterable[Time], first: Optional[Operator] = None, parallel: bool = False):
+        super().__init__(times, first, parallel)
+
+    def _get_args(self) -> Collection['Operator']:
+        return [self.first] if self.first else []
+
+
 class BiLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], first: Operator, second: Operator):
-        super(BiLateralOperator, self).__init__(times)
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator, parallel: bool = False):
+        super(BiLateralOperator, self).__init__(times, parallel)
         self.first: Operator = first
         self.second: Operator = second
 
@@ -89,8 +118,9 @@ class BiLateralOperator(Operator, ABC):
 
 
 class TriLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], first: Operator, second: Operator, third: Operator):
-        super(TriLateralOperator, self).__init__(times)
+    def __init__(self, times: Iterable[Time], first: Operator, second: Operator, third: Operator,
+                 parallel: bool = False):
+        super(TriLateralOperator, self).__init__(times, parallel)
         self.first: Operator = first
         self.second: Operator = second
         self.third: Operator = third
@@ -100,9 +130,11 @@ class TriLateralOperator(Operator, ABC):
 
 
 class VariadicLateralOperator(Operator, ABC):
-    def __init__(self, times: Iterable[Time], *args: List[Operator]):
-        super(VariadicLateralOperator, self).__init__(times)
-        self.args: List[Operator] = args
+    def __init__(self, times: Iterable[Time], *args: Operator, **kwargs: Operator):
+        parallel = kwargs['parallel'] if 'parallel' in kwargs else False
+        super(VariadicLateralOperator, self).__init__(times, parallel)
+        self.args: List[Operator] = list(args)
+        self.kwargs: Dict[str, Operator] = kwargs
 
     def _get_args(self) -> Collection['Operator']:
         return self.args

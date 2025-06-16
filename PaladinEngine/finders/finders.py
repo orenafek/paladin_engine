@@ -1,10 +1,8 @@
-import ast
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable
+from dataclasses import dataclass, field
+from typing import Union, Optional, List, Type, Any, NamedTuple, Tuple, Iterable, Dict
 
-from api.api import PaladinPostCondition
-from ast_common.ast_common import ast2str
+from ast_common.ast_common import ast2str, get_op_sign
 from conf.engine_conf import *
 from stubs.stubs import SubscriptVisitResult, __STUBS__
 
@@ -283,102 +281,49 @@ class FinderByString(GenericFinder):
         return candidates[0].node
 
 
-class DecoratorFinder(GenericFinder):
-    """
-    A finder for function decorators.
-    """
-
-    def __init__(self) -> None:
-        """
-            Constructor.
-        """
-        # Call the super's constructor.
-        super().__init__()
-
-        # Create a list for all decorators
-        self.__decorators = {}
-
-    def visit_FunctionDef(self, node):
-        # Collect decorators.
-        decorators = []
-        for decorator in node.decorator_list:
-            if self._decorator_predicate(node, decorator):
-                decorators.append(DecoratorFinder.Decorator(node, decorator))
-        return self._generic_visit_with_extras(node, decorators)
-
-    def _should_store_entry(self, extra: Union[None, object]) -> bool:
-        return extra is not None and extra != []
-
-    # noinspection PyUnusedLocal, PyMethodMayBeStatic
-    def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
-        """
-            A predicate to filter found decorators.
-        :param decorator:  A decorator object.
-        :return: True if the decorator should be added.
-        """
-        return True
-
-    def types_to_find(self):
-        return ast.FunctionDef
-
-    def _extract_extra(self, node: ast.AST):
-        return self.__decorators[node]
-
-    class Decorator(object):
-        def __init__(self, func: ast.FunctionDef, decorator: ast.expr):
-            # Check decorator type.
-            if isinstance(decorator, ast.Call):
-                # The decorator name.
-                dec_name = decorator.func
-
-                # The decorator has params.
-                params = [arg.s for arg in decorator.args]
-
-            elif isinstance(decorator, ast.Name):
-                dec_name = decorator
-                # The decorator has no params.
-                params = []
-
-            else:
-                # The decorator is of an unfamiliar type.
-                raise AssertionError('An unfamiliar decorator.')
-
-            # Store containing function.
-            self.func = func
-
-            # Store decorator name.
-            self._name = dec_name.id
-
-            # Store decorator params.
-            self._params = params
-
-        @property
-        def name(self):
-            return self._name
-
-        @property
-        def params(self):
-            return self._params
-
-
 class PaladinLoopFinder(GenericFinder):
     """
     A finder for While & For loops.
     """
 
-    def visit_For(self, node) -> Any:
+    def __init__(self):
+        self.loop_extras: Dict[ast.AST, PaladinLoopFinder.PaladinLoopExtra] = {}
+        self.current_loop = []
+        super().__init__()
+
+    @dataclass
+    class PaladinLoopExtra(object):
+        breaks: List[ast.Break] = field(default_factory=lambda: [])
+        continues: List[ast.Continue] = field(default_factory=lambda: [])
+
+    def _visit_loop(self, node: ast.For | ast.While):
+        self.current_loop.append(node)
+        self.loop_extras[node] = PaladinLoopFinder.PaladinLoopExtra()
+        r = self._generic_visit_with_extras(node, self.loop_extras[node])
+        self.current_loop.pop()
+        return r
+
+    def visit_For(self, node: ast.For) -> Any:
         """
             A visitor for For Loops.
         :param node: (ast.AST) An AST node.
         :return: None.
         """
-        return True
+        return self._visit_loop(node)
 
     def visit_While(self, node: ast.While) -> Any:
+        return self._visit_loop(node)
+
+    def visit_Continue(self, node: ast.Continue) -> Any:
+        self.loop_extras[self.current_loop[0]].continues.append(node)
+        return True
+
+    def visit_Break(self, node: ast.Break) -> Any:
+        self.loop_extras[self.current_loop[0]].breaks.append(node)
         return True
 
     def types_to_find(self) -> Union:
-        return [ast.For, ast.While]
+        return [ast.For, ast.While, ast.Continue, ast.Break]
 
 
 class PaladinForLoopInvariantsFinder(GenericFinder):
@@ -470,7 +415,7 @@ class PaladinForLoopInvariantsFinder(GenericFinder):
         striped_node = PaladinForLoopInvariantsFinder.__expr_node_to_str(node).strip()
 
         return striped_node.startswith(PALADIN_INLINE_DEFINITION_HEADER) \
-               and striped_node.endswith(PALADIN_INLINE_DEFINITION_FOOTER)
+            and striped_node.endswith(PALADIN_INLINE_DEFINITION_FOOTER)
 
     @staticmethod
     def __expr_node_to_str(node) -> str:
@@ -530,8 +475,15 @@ class AssignmentFinder(GenericFinder):
 
     def visit_Attribute(self, node):
         # Extract Name.
-        name = node.value.id
-        return self._add_to_assign(name, node.attr)
+        if isinstance(node.value, ast.Name):
+            return self._add_to_assign(node.value.id, node.attr)
+
+        # Continue visiting for more complex attributes.
+        if isinstance(node.value, ast.Attribute):
+            return self._add_to_assign(super(GenericFinder, self).visit(node.value), node.attr)
+
+        # TODO: Other cases?
+        return None
 
     def visit_Subscript(self, node):
         # Visit value (the object being subscripted) to extract extra.
@@ -544,7 +496,7 @@ class AssignmentFinder(GenericFinder):
 
             def visit_Tuple(self, node):
                 visited_elts = [self.visit(e) for e in node.elts]
-                return ", ".join(["'%s'" % ve if isinstance(ve, str) else str(ve) for ve in visited_elts])
+                return ", ".join(["%s" % ve if isinstance(ve, str) else str(ve) for ve in visited_elts])
 
             def visit_Name(self, node):
                 return node.id
@@ -552,6 +504,9 @@ class AssignmentFinder(GenericFinder):
             def visit_Attribute(self, node):
                 return ast2str(node)  # , StubArgumentType.NAME
                 # return node.attr, StubArgumentType.NAME
+
+            def visit_BinOp(self, node: ast.BinOp) -> Any:
+                return f'{self.visit(node.left)} {get_op_sign(node.op)} {self.visit(node.right)}'
 
             def visit_Slice(self, node):
                 def safe_visit(node):
@@ -563,7 +518,7 @@ class AssignmentFinder(GenericFinder):
 
         # Take extra for the slice.
         slice_extra = SliceFinder().visit(node.slice)
-        if slice_extra is None or all(x is None for x in slice_extra):
+        if slice_extra is None or isinstance(slice_extra, Iterable) and all(x is None for x in slice_extra):
             return [value_extra]
 
         # Create a subscript tuple.
@@ -577,19 +532,8 @@ class AssignmentFinder(GenericFinder):
         return extras
 
     def _should_visit(self, node: ast.AST, child_node: ast.AST) -> bool:
-        return super()._should_visit(node, child_node) and not (isinstance(child_node, ast.Assign) and ast2str(child_node).startswith('____'))
-
-
-class PaladinPostConditionFinder(DecoratorFinder):
-    """
-        Finds post conditions of functions in the form:
-        @PaladinPostCondition(...)
-        def <func_name>(...):
-            ...
-    """
-
-    def _decorator_predicate(self, func: ast.FunctionDef, decorator: ast.expr):
-        return DecoratorFinder.Decorator(func, decorator).name == PaladinPostCondition.__name__
+        return super()._should_visit(node, child_node) and not (
+                isinstance(child_node, ast.Assign) and ast2str(child_node).startswith('____'))
 
 
 class FunctionCallFinder(GenericFinder):
@@ -607,7 +551,7 @@ class FunctionCallFinder(GenericFinder):
 
     def _is_match_paladin_stub_call(self, function_name: str) -> bool:
         return function_name.startswith('__') or function_name == 'locals' or \
-               function_name == 'globals' or function_name == '__str__'
+            function_name == 'globals' or function_name == '__str__'
 
     def visit_Call(self, node: ast.Call):
         # return extras
@@ -639,28 +583,39 @@ class FunctionCallFinder(GenericFinder):
         if not isinstance(child_node.func, ast.Name):
             return True
 
-        return  child_node.func.id not in [s.__name__ for s in __STUBS__]
+        return child_node.func.id not in [s.__name__ for s in __STUBS__]
 
 
 class FunctionDefFinder(GenericFinder):
+    def __init__(self) -> None:
+        super().__init__()
+        self.current_class: Optional[ast.ClassDef] = None
 
     def types_to_find(self):
-        return ast.FunctionDef
+        return [ast.FunctionDef, ast.ClassDef]
 
     @dataclass
     class FunctionDefExtra(object):
         function_name: str
         args: list[str]
         line_no: int
+        decorators: List[Type]
 
         def __init__(self):
             self.args = []
 
+    def visit_ClassDef(self, node: ast.ClassDef) -> Any:
+        self.current_class = node
+        super().visit(node)
+        self.current_class = None
+
     def visit_FunctionDef(self, node: ast.FunctionDef):
         extra = FunctionDefFinder.FunctionDefExtra()
-        extra.function_name = node.name
+        extra.function_name = f'{self.current_class.name}.{node.name}' if self.current_class else node.name
         extra.args = [arg.arg for arg in node.args.args]
         extra.line_no = node.lineno
+        extra.decorators = [(d.id if isinstance(d, ast.Name) else d.attr)
+                            for d in node.decorator_list if any(isinstance(d, t) for t in [ast.Name, ast.Attribute])]
         return self._generic_visit_with_extras(node, extra)
 
 
@@ -748,6 +703,9 @@ class ReturnStatementsFinder(GenericFinder):
 
     def visit_Return(self, node: ast.Return) -> Any:
         return self._generic_visit_with_extras(node, object())
+
+    def find(self) -> List[StubEntry]:
+        return self._entries
 
 
 class BreakFinder(GenericFinder):

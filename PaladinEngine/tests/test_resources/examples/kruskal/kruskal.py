@@ -1,132 +1,165 @@
-# Class to represent a graph
-
-class PList(object):
-    def __init__(self, elements: [] = None):
-        if elements is None:
-            self.inner = []
-        else:
-            self.inner = elements
-
-    def append(self, o):
-        self.inner = self.inner + [o]
-
-    def __getitem__(self, item):
-        return self.inner[item]
-
-    def __setitem__(self, key, value):
-        self.inner[key] = value
-
-    def __iter__(self):
-        return self.inner.__iter__()
-
-class Graph:
-
-    def __init__(self, vertices):
-        self.V = vertices  # No. of vertices
-        self.graph = PList()
-
-        # to store graph
-
-    # function to add an edge to graph
-    def addEdge(self, u, v, w):
-        self.graph.append([u, v, w])
-
-    # A utility function to find set of an element i
-    # (uses path compression technique)
-    def find(self, parent, i):
-        if parent[i] == i:
-            return i
-        return self.find(parent, parent[i])
-
-    # A function that does union of two sets of x and y
-    # (uses union by rank)
-    def union(self, parent, rank, x, y):
-        xroot = self.find(parent, x)
-        yroot = self.find(parent, y)
-
-        # Attach smaller rank tree under root of
-        # high rank tree (Union by Rank)
-        if rank[xroot] < rank[yroot]:
-            parent[xroot] = yroot
-        elif rank[xroot] > rank[yroot]:
-            parent[yroot] = xroot
-
-        # If ranks are same, then make one as root
-        # and increment its rank by one
-        else:
-            parent[yroot] = xroot
-            rank[xroot] += 1
-
-    # The main function to construct MST using Kruskal's
-    # algorithm
-    def KruskalMST(self):
-
-        result = PList()  # This will store the resultant MST
-
-        # An index variable, used for sorted edges
-        i = 0
-
-        # An index variable, used for result[]
-        e = 0
-
-        # Step 1:  Sort all the edges in
-        # non-decreasing order of their
-        # weight.  If we are not allowed to change the
-        # given graph, we can create a copy of graph
-        self.graph = sorted(self.graph,
-                            key=lambda item: item[2])
-
-        parent = PList()
-        rank = PList()
-
-        # Create V subsets with single elements
-        for node in range(self.V):
-            parent.append(node)
-            rank.append(0)
-
-        # Number of edges to be taken is equal to V-1
-        while e < self.V - 1:
-
-            # Step 2: Pick the smallest edge and increment
-            # the index for next iteration
-            (u, v, w) = self.graph[i]
-            i = i + 1
-            x = self.find(parent, u)
-            y = self.find(parent, v)
-
-            # If including this edge does't
-            #  cause cycle, include it in result
-            #  and increment the indexof result
-            # for next edge
-            if x != y:
-                e = e + 1
-                result.append(PList([u, v, w]))
-                self.union(parent, rank, x, y)
-            # Else discard the edge
-
-        minimumCost = 0
-        print("Edges in the constructed MST")
-        for u, v, weight in result:
-            minimumCost += weight
-            print("%d -- %d == %d" % (u, v, weight))
-        print("Minimum Spanning Tree", minimumCost)
+"""
+ __  __  ____   _____   _  __                   _            _
+|  \/  |/ ___| |_   _| | |/ / _ __  _   _  ___ | | __  __ _ | |
+| |\/| |\___ \   | |   | ' / | '__|| | | |/ __|| |/ / / _` || |
+| |  | | ___) |  | |   | . \ | |   | |_| |\__ \|   < | (_| || |
+|_|  |_||____/   |_|   |_|\_\|_|    \__,_||___/|_|\_\ \__,_||_|
 
 
-# Driver code
-g = Graph(4)
-g.addEdge(0, 1, 10)
-g.addEdge(0, 2, 6)
-g.addEdge(0, 3, 5)
-g.addEdge(1, 3, 15)
-g.addEdge(2, 3, 4)
 
-# Function call
-g.KruskalMST()
+Minimal Spanning Tree (using Kruskal)
 
-# Driver Code 2
-g2 = Graph(5)
-g2.addEdge(0, 1, 2)
-g2.addEdge(0, 2, 2)
-g2.addEdge(3, 4, 2)
+This program finds the minimal spanning tree of a non-directed graph using Prim Algorithm.
+I.e., the minimal set of edges that enclose all vertices and in which
+the sum of the edges' weights is minimal in comparison to any other
+subset of the graph's edges.
+"""
 
-g2.KruskalMST()
+import itertools
+
+class UnionFind:
+    """
+    UnionFind data structure for disjoint-set operations.
+
+    This data structure efficiently maintains a partition of a set of elements,
+    with each partition represented by a tree. It supports two main operations:
+    1. Find: Determine which set a particular element belongs to.
+    2. Union: Merge two sets into one by connecting their respective trees.
+
+    Attributes:
+        parent (list): An array where each element's index represents a vertex,
+            and the value at that index represents the parent vertex.
+            Initially, each vertex is its own parent, forming a disjoint set.
+        rank (list): An array to store the rank of each subset.
+            The rank is used to optimize the union operation by always attaching
+            the smaller tree to the root of the larger tree.
+    """
+    def __init__(self, size):
+        self.parent = [i for i in range(size)]
+        self.rank = [0] * size
+
+    def find(self, x):
+        """
+        Find operation to determine the root of the set containing the element x.
+
+        Args:
+           x (int): The element whose set is being determined.
+
+        Returns:
+          int: The root element of the set containing x.
+        """
+        # Find the root of the set containing x
+        root = x
+        while self.parent[root] != root:
+            root = self.parent[root]
+
+        # Path compression
+        while x != root:
+            next_node = self.parent[x]
+            self.parent[x] = root
+            x = next_node
+
+        return root
+
+    def union(self, x, y):
+        """
+        Union operation to merge two sets represented by elements x and y.
+
+        Args:
+            x (int): An element from the first set.
+            y (int): An element from the second set.
+        """
+        root_x = self.find(x)
+        root_y = self.find(y)
+
+        if root_x != root_y:
+            if self.rank[root_x] == self.rank[root_y]:
+                self.parent[root_y] = root_x
+                self.rank[root_x] += 1
+            elif self.rank[root_x] < self.rank[root_y]:
+                self.parent[root_x] = root_y
+            else:
+                self.parent[root_y] = root_x
+
+
+
+class Edge:
+    def __init__(self, src, dest, weight):
+        self.src = src
+        self.dest = dest
+        self.weight = weight
+
+    def __repr__(self):
+        return f'{self.src}-[{self.weight}]-{self.dest}'
+
+
+def kruskal(graph, num_vertices):
+    sorted_edges = sorted(graph, key=lambda e: e.weight)
+    mst = []
+    uf = UnionFind(num_vertices)
+
+    for edge in sorted_edges:
+        src = edge.src
+        dest = edge.dest
+        uff_s = uf.find(src)
+        uff_d = uf.find(dest)
+        if uff_s != uff_d:
+            uf.union(src, dest)
+            mst.append(edge)
+
+    return mst
+
+
+def find_all_spanning_trees(graph, num_vertices):
+    all_trees = []
+
+    # Generate all possible combinations of edges
+    for r in range(num_vertices - 1, len(graph)):
+        for edges in itertools.combinations(graph, r):
+            uf = UnionFind(num_vertices)
+            tree = list(edges)
+
+            # Add remaining edges to form a spanning tree
+            for edge in graph:
+                if len(tree) == num_vertices - 1:
+                    break
+                if edge not in tree and uf.find(edge.src) != uf.find(edge.dest):
+                    tree.append(edge)
+                    uf.union(edge.src, edge.dest)
+
+            # Check if the tree spans all vertices
+            if len(tree) == num_vertices - 1:
+                all_trees.append(tree)
+
+    return all_trees
+
+
+def st_weight(st):
+    return sum([e.weight for e in st])
+
+
+# Example usage
+if __name__ == "__main__":
+    # Example graph represented as a list of edges
+    graph = [
+             Edge(0, 1, 9),
+             Edge(2, 0, 6),
+             Edge(0, 3, 2),
+             Edge(1, 2, 7),
+             Edge(3, 1, 6),
+             Edge(2, 3, 8),
+          ]
+
+    # Number of vertices in the graph
+    num_vertices = 4
+
+    # Find the minimum spanning tree
+    mst = kruskal(graph, num_vertices)
+    mst_weight = st_weight(mst)
+
+    all_st = find_all_spanning_trees(graph, num_vertices)
+
+    min_st_weight = min([st_weight(st) for st in all_st])
+
+    if min_st_weight < mst_weight:
+        raise RuntimeError(f"weight(minimal st)[{min_st_weight}] < weight(found mst)[{mst_weight}]")

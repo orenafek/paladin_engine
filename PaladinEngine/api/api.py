@@ -18,6 +18,10 @@ class Paladin(object):
     def resume_record(cls):
         archive.resume_record()
 
+    @staticmethod
+    def atomic(func):
+        return func
+
 def Paladinize(cls):
     pass
 

@@ -1,8 +1,13 @@
-.idea
+\.idea
+.venv
 __pycache__
 node_modules
 **/.DS_Store
 PaladinEngine/tests/test_resources/examples/**/*.csv
+PaladinEngine/tests/experiment/*.csv
+PaladinEngine/tests/experiment/*_output.py
+PaladinEngine/tests/benchmark/*.csv
+PaladinEngine/tests/benchmark/*.xlsx
 PaladinEngine/tests/test_resources/examples/**/*_output.py
 PaladinUI/paladin_server/static/index.js*
 PaladinCLI/interactive_graph/static/index.js
@@ -13,3 +18,8 @@ PaladinCLI/interactive_graph/static/index.js
 /out.csv
 /out.py
 **/.pytest_cache
+**/.pdbrc
+**/static/*.woff
+**/static/*.woff2
+**/static/*.eot
+**/static/*.ttf

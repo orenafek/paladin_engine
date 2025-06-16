@@ -4,9 +4,10 @@ from abc import ABC, abstractmethod
 from ast import *
 from typing import Union, List, cast
 
+from archive.archive_evaluator.archive_evaluator_types.archive_evaluator_types import LineNo
 from ast_common.ast_common import ast2str, find_closest_parent, lit2ast, wrap_str_param, str2ast
-from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils
-from finders.finders import StubEntry
+from builtin_manipulation_calls.builtin_manipulation_calls import BuiltinCollectionsUtils, __BUILTIN_COLLECTIONS__
+from finders.finders import StubEntry, PaladinLoopFinder, ContainerFinder
 from stubs.stubs import __FRAME__, __EOLI__, __SOLI__, __BMFCS__, __PRINT__, __FC__, __SOL__
 from utils.utils import assert_not_raise
 
@@ -350,11 +351,11 @@ class Stubber(ABC, ast.NodeTransformer):
         return node
 
     @staticmethod
-    def get_original_line_no(node: ast.AST) -> int:
+    def get_original_line_no(node: ast.AST) -> LineNo:
         return getattr(node, Stubber.ORIGINAL_LINE_NO_ATTR)
 
     @staticmethod
-    def get_original_end_line_no(node: ast.AST) -> int:
+    def get_original_end_line_no(node: ast.AST) -> LineNo:
         return getattr(node, Stubber.ORIGINAL_END_LINE_NO_ATTR)
 
     @staticmethod
@@ -402,7 +403,8 @@ class LoopStubber(Stubber):
         # Return the module.
         return self.root_module
 
-    def stub_loop(self, loop_node: Union[ast.For, ast.While], container: ast.AST, attr_name: str) -> ast.Module:
+    def stub_loop(self, loop_node: Union[ast.For, ast.While], container: ast.AST, attr_name: str,
+                  extra: PaladinLoopFinder.PaladinLoopExtra) -> ast.Module:
         # Add a start of loop stub.
         self.stub_start_of_loop(loop_node, container, attr_name)
 
@@ -432,27 +434,37 @@ class LoopStubber(Stubber):
                 Stubber.ReplacingStubRecord(loop_node.target, loop_node, 'target', new_for_target))
 
         # Create a loop iteration end stub.
-        loop_iteration_end_stub = Stubber.copy_line_no(ast.Expr(ast.Call(func=lit2ast(__EOLI__.__name__),
-                                                                         args=[Stubber._FRAME_CALL],
-                                                                         keywords=[
-                                                                             ast.keyword(
-                                                                                 arg='loop_start_line_no',
-                                                                                 value=lit2ast(
-                                                                                     Stubber.get_original_line_no(
-                                                                                         loop_node))),
-                                                                             ast.keyword(
-                                                                                 arg='loop_end_line_no',
-                                                                                 value=lit2ast(
-                                                                                     Stubber.get_original_end_line_no(
-                                                                                         loop_node)))]
-                                                                         )), loop_node)
+        loop_iteration_end_stub = self.create_loop_end_stub(loop_node)
+
 
         # noinspection PyTypeChecker
         loop_node.body.append(loop_iteration_end_stub)
 
         ast.fix_missing_locations(loop_node)
+        for exitor_node in extra.breaks + extra.continues:
+            cf = ContainerFinder(exitor_node)
+            cf.visit(self.root_module)
+
+            self.stub(
+                Stubber.BeforeStubRecord(exitor_node, cf.container, cf.attr_name, self.create_loop_end_stub(loop_node)))
 
         return self.root_module
+
+    def create_loop_end_stub(self, loop_node):
+        return Stubber.copy_line_no(ast.Expr(ast.Call(func=lit2ast(__EOLI__.__name__),
+                                                      args=[Stubber._FRAME_CALL],
+                                                      keywords=[
+                                                          ast.keyword(
+                                                              arg='loop_start_line_no',
+                                                              value=lit2ast(
+                                                                  Stubber.get_original_line_no(
+                                                                      loop_node))),
+                                                          ast.keyword(
+                                                              arg='loop_end_line_no',
+                                                              value=lit2ast(
+                                                                  Stubber.get_original_end_line_no(
+                                                                      loop_node)))]
+                                                      )), loop_node)
 
     def stub_start_of_loop(self, loop_node: Union[ast.For, ast.While], container: ast.AST, attr_name: str):
         return self.stub(Stubber.BeforeStubRecord(loop_node, container, attr_name,
@@ -553,6 +565,9 @@ class AssignmentStubber(Stubber):
 class FunctionCallStubber(Stubber):
     def stub_func(self, node: ast.Call, container: ast.AST, attr_name: str):
         try:
+            # Do not stub direct calls to creation of builtin collections.
+            if isinstance(node.func, ast.Name) and node.func.id in map(lambda t: t.__name__, __BUILTIN_COLLECTIONS__):
+                return self.root_module
             # In case of a print call, wrap with a different stub.
             if isinstance(node.func, ast.Name) and node.func.id == print.__name__:
                 stub_name = __PRINT__.__name__
@@ -651,7 +666,8 @@ class FunctionDefStubber(Stubber):
             # Filter return statements of inner functions.
             if find_closest_parent(rs.node, node, ast.FunctionDef) == node:
                 self.root_module = self.stub(
-                    Stubber.BeforeStubRecord(rs.node, rs.container, rs.attr_name, return_stub(rs.node.lineno)))
+                    Stubber.BeforeStubRecord(rs.node, rs.container, rs.attr_name,
+                                             return_stub(Stubber.get_original_line_no(rs.node))))
 
         return self.root_module
 
@@ -688,7 +704,7 @@ class AugAssignStubber(Stubber):
         self.temp_var_seed = 0
 
     def stub_aug_assigns(self, node: ast.AugAssign, container: ast.AST, container_attr_name: str):
-        temp_var = self.next_temp_var
+        temp_var = self.next_temp_var(node.lineno)
         temp_op_and_assign = Stubber.copy_line_no(ast.Assign(targets=[ast.Name(id=temp_var)], ctx=ast.Store,
                                                              value=ast.BinOp(left=node.target, op=node.op,
                                                                              right=node.value)), node)
@@ -700,9 +716,8 @@ class AugAssignStubber(Stubber):
         self.root_module = self.stub(stub_record)
         return self.root_module
 
-    @property
-    def next_temp_var(self):
-        temp_var = self.temp_var_base + f'{self.temp_var_seed}'
+    def next_temp_var(self, line_no: int):
+        temp_var = self.temp_var_base + f'{self.temp_var_seed}__' + f'LINE_NO__{line_no}'
         self.temp_var_seed += 1
         return temp_var
 
